@@ -1,6 +1,6 @@
 ---
 name: power-platform-setup
-description: Check and, only after explicit user approval, install local Windows prerequisites for Power Platform development with the GitHub Copilot desktop app.
+description: Check and, after explicit user approval, install local Windows prerequisites and optionally set up Power Platform plugins for an existing Claude Code, Copilot CLI, or Copilot desktop host.
 ---
 
 # Power Platform setup
@@ -26,10 +26,17 @@ does not automatically register this skill in the desktop app.
 5. Respect exit codes, stop on failure/restart requirement, and explain any
    terminal/Copilot restart needed. Report binaries, desktop plugins, and
    authentication separately.
-6. If the user also wants Power Platform plugins or Copilot Studio MCP, read
-   `skills/power-platform-integrations/SKILL.md` from this repository and use
-   its separate approval-gated integration stage. Do not claim that installing
-   prerequisites completed plugin/MCP registration.
+6. If the user wants the reviewed Power Platform plugin set, obtain separate
+   approval for `ClaudeCode`, `CopilotCli`, or `CopilotApp`, then append
+   `-PluginHost <host> -AcceptPlugins`. Dataverse also requires
+   `-IncludeDataverse`. CLI hosts must already be on PATH; no new host is
+   installed. The app route prints official confirmation links and returns
+   `4`, meaning pending user action, not verified installation. Do not retry
+   installations solely because the app handoff returns that code.
+7. For custom plugin selections or separate Copilot Studio MCP registration,
+   read `skills/power-platform-integrations/SKILL.md`. Reuse plugins already
+   installed by setup. Do not claim prerequisite/plugin installation completed
+   MCP registration or sign-in.
 
 Never install Copilot CLI/another agent host, enable auto-approval, change
 persistent execution policy, blindly run the broad marketplace installer, sign

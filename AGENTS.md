@@ -1,7 +1,8 @@
 # Agent instructions
 
-This repository bootstraps **local Windows tooling** for users who already have
-the GitHub Copilot desktop app. It does not provision Power Platform resources.
+This repository bootstraps **local Windows tooling** and offers approved plugin
+setup for users who already have Claude Code, GitHub Copilot CLI, or the GitHub
+Copilot desktop app. It does not install an agent host or provision cloud resources.
 
 ## Running setup for a user
 
@@ -21,13 +22,19 @@ the GitHub Copilot desktop app. It does not provision Power Platform resources.
 5. Handle exit codes from the README. Stop on failure or restart requirement;
    never report successful setup just because an installer exited. Reopen
    terminals and the desktop app after PATH changes. Do not automatically reboot.
-6. Report local tools, desktop plugins, and authentication as **separate**
-   readiness categories. The installer does not configure plugins/MCP.
-   For an approved integration request, use
-   `skills/power-platform-integrations/SKILL.md`: supported existing CLI
-   commands or documented shared MCP configuration can automate setup.
-   Verify desktop visibility separately; do not claim it was verified by the
-   prerequisite script.
+6. Plugin setup is separately approval-gated. Interactive setup offers
+   `ClaudeCode`, `CopilotCli`, `CopilotApp` links, or skip after prerequisites.
+   For an agent invocation, obtain approval for the specific host/plugin plan
+   before adding `-PluginHost <host> -AcceptPlugins`; add `-IncludeDataverse`
+   only when requested. Noninteractive runs without a host skip plugins.
+   `-Accept` alone is not plugin approval. Do not run plugin setup from
+   check-only or after prerequisite failure/restart.
+7. Report tools, plugin registration, runtime visibility, and authentication
+   separately. Desktop links return exit `4`: user app confirmations are pending,
+   not a verified installation. Do not open authenticated browser URLs or install
+   another host as a shortcut. Use `skills/power-platform-integrations/SKILL.md`
+   for custom plugin selections or separately approved Copilot Studio MCP setup.
+   Preserve existing MCP configuration and verify desktop visibility separately.
 
 Do not install Copilot CLI/another host, blindly invoke the marketplace's broad
 `scripts/install.js`, claim unverified desktop registration, persistently relax
@@ -57,6 +64,10 @@ than trying to bypass them.
   Do not introduce user-supplied installer URLs or executable pipeline downloads.
 - Check-only must remain **read-only, offline, and CLI-free**, including on a
   fresh machine where invoking a CLI could trigger first-run setup or telemetry.
+- Use only the selected host's supported plugin commands. Do not force-enable
+  disabled plugins, overwrite marketplace sources, create duplicate Dataverse
+  installations, or enable auto-update. Check exit status and structured plugin
+  listings; a printed app link or a success-looking log is not installation proof.
 - Validate with `.\scripts\Test-Setup.ps1`; run on both Windows PowerShell 5.1 and
   PowerShell 7 when available. Run `.\scripts\New-Release.ps1` to check packaging.
   Do **not** exercise real installation paths on a shared developer host.

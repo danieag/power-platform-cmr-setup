@@ -1,6 +1,6 @@
 ---
 name: power-platform-integrations
-description: After explicit approval, set up Microsoft Power Platform plugins including optional Dataverse and register the Copilot Studio MCP server for the GitHub Copilot desktop app, using supported shared configuration without installing another agent host.
+description: After explicit approval, guide Power Platform plugin setup for an existing Claude Code or Copilot host, including optional Dataverse and official Copilot desktop links, and separately register Copilot Studio MCP for the Copilot desktop app.
 ---
 
 # Power Platform integrations
@@ -29,7 +29,9 @@ when the user only asks for an explanation or readiness check.
   Explain downloads, user configuration changes, and later app reload/sign-in.
   Obtain approval for the actual plan, separately from prerequisite approval.
 - Determine the configuration scope and discover an **already available**
-  `copilot` executable with `Get-Command -CommandType Application`. Do not
+  `claude` or `copilot` executable for the user's chosen host with
+  `Get-Command -CommandType Application`. Ordinary Claude chat/Cowork is not
+  Claude Code. Do not silently configure both hosts if both are found. Do not
   install Copilot CLI, start a different agent host, search private app internals
   for undocumented binaries, or modify PATH to make one appear.
 - Inspect only the relevant existing plugin/server definitions. Do not print,
@@ -47,9 +49,26 @@ separately before calling the integration ready.
 The official marketplace is
 <https://github.com/microsoft/power-platform-skills>.
 
-If an existing supported `copilot` executable is available, use its documented
-plugin-management commands from PowerShell after approval. These are terminal
-subcommands, not `/plugin` text pasted into a shell:
+Setup.cmd now offers the reviewed plugin set after prerequisites are ready.
+For that set, prefer its shared implementation after approval, choosing **one**
+host rather than duplicating the installation logic in an agent:
+
+```powershell
+.\Setup.cmd -Install -Accept -NonInteractive -PluginHost ClaudeCode -AcceptPlugins
+.\Setup.cmd -Install -Accept -NonInteractive -PluginHost CopilotCli -AcceptPlugins
+.\Setup.cmd -Install -Accept -NonInteractive -PluginHost CopilotApp -AcceptPlugins
+```
+
+Add `-IncludeDataverse` only when approved. `-Accept` and `-AcceptPlugins` are
+separate decisions. If prerequisites are already ready, they are skipped.
+`CopilotApp` prints official marketplace/plugin links; exit `4` requires the
+user to open/confirm them in the desktop app. It is not a failed prerequisite
+install or proof that any plugin was installed. Do not automatically launch
+browser sign-in or claim app availability from a link.
+
+For **custom subsets**, use the chosen existing host's supported commands after
+approval. These are terminal subcommands, not `/plugin` text pasted into a shell.
+For Copilot CLI:
 
 ```powershell
 copilot plugin list
@@ -57,6 +76,12 @@ copilot plugin marketplace add microsoft/power-platform-skills
 copilot plugin install canvas-apps@power-platform-skills
 copilot plugin list
 ```
+
+For Claude Code, use `claude plugin marketplace add
+microsoft/power-platform-skills` and `claude plugin install
+canvas-apps@power-platform-skills --scope user`, followed by
+`claude plugin list`. Do not launch an agent conversation just to run its plugin
+management subcommands. Verify structured status/scope when available.
 
 `canvas-apps` is an example, **not** an instruction to install it for everyone.
 Use the current official marketplace manifest to resolve only approved plugin
@@ -81,7 +106,8 @@ node install.js --include-dataverse
 
 is a **different, broad installer**: it detects Copilot CLI/Claude Code, can
 configure both if present, installs the marketplace's selected plugin set, may
-install PAC, and enables auto-update. It is not a desktop-only installer.
+install/update PAC, attempts Azure CLI installation when absent, and enables
+auto-update. It is not a desktop-only installer.
 Do not run it blindly or delete a pre-existing `install.js`. Prefer scoped
 commands above so the approved host, plugins, and settings are explicit.
 If the user specifically requests that broad installer, explain its current
@@ -91,6 +117,10 @@ approval for those effects; do not silently substitute it for this plan.
 If no supported plugin-management executable is available, **do not install
 another host as a workaround**. Use documented desktop controls, or guide the
 user through them if UI automation is unavailable:
+
+For the Copilot app, prefer the official marketplace/plugin confirmation links
+printed by `-PluginHost CopilotApp` or listed in the marketplace README.
+Those links do not install a CLI or bypass app approval. The manual fallback is:
 
 1. **Customize** > marketplace settings beside the marketplace dropdown:
    add `microsoft/power-platform-skills`.

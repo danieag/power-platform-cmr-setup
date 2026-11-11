@@ -3,41 +3,47 @@
 Set up the **local developer tools** used by Microsoft Power Platform skills, in
 the right order, with a plan and approval before anything is installed.
 
-You already have the **GitHub Copilot desktop app**. The prerequisite script
-does **not** install desktop plugins or register MCP servers; an optional
-[second-stage skill](skills/power-platform-integrations/SKILL.md) handles that
-separately after approval. Neither stage installs Copilot CLI/another agent host
-or creates cloud resources. This is a community bootstrap, not a Microsoft
-product or an official installer.
+You already have **Claude Code, GitHub Copilot CLI, or the GitHub Copilot desktop
+app**. Setup installs prerequisites, then offers a separately approved Power
+Platform plugin stage for the host you choose. It does not install an agent
+host, register Copilot Studio MCP, sign in, or create cloud resources. The optional
+[integration skill](skills/power-platform-integrations/SKILL.md) can guide custom
+plugin selections and separate Copilot Studio MCP registration. This is a
+community bootstrap, not a Microsoft product or an official installer.
 
 ## Short version
 
-**Yes: run the setup file first, then use the integration skill.**
+**Run Setup.cmd: prerequisites first, then choose your plugin host in the same window.**
 
 | Step | What you do | What it sets up |
 |---|---|---|
 | 1. Prerequisites | Download/extract this repository, review the script, then double-click **Setup.cmd**. Approve the displayed plan by typing **INSTALL**. | Git, Node.js/npm, .NET 10 SDK, and PAC CLI, in order. Azure CLI is optional. |
-| 2. Integrations | After setup succeeds, restart the Copilot desktop app and ask it to follow the **power-platform-integrations** skill using the prompt below. Approve its separate plan. | Your chosen Power Platform plugins, optional Dataverse, and Copilot Studio MCP registration, using supported setup methods. |
-| 3. Sign-in | When ready, complete the required sign-in and choose the intended environment. | Account access and permissions; neither previous step signs you in. |
+| 2. Power Platform plugins | Once prerequisites are ready, choose **Claude Code**, **Copilot CLI**, or **Copilot desktop app links**. Opt into Dataverse if needed, review the plugin plan, and type **PLUGINS** to approve. Enter skips this stage. | Installs the reviewed Power Platform plugin set through the chosen existing CLI, or prints official Copilot desktop links for you to open and confirm. |
+| 3. MCP and sign-in | Restart your chosen host. If you also need Copilot Studio MCP, use the integration skill below. Complete sign-in/environment selection intentionally afterward. | MCP registration, account access, and permissions are separate from plugin installation. |
 
-For **step 2**, paste this into a Copilot desktop chat:
+**Setup.cmd already launches PowerShell.** You do not need to open a terminal
+or paste the official JavaScript one-liner separately. CLI installation is
+automated; desktop-only Copilot installation still requires the app's own
+confirmations. Choose the host you actually use; setup never configures all
+detected hosts behind your back.
+
+For **optional Copilot Studio MCP setup**, paste this into a Copilot desktop chat:
 
 > I have finished running Setup.cmd. Read and follow
 > https://github.com/danieag/power-platform-setup/blob/main/skills/power-platform-integrations/SKILL.md.
-> Help me install Power Platform Skills, including Dataverse, and register
-> Copilot Studio MCP. Show the plan and ask for approval before changing
-> anything. Do not sign in or select an environment.
+> Check the plugins I already installed and help me register Copilot Studio MCP.
+> Show the plan and ask for approval before changing anything.
+> Do not sign in or select an environment.
 
-Remove Dataverse or Copilot Studio MCP from the prompt if you do not need them.
 The agent can read the skill from the repository; you do not have to install
 the skill separately just to ask it to follow those instructions. A link does
 not permanently register a skill in the app.
 
-**Setup.cmd does not automatically run the integration skill.** The skill then
-performs supported commands/configuration changes for you; you do not normally
-need to copy the two installation commands into PowerShell. If a required
-capability or permission is unavailable, it explains the remaining desktop
-step instead of claiming success.
+**Setup.cmd offers plugin setup directly but does not automatically run the
+integration skill.** The skill is an alternative for agent-guided selections
+and MCP registration, not a mandatory extra step after plugin installation.
+If a required capability or permission is unavailable, setup reports the
+remaining action instead of claiming success.
 
 Already have the prerequisites? Run `.\Setup.cmd -CheckOnly` first. If it reports
 that all selected prerequisites are ready, go straight to step 2.
@@ -102,9 +108,11 @@ workflow supports ARM64.
 4. Approve Windows administrator prompts only for the expected Node.js,
    Microsoft .NET SDK, or optional Microsoft Azure CLI installer.
    If setup requests a restart, save your work, restart yourself, and run it again.
-5. After success, fully quit and reopen the Copilot desktop app and terminals.
-   Continue to [step 2: the integration skill](#step-2-use-the-integration-skill-for-plugins-and-mcp).
-   Setup does not start that skill automatically. Sign-in remains separate.
+5. After prerequisites succeed, the same window offers
+   [step 2: Power Platform plugins](#step-2-power-platform-plugins-in-the-same-setup-window).
+   Choose your existing host, review the separate plan, and type `PLUGINS` to
+   approve, or press Enter to skip. Restart your host/terminals afterward.
+   Copilot Studio MCP registration and sign-in remain separate.
 
 Internet access is needed **only after installation approval**. Setup does not
 need `winget`, Git, npm, or .NET to start. This is important in Windows Sandbox,
@@ -132,7 +140,8 @@ Check-only reads native Windows architecture, local executable version metadata
 and PE architecture headers, npm's package manifest, SDK directories, and
 (if requested) Azure CLI's Windows uninstall registration and bundled Python
 architecture.
-It **does not execute any CLI**, download files, write diagnostics, alter PATH,
+It **does not execute any CLI** (including plugin commands), open app links,
+download files, write diagnostics, alter PATH,
 change Windows features/policies, sign in, or contact a tenant. It reports
 **local installation readiness**, not a guarantee that every installed binary,
 plugin, network connection, or account works. Output includes local paths;
@@ -168,11 +177,11 @@ install commands:
 ```
 
 The optional [prerequisite skill](skills/power-platform-setup/SKILL.md) contains
-these same instructions. The separate
-[integration skill](skills/power-platform-integrations/SKILL.md) can then install
-approved plugins/register Copilot Studio MCP using supported commands or shared
-configuration. Skills instruct the agent to execute the work; they are not just
-command lists for the user to copy.
+these same instructions. Noninteractive runs do not silently opt into the new
+plugin stage: use the separate flags below only after approval. The
+[integration skill](skills/power-platform-integrations/SKILL.md) can guide
+plugin setup or register Copilot Studio MCP. Skills instruct the agent to
+execute approved work; they are not just command lists for the user to copy.
 
 A GitHub URL does not itself install a skill. Load/copy the skills only using a
 mechanism supported by your app version, or let the agent read them directly.
@@ -266,49 +275,94 @@ organization's approved process; do not disable those protections. For example,
 an organization's signed-script requirement needs an approved/signed copy,
 not a machine-wide policy relaxation. No automatic reboot is requested.
 
-## Step 2: use the integration skill for plugins and MCP
+## Step 2: Power Platform plugins in the same setup window
 
-Use this skill **after step 1 has succeeded** (or check-only has confirmed your
-existing prerequisites are ready). This is where plugin installation and MCP
-registration happen, not in Setup.cmd.
+This stage runs **only after all selected prerequisites are ready**, never after
+an installer failure or restart requirement. An interactive launch, including a
+rerun on an already prepared PC, offers a host chooser. No selection is guessed
+from the presence of a different application.
 
 **Installed binaries do not mean plugins or authentication are configured.**
-The readiness summary keeps these three states separate.
+The prerequisite summary deliberately does not claim plugin readiness.
 
-Yes, a skill can tell the agent to run terminal commands and make approved
-configuration changes for you. You do **not** necessarily need to copy commands
-into PowerShell yourself. For example, ask the agent:
-
-> Read skills/power-platform-integrations/SKILL.md in this repository. Set up
-> Power Platform Skills, including Dataverse, and Copilot Studio MCP for my
-> Copilot desktop app. Show the plan and ask before changing anything.
-
-The [integration skill](skills/power-platform-integrations/SKILL.md) uses these
-supported paths:
-
-| Integration | What the skill can do after approval |
+| Host choice | What setup does |
 |---|---|
-| Power Platform plugins | Use an **already available** supported `copilot plugin` command to add the official marketplace and install approved plugins. Verify desktop visibility afterward. If no supported executable is available, use/guide the documented desktop Customize flow; do not install another agent host. |
-| Copilot Studio MCP | Use an existing supported `copilot mcp add` command, or safely merge one server entry into the documented user configuration `%USERPROFILE%\.copilot\mcp-config.json`. No CLI installation is required for the file route. |
-| Sign-in and environment access | Leave these separate. Registering a server does not authorize sign-in, tenant selection, connector setup, or cloud operations. |
+| `ClaudeCode` | Uses the existing `claude` command to register the official marketplace and install plugins at **user scope**. This applies to Claude Code, including supported local Code-tab/IDE setups, not ordinary Claude chat or Cowork. |
+| `CopilotCli` | Uses the existing `copilot` command for marketplace registration and plugin installation. It does not start an agent conversation or install Copilot CLI. |
+| `CopilotApp` | Prints the official **add marketplace** link first, followed by each plugin's **install in app** link. Open them yourself and confirm each step in the Copilot desktop app. No CLI is required or installed. |
+| `Skip` / Enter | Leaves plugins unchanged. You can rerun later or use the integration skill. |
 
-[GitHub's desktop documentation](https://docs.github.com/en/copilot/how-tos/github-copilot-app/customize-github-copilot-app)
-confirms that repository/CLI-configured skills and MCP servers are available in
-the desktop app. A full plugin can contain additional components; a CLI plugin
-listing alone does not prove that all of them work in the desktop app.
-The skill must distinguish **configured** from **runtime-verified**, preserve
-existing settings, avoid duplicate installs, and stop on real failures.
+The reviewed set is Power Pages, model-driven apps, Canvas apps, Code apps,
+mobile apps, Power Apps mobile extensions, Power Automate, Process Intelligence,
+PCF, and MCP Apps. **Dataverse is separate opt-in**, as in the official installer.
+Future additions to Microsoft's catalog require a reviewed setup release.
+Plugins can contain executable hooks, agents, MCP servers, and dependencies;
+review the displayed plan and the host's permissions before approving.
+
+The CLI route requires versions supporting JSON-array output from
+`plugin list --json` and `plugin marketplace list --json`. Setup verifies each
+installed plugin's qualified identity and enabled status; text mentioning a
+plugin or exit code `0` alone is not enough. Unsupported CLI output, marketplace
+source conflicts, disabled plugins, and load errors stop setup explicitly.
+Existing compatible registrations are skipped, not force-updated or re-enabled.
+An existing enabled Dataverse plugin from `dataverse-skills` is reused rather
+than duplicated. CLI listings can still differ from actual desktop/runtime
+readiness: restart the host and verify its skills/tools separately.
+
+**Copilot app route: exit `4` means action required, not installation success.**
+The printed links match those in
+[Microsoft's marketplace README](https://github.com/microsoft/power-platform-skills#install-one-plugin-with-a-click).
+Printing links does not install plugins or verify that the app is present.
+The app must be installed locally and handle its confirmation links. No browser
+is opened automatically and no account or browser profile is selected.
+
+### Agent/noninteractive usage
+
+Prerequisite approval and plugin approval are distinct. After the user approves
+both plans, for example:
+
+```powershell
+.\Setup.cmd -Install -Accept -NonInteractive -PluginHost ClaudeCode -AcceptPlugins
+.\Setup.cmd -Install -Accept -NonInteractive -PluginHost CopilotCli -AcceptPlugins -IncludeDataverse
+.\Setup.cmd -Install -Accept -NonInteractive -PluginHost CopilotApp -AcceptPlugins -IncludeDataverse
+```
+
+Choose **one** command for the intended host; do not run all three.
+`-Accept` approves prerequisites; `-AcceptPlugins` approves only the chosen plugin
+stage. Neither authorizes sign-in. `-IncludeDataverse` applies only to plugins;
+`-IncludeAzureCli` remains a separate prerequisite option.
+
+Noninteractive runs without `-PluginHost` skip plugins. `-PluginHost Skip`
+explicitly suppresses the interactive chooser. `-CheckOnly -PluginHost
+CopilotCli` can print the later plugin plan but remains offline, prompt-free and
+CLI-free; it does **not** verify the host/plugins. If prerequisites are already
+ready, rerun setup with a chosen host to perform just that plugin stage.
 
 ### Why not simply run the two often-shared commands?
 
 The official
 [`microsoft/power-platform-skills`](https://github.com/microsoft/power-platform-skills)
 `scripts/install.js --include-dataverse` is a broad installer. It detects
-Copilot CLI/Claude Code, can configure both if present, may install PAC, and
-enables auto-update. It can be useful when those effects are intended, but it
-is not a desktop-only installer. This project's skill prefers scoped
-plugin-management commands instead of silently running that broad installer.
-Explicitly requesting it still requires review/approval of its effects.
+Copilot CLI/Claude Code, can configure both if present, may install/update PAC,
+attempts Azure CLI installation when absent, and enables
+auto-update. It can be useful when those effects are intended, but it is not a
+desktop-only installer. Setup does **not** download/execute `install.js` or pipe
+remote JavaScript into Node. It uses scoped host commands instead, without
+changing auto-update settings, updating PAC, or installing unselected prerequisites.
+Existing host-managed update behavior is left unchanged.
+
+### Optional integration skill and Copilot Studio MCP
+
+The [integration skill](skills/power-platform-integrations/SKILL.md) remains
+available for custom plugin selections and separate Copilot Studio MCP
+registration. In a Copilot desktop chat, ask it to read the skill and propose a
+plan; it should reuse plugins already installed by Setup.cmd. A repository URL
+does not permanently install the skill into any host.
+
+For Copilot Studio MCP, the skill can use an existing supported
+`copilot mcp add` command, or safely merge a server definition into the documented
+user configuration. This is not part of the script's plugin stage. Neither
+plugin approval nor prerequisite approval authorizes MCP registration or sign-in.
 
 `npx -y @microsoft/copilot-studio-mcp@latest` **launches a server**; by itself it
 does not register that server with the app. The skill saves the approved launch
@@ -355,10 +409,11 @@ Use **`npm.cmd`** in PowerShell to avoid the unrelated `npm.ps1` policy issue.
 
 | Code | Meaning / next action |
 |---|---|
-| `0` | Selected local prerequisites detected/verified. Plugins/auth are still separate. |
+| `0` | Selected local prerequisites ready; plugin stage skipped or selected CLI registrations verified. Actual runtime/auth readiness is still separate. |
 | `1` | Check-only found missing or unsupported prerequisites. This is an expected readiness result. |
-| `2` | Cancelled, invalid options, or noninteractive install lacks explicit opt-in. Nothing installed. |
-| `3` | Unsupported host, detection error, download, trust, installer, or version-verification failure. Stop and fix the reported cause. |
+| `2` | Cancelled, invalid options, or missing explicit opt-in. A cancelled plugin stage retains any prerequisites already installed. |
+| `3` | Unsupported host/CLI output, detection, download, trust, installer, or prerequisite/plugin verification failure. Stop and fix the reported cause. |
+| `4` | Copilot desktop plugin links printed. App confirmations and plugin verification are still required. Prerequisites are ready. |
 | `3010` | Installer requested/reported a restart. Chain stopped; restart Windows yourself, then rerun. |
 
 The launcher forwards this code. Policy/PowerShell failures before the script
@@ -374,6 +429,8 @@ starts may return PowerShell's own nonzero code instead.
 | .NET SDK exists but a project uses another SDK | Inspect that project's `global.json`; setup does not change it. |
 | Azure reported unrecognized despite a working portable CLI | This release recognizes MSI metadata only. Use/repair the official MSI or manage that tool outside setup. |
 | PAC installation fails | Check NuGet.org access, Windows policy, and whether an existing PAC shim conflicts. Source configuration is isolated, not taken from your project. |
+| Selected `claude`/`copilot` command is missing | Use the host already installed. For Copilot desktop only choose `CopilotApp`; do not install another host as a workaround. |
+| Plugin JSON output/source/disabled-state error | Review the selected CLI's supported version, marketplace source, scope, and policy privately. Setup does not fall back to guessed text parsing, force-enable plugins, or expose full configuration. |
 
 It is safe to rerun: completed compatible tools are skipped; a failure stops
 the chain and does not roll back earlier successful vendor installations.
@@ -394,7 +451,10 @@ The dependency-free tests parse every PowerShell script and mock all
 installation paths: approval, ordered plan, skip/rerun, failures, restart,
 version verification, architecture detection (including an emulated shell),
 x64/ARM64 package selection, PAC/SDK architecture matching, source/integrity
-gates, and PATH preservation. A real local inventory test uses only reads.
+gates, and PATH preservation. Plugin tests mock both CLI schemas, approvals,
+source collisions, skip/rerun, failures and official desktop links. No plugin
+install, app launch, host configuration write, or sign-in is performed.
+A real local inventory test uses only reads.
 CI runs on Windows PowerShell 5.1 and PowerShell 7. CI does **not** install tools
 or validate a pristine Sandbox installation on either architecture.
 
@@ -416,7 +476,9 @@ No Windows feature is enabled by these scripts. In your own Sandbox:
    preserves its state.
 5. After success, reopen the terminal and run `.\Setup.cmd -CheckOnly` again
    (with the same Azure flag if used). Expect exit `0` and no install plan.
-   An interactive rerun should skip compatible tools without asking to install.
+   An interactive rerun should skip compatible tools without asking to install
+   prerequisites; its optional plugin chooser can be skipped with Enter or
+   `-PluginHost Skip`.
 6. Only for this deliberately approved runtime acceptance, check `git --version`,
    `node --version`, `npm.cmd --version`, `dotnet --list-sdks`, and `pac`; if Azure
    was selected, check `az version`. Do not sign in or query a tenant.

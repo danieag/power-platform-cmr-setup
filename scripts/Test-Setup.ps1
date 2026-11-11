@@ -50,6 +50,43 @@ function New-TestState {
     }
 }
 
+function Reset-TestPluginCli {
+    $script:pluginHost = 'CopilotCli'
+    $script:pluginRows = @()
+    $script:marketplaceRows = @()
+    $script:pluginCalls = @()
+    $script:failPlugin = ''
+    $script:omitPluginRecord = $false
+}
+
+function Invoke-TestPluginCli {
+    param($Path, $Arguments)
+    $script:pluginCalls += [pscustomobject]@{ Path = $Path; Arguments = $Arguments }
+    if (($Arguments -join ' ') -eq 'plugin marketplace list --json') {
+        return ConvertTo-Json -InputObject @($script:marketplaceRows) -Depth 10 -Compress
+    }
+    if (($Arguments -join ' ') -eq 'plugin list --json') {
+        return ConvertTo-Json -InputObject @($script:pluginRows) -Depth 10 -Compress
+    }
+    if ($Arguments[1] -eq 'marketplace' -and $Arguments[2] -eq 'add') {
+        $script:marketplaceRows = @([pscustomobject]@{
+            name = 'power-platform-skills'; source = 'github'; repo = 'microsoft/power-platform-skills'
+        })
+        return
+    }
+    if ($Arguments[1] -eq 'install') {
+        if ($Arguments[2] -eq $script:failPlugin) { throw 'Mock plugin installation failed.' }
+        if ($script:omitPluginRecord) { return }
+        if ($script:pluginHost -eq 'ClaudeCode') {
+            $script:pluginRows += [pscustomobject]@{ id = $Arguments[2]; scope = 'user'; enabled = $true }
+        } else {
+            $script:pluginRows += [pscustomobject]@{ name = ($Arguments[2] -split '@')[0]; marketplace = 'power-platform-skills'; enabled = $true }
+        }
+        return
+    }
+    throw "Unexpected mock CLI operation: $($Arguments -join ' ')"
+}
+
 Test-Case 'all PowerShell files parse' {
     foreach ($file in Get-ChildItem -LiteralPath $root -Filter '*.ps1' -Recurse) {
         $tokens = $null
@@ -529,6 +566,217 @@ Test-Case 'native command exit status is captured correctly' {
     Assert-Throws { Invoke-SetupNative $env:ComSpec @('/d', '/c', 'exit 7') } 'exit 7.*exit 7'
     Assert-Equal (Invoke-SetupNative $env:ComSpec @('/d', '/c', 'echo harmless')) 'harmless'
     Assert-Equal (Invoke-SetupNative $env:ComSpec @('/d', '/c', 'echo harmless-stderr 1>&2 & exit /b 0')).Trim() 'harmless-stderr'
+}
+
+Test-Case 'plugin stage runs only after prerequisites finish and never after failure or restart' {
+    $script:installed = @()
+    $script:pluginStages = 0
+    function Get-SetupArchitecture { 'arm64' }
+    function Get-SetupState { New-TestState -Ready $script:installed }
+    function Update-SetupPath {}
+    function Install-SetupTool { param($Id) $script:installed += $Id; $false }
+    function Confirm-InstalledTool {}
+    function Invoke-PluginSetup {
+        if (($script:installed -join ',') -ne 'git,node,dotnet,pac') { throw 'Prerequisites incomplete' }
+        $script:pluginStages++
+        return 0
+    }
+    Assert-Equal (Invoke-Setup -Install -Accept -NonInteractive -PluginHost ClaudeCode -AcceptPlugins) 0
+    Assert-Equal $script:pluginStages 1
+    $script:installed = @()
+    function Install-SetupTool { $true }
+    Assert-Equal (Invoke-Setup -Install -Accept -NonInteractive -PluginHost ClaudeCode -AcceptPlugins) 3010
+    function Install-SetupTool { throw 'Mock failure' }
+    Assert-Equal (Invoke-Setup -Install -Accept -NonInteractive -PluginHost ClaudeCode -AcceptPlugins) 3
+    Assert-Equal $script:pluginStages 1
+}
+
+Test-Case 'check-only with a plugin plan stays offline, CLI-free and prompt-free' {
+    function Get-SetupArchitecture { 'x64' }
+    function Get-SetupState { New-TestState -Ready @('git','node','dotnet','pac') }
+    function Invoke-PluginSetup { throw 'PLUGIN STAGE FORBIDDEN' }
+    function Find-SetupExecutable { throw 'HOST DISCOVERY FORBIDDEN' }
+    function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
+    function Invoke-WebRequest { throw 'NETWORK FORBIDDEN' }
+    function Read-Host { throw 'PROMPT FORBIDDEN' }
+    Assert-Equal (Invoke-Setup -CheckOnly -PluginHost CopilotCli -IncludeDataverse) 0
+}
+
+Test-Case 'plugin opt-in is separate from prerequisite approval and rejected early when inconsistent' {
+    function Get-SetupArchitecture { throw 'SHOULD VALIDATE FIRST' }
+    function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
+    Assert-Equal (Invoke-Setup -Install -Accept -NonInteractive -PluginHost CopilotCli) 2
+    Assert-Equal (Invoke-Setup -NonInteractive -AcceptPlugins) 2
+    Assert-Equal (Invoke-Setup -NonInteractive -IncludeDataverse) 2
+    Assert-Equal (Invoke-Setup -PluginHost Skip -IncludeDataverse) 2
+    Assert-Equal (Invoke-Setup -CheckOnly -AcceptPlugins -PluginHost CopilotApp) 2
+}
+
+Test-Case 'plain noninteractive runs and explicit skip do not touch hosts or prompt' {
+    function Find-SetupExecutable { throw 'DISCOVERY FORBIDDEN' }
+    function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
+    function Read-Host { throw 'PROMPT FORBIDDEN' }
+    Assert-Equal (Invoke-PluginSetup -NonInteractive) 0
+    Assert-Equal (Invoke-PluginSetup -PluginHost Skip) 0
+}
+
+Test-Case 'interactive host chooser offers skip without running another host' {
+    function Find-SetupExecutable { throw 'DISCOVERY FORBIDDEN' }
+    function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
+    function Read-Host { '' }
+    Assert-Equal (Invoke-PluginSetup) 0
+    function Read-Host { 'unexpected' }
+    Assert-Equal (Invoke-PluginSetup) 2
+}
+
+Test-Case 'interactive plugin approval cannot be replaced by prerequisite acceptance' {
+    function Find-SetupExecutable { 'C:\fixture\claude.exe' }
+    function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
+    function Read-Host { 'INSTALL' }
+    Assert-Equal (Invoke-PluginSetup -PluginHost ClaudeCode) 2
+}
+
+Test-Case 'absent host fails explicitly rather than installing a host or using the other CLI' {
+    function Find-SetupExecutable { $null }
+    function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
+    Assert-Throws { Invoke-PluginSetup -PluginHost ClaudeCode -AcceptPlugins -NonInteractive } "command 'claude'.*not available"
+}
+
+Test-Case 'Copilot CLI plugin install is scoped, fully verified, and skips existing plugins on rerun' {
+    Reset-TestPluginCli
+    function Invoke-SetupNative { param($Path, $Arguments) Invoke-TestPluginCli $Path $Arguments }
+    Install-SetupPlugins 'C:\fixture\copilot.exe' 'CopilotCli' @('canvas-apps','model-apps')
+    Assert-Equal @($script:pluginRows).Count 2
+    Assert-Equal (@($script:pluginCalls | Where-Object { $_.Arguments[1] -eq 'install' }).Count) 2
+    Assert-Equal (@($script:pluginCalls | Where-Object { $_.Arguments[0] -ne 'plugin' }).Count) 0
+    $script:pluginCalls = @()
+    Install-SetupPlugins 'C:\fixture\copilot.exe' 'CopilotCli' @('canvas-apps','model-apps')
+    Assert-Equal $script:pluginCalls.Count 2
+}
+
+Test-Case 'Claude plugin installation uses explicit user scope and the selected command only' {
+    Reset-TestPluginCli
+    $script:pluginHost = 'ClaudeCode'
+    function Invoke-SetupNative { param($Path, $Arguments) Invoke-TestPluginCli $Path $Arguments }
+    function Find-SetupExecutable {
+        param($Name)
+        if ($Name -ne 'claude') { throw 'Wrong host selected' }
+        'C:\fixture\claude.exe'
+    }
+    Assert-Equal (Invoke-PluginSetup -PluginHost ClaudeCode -AcceptPlugins -NonInteractive -IncludeDataverse) 0
+    $installs = @($script:pluginCalls | Where-Object { $_.Arguments[1] -eq 'install' })
+    Assert-Equal ($installs.Count -gt 1) $true
+    Assert-Equal (@($installs | Where-Object { ($_.Arguments -join ' ') -notmatch '--scope user$' }).Count) 0
+    Assert-Equal (@($installs | Where-Object { $_.Arguments[2] -eq 'dataverse@power-platform-skills' }).Count) 1
+    Assert-Equal (@($script:pluginCalls | Where-Object Path -ne 'C:\fixture\claude.exe').Count) 0
+}
+
+Test-Case 'existing external Dataverse is preserved without installing a duplicate' {
+    Reset-TestPluginCli
+    $script:pluginHost = 'ClaudeCode'
+    $script:pluginRows = @([pscustomobject]@{ id = 'dataverse@dataverse-skills'; scope = 'user'; enabled = $true })
+    function Invoke-SetupNative { param($Path, $Arguments) Invoke-TestPluginCli $Path $Arguments }
+    Install-SetupPlugins 'C:\fixture\claude.exe' 'ClaudeCode' @('dataverse')
+    Assert-Equal $script:pluginCalls.Count 2
+}
+
+Test-Case 'marketplace collisions, disabled plugins and other sources stop before any install' {
+    Reset-TestPluginCli
+    $script:marketplaceRows = @([pscustomobject]@{ name = 'power-platform-skills'; source = 'github'; repo = 'untrusted/repo' })
+    function Invoke-SetupNative { param($Path, $Arguments) Invoke-TestPluginCli $Path $Arguments }
+    Assert-Throws { Install-SetupPlugins 'fixture' 'CopilotCli' @('canvas-apps') } 'source is different or unrecognized'
+    Assert-Equal $script:pluginCalls.Count 1
+    $script:marketplaceRows = @()
+    $script:pluginRows = @([pscustomobject]@{ name = 'canvas-apps'; marketplace = 'power-platform-skills'; enabled = $false })
+    Assert-Throws { Install-SetupPlugins 'fixture' 'CopilotCli' @('canvas-apps') } 'disabled'
+    $script:pluginRows = @([pscustomobject]@{ name = 'canvas-apps'; marketplace = 'different'; enabled = $true })
+    Assert-Throws { Install-SetupPlugins 'fixture' 'CopilotCli' @('canvas-apps') } 'another or duplicate source'
+    Assert-Equal (@($script:pluginCalls | Where-Object { $_.Arguments -notcontains 'list' }).Count) 0
+}
+
+Test-Case 'official marketplace source formats are accepted without trusting a misleading URL' {
+    Assert-Equal (Assert-OfficialMarketplace @([pscustomobject]@{
+        name = 'power-platform-skills'; source = 'microsoft/power-platform-skills'
+    })) $true
+    Assert-Equal (Assert-OfficialMarketplace @([pscustomobject]@{
+        name = 'power-platform-skills'
+        source = [pscustomobject]@{ type = 'github'; repo = 'microsoft/power-platform-skills' }
+    })) $true
+    Assert-Equal (Assert-OfficialMarketplace @([pscustomobject]@{
+        name = 'power-platform-skills'; source = 'git'; url = 'https://github.com/microsoft/power-platform-skills.git'
+    })) $true
+    Assert-Throws { Assert-OfficialMarketplace @([pscustomobject]@{
+        name = 'power-platform-skills'; source = 'github'; repo = 'untrusted/repo'
+        url = 'https://github.com/microsoft/power-platform-skills.git'
+    }) } 'source is different or unrecognized'
+}
+
+Test-Case 'load errors and unexpected Claude scopes stop rather than enabling or duplicating plugins' {
+    Reset-TestPluginCli
+    $script:pluginHost = 'ClaudeCode'
+    function Invoke-SetupNative { param($Path, $Arguments) Invoke-TestPluginCli $Path $Arguments }
+    $script:pluginRows = @([pscustomobject]@{
+        id = 'canvas-apps@power-platform-skills'; scope = 'user'; enabled = $true; errors = @('load failed')
+    })
+    Assert-Throws { Install-SetupPlugins 'fixture' 'ClaudeCode' @('canvas-apps') } 'load errors'
+    $script:pluginRows = @([pscustomobject]@{
+        id = 'canvas-apps@power-platform-skills'; scope = 'project'; enabled = $true
+    })
+    Assert-Throws { Install-SetupPlugins 'fixture' 'ClaudeCode' @('canvas-apps') } 'outside user scope'
+    Assert-Equal (@($script:pluginCalls | Where-Object { $_.Arguments -notcontains 'list' }).Count) 0
+}
+
+Test-Case 'plugin install failure stops the chain and does not become a success-shaped fallback' {
+    Reset-TestPluginCli
+    $script:failPlugin = 'canvas-apps@power-platform-skills'
+    function Invoke-SetupNative { param($Path, $Arguments) Invoke-TestPluginCli $Path $Arguments }
+    Assert-Throws { Install-SetupPlugins 'fixture' 'CopilotCli' @('canvas-apps','model-apps') } 'Mock plugin installation failed'
+    Assert-Equal (@($script:pluginCalls | Where-Object { $_.Arguments[1] -eq 'install' }).Count) 1
+}
+
+Test-Case 'exit zero alone is insufficient to confirm plugin installation' {
+    Reset-TestPluginCli
+    $script:omitPluginRecord = $true
+    function Invoke-SetupNative { param($Path, $Arguments) Invoke-TestPluginCli $Path $Arguments }
+    Assert-Throws { Install-SetupPlugins 'fixture' 'CopilotCli' @('canvas-apps') } 'could not be verified'
+}
+
+Test-Case 'malformed or unsupported listing schemas fail closed without leaking raw output' {
+    function Invoke-SetupNative { 'private output that must not be echoed' }
+    Assert-Throws { Read-PluginJson 'fixture' @('plugin','list','--json') } '^Unsupported plugin CLI output:'
+    function Invoke-SetupNative { '[invalid secret]' }
+    Assert-Throws { Read-PluginJson 'fixture' @('plugin','list','--json') } '^The plugin CLI returned invalid JSON\.'
+    function Invoke-SetupNative { '[{"name":"canvas-apps","enabled":"true"}]' }
+    Assert-Throws { Get-PluginInventory 'fixture' 'CopilotCli' } 'Unsupported plugin identity/status'
+}
+
+Test-Case 'desktop route hands off official links, excludes Dataverse by default, and reports pending' {
+    function Find-SetupExecutable { throw 'CLI DISCOVERY FORBIDDEN' }
+    function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
+    function Start-Process { throw 'APP/BROWSER LAUNCH FORBIDDEN' }
+    $information = @()
+    $result = Invoke-PluginSetup -PluginHost CopilotApp -AcceptPlugins -NonInteractive -InformationVariable information
+    Assert-Equal $result 4
+    $output = $information -join "`n"
+    Assert-Equal ($output.Contains('dataverse%2540power-platform-skills')) $false
+    Assert-Equal ($output.Contains('ACTION REQUIRED')) $true
+    Assert-Equal (Get-CopilotAppPluginLink) 'https://github.com/copilot/app/launch?open=ghapp%3A%2F%2Fplugins%2Fmarketplace%2Fadd%3Fsource%3Dmicrosoft%252Fpower-platform-skills'
+    Assert-Equal (Get-CopilotAppPluginLink 'canvas-apps') 'https://github.com/copilot/app/launch?open=ghapp%3A%2F%2Fplugins%2Finstall%3Fsource%3Dcanvas-apps%2540power-platform-skills'
+    $information = @()
+    Assert-Equal (Invoke-PluginSetup -PluginHost CopilotApp -AcceptPlugins -NonInteractive -IncludeDataverse -InformationVariable information) 4
+    Assert-Equal (($information -join "`n").Contains('dataverse%2540power-platform-skills')) $true
+}
+
+Test-Case 'interactive app selection requires separate approval and Dataverse opt-in' {
+    $script:answers = [System.Collections.Generic.Queue[string]]::new()
+    foreach ($answer in @('3', 'YES', 'PLUGINS')) { $script:answers.Enqueue($answer) }
+    function Read-Host { $script:answers.Dequeue() }
+    function Start-Process { throw 'APP LAUNCH FORBIDDEN' }
+    function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
+    $information = @()
+    Assert-Equal (Invoke-PluginSetup -InformationVariable information) 4
+    Assert-Equal $script:answers.Count 0
+    Assert-Equal (($information -join "`n").Contains('dataverse%2540power-platform-skills')) $true
 }
 
 Test-Case 'launcher forwards arguments to the same script and preserves exit code' {

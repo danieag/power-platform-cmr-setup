@@ -1,7 +1,7 @@
 #requires -Version 5.1
 <#
 .SYNOPSIS
-Checks and, only with approval, installs local Power Platform prerequisites.
+Checks and, only with approval, installs local Power Platform prerequisites and offers host-aware plugin setup.
 .EXAMPLE
 .\Setup.ps1 -CheckOnly
 .EXAMPLE
@@ -13,7 +13,10 @@ param(
     [switch]$Install,
     [switch]$Accept,
     [switch]$NonInteractive,
-    [switch]$IncludeAzureCli
+    [switch]$IncludeAzureCli,
+    [ValidateSet('', 'Skip', 'ClaudeCode', 'CopilotCli', 'CopilotApp')][string]$PluginHost,
+    [switch]$IncludeDataverse,
+    [switch]$AcceptPlugins
 )
 
 Set-StrictMode -Version Latest
@@ -414,10 +417,234 @@ function Install-SetupTool {
     }
 }
 
+function Get-SetupPluginNames {
+    param([switch]$IncludeDataverse)
+    # Reviewed official catalog: adding future plugins requires a deliberate release.
+    @('power-pages', 'model-apps', 'canvas-apps', 'code-apps-preview', 'mobile-app',
+      'power-apps-mobile-extension', 'power-automate', 'process-intelligence', 'pcf', 'mcp-apps')
+    if ($IncludeDataverse) { 'dataverse' }
+}
+
+function Get-PluginProperty {
+    param($Object, [string]$Name)
+    if ($null -ne $Object -and $Object.PSObject.Properties[$Name]) { return $Object.$Name }
+    return $null
+}
+
+function Read-PluginJson {
+    param([string]$Path, [string[]]$Arguments)
+    $text = Invoke-SetupNative $Path $Arguments
+    if (-not $text.Trim().StartsWith('[') -or -not $text.Trim().EndsWith(']')) {
+        throw 'Unsupported plugin CLI output: expected a JSON array. Check the installed CLI version; no text-output fallback is used.'
+    }
+    try { $rows = $text | ConvertFrom-Json } catch {
+        throw 'The plugin CLI returned invalid JSON. Inspect its configuration privately; raw output is not logged.'
+    }
+    foreach ($row in $rows) {
+        if ($null -eq $row -or $row -isnot [pscustomobject]) {
+            throw 'Unsupported plugin CLI listing entry. Check the installed CLI version.'
+        }
+        $row
+    }
+}
+
+function Get-PluginInventory {
+    param([string]$Path, [string]$PluginHost)
+    foreach ($row in @(Read-PluginJson $Path @('plugin', 'list', '--json'))) {
+        $id = Get-PluginProperty $row 'id'
+        if ($PluginHost -eq 'CopilotCli') {
+            $id = Get-PluginProperty $row 'name'
+            $marketplace = Get-PluginProperty $row 'marketplace'
+            if ($id -is [string] -and $id -notmatch '@' -and $marketplace) { $id += "@$marketplace" }
+        }
+        $enabled = Get-PluginProperty $row 'enabled'
+        if ($id -isnot [string] -or $id -notmatch '^[a-z0-9][a-z0-9.-]*(?:@[a-z0-9][a-z0-9.-]*)?$' -or
+            $enabled -isnot [bool]) {
+            throw 'Unsupported plugin identity/status fields. Check the installed CLI version before retrying.'
+        }
+        [pscustomobject]@{
+            Id = $id; Name = ($id -split '@')[0]; Enabled = $enabled
+            Scope = Get-PluginProperty $row 'scope'
+            Errors = Get-PluginProperty $row 'errors'
+        }
+    }
+}
+
+function Assert-OfficialMarketplace {
+    param([object[]]$Marketplaces)
+    foreach ($row in $Marketplaces) {
+        if ((Get-PluginProperty $row 'name') -isnot [string]) {
+            throw 'Unsupported marketplace listing fields. Check the installed CLI version.'
+        }
+    }
+    $matching = @($Marketplaces | Where-Object { $_.name -eq 'power-platform-skills' })
+    if ($matching.Count -eq 0) { return $false }
+    if ($matching.Count -ne 1) { throw 'Multiple power-platform-skills marketplaces found; resolve the conflict manually.' }
+    $row = $matching[0]
+    $source = Get-PluginProperty $row 'source'
+    $repo = Get-PluginProperty $row 'repo'
+    $url = Get-PluginProperty $row 'url'
+    if ($source -is [pscustomobject]) {
+        $repo = Get-PluginProperty $source 'repo'
+        $url = Get-PluginProperty $source 'url'
+        $kind = Get-PluginProperty $source 'source'
+        if (-not $kind) { $kind = Get-PluginProperty $source 'type' }
+        $source = $kind
+    }
+    $official = @('microsoft/power-platform-skills', 'https://github.com/microsoft/power-platform-skills',
+        'https://github.com/microsoft/power-platform-skills.git')
+    if ($source -in $official -or ($source -eq 'github' -and $repo -eq $official[0]) -or
+        ($source -in @('git', 'url') -and $url -in $official[1..2])) {
+        return $true
+    }
+    throw 'The existing power-platform-skills marketplace source is different or unrecognized. Setup will not overwrite or trust it; review it manually.'
+}
+
+function Assert-SetupPlugin {
+    param($Plugin, [string]$PluginHost)
+    if (-not $Plugin.Enabled -or ($null -ne $Plugin.Errors -and @($Plugin.Errors).Count -gt 0)) {
+        throw "Plugin '$($Plugin.Name)' is disabled or has load errors. Resolve this in the selected host; setup will not override policy/settings."
+    }
+    if ($PluginHost -eq 'ClaudeCode' -and $Plugin.Scope -ne 'user') {
+        throw "Plugin '$($Plugin.Name)' exists outside user scope. Review its scope manually rather than creating a duplicate."
+    }
+}
+
+function Install-SetupPlugins {
+    param([string]$Path, [string]$PluginHost, [string[]]$Names)
+    $marketplaces = @(Read-PluginJson $Path @('plugin', 'marketplace', 'list', '--json'))
+    $registered = Assert-OfficialMarketplace $marketplaces
+    $inventory = @(Get-PluginInventory $Path $PluginHost)
+    $pending = @()
+    foreach ($name in $Names) {
+        $existing = @($inventory | Where-Object Name -eq $name)
+        if ($existing.Count) {
+            if ($existing.Count -ne 1 -or
+                ($existing[0].Id -ne "$name@power-platform-skills" -and
+                 -not ($name -eq 'dataverse' -and $existing[0].Id -eq 'dataverse@dataverse-skills'))) {
+                throw "Plugin '$name' already has another or duplicate source. Review it manually; no duplicate will be installed."
+            }
+            Assert-SetupPlugin $existing[0] $PluginHost
+            Write-Host "Keeping installed plugin: $name"
+        } else { $pending += $name }
+    }
+    if (-not $registered -and $pending.Count) {
+        Invoke-SetupNative $Path @('plugin', 'marketplace', 'add', 'microsoft/power-platform-skills') | Out-Null
+        if (-not (Assert-OfficialMarketplace @(Read-PluginJson $Path @('plugin', 'marketplace', 'list', '--json')))) {
+            throw 'Marketplace registration returned success but the official source could not be verified.'
+        }
+    }
+    foreach ($name in $pending) {
+        Write-Host "Installing $name for $PluginHost..."
+        $arguments = @('plugin', 'install', "$name@power-platform-skills")
+        if ($PluginHost -eq 'ClaudeCode') { $arguments += @('--scope', 'user') }
+        Invoke-SetupNative $Path $arguments | Out-Null
+        $installed = @(Get-PluginInventory $Path $PluginHost | Where-Object Id -eq "$name@power-platform-skills")
+        if ($installed.Count -ne 1) {
+            throw "Plugin '$name' install returned success but its installation could not be verified."
+        }
+        Assert-SetupPlugin $installed[0] $PluginHost
+    }
+    Write-Host 'Selected host plugin registrations verified. Restart that host and check its actual skills/tools.'
+    Write-Host 'Desktop visibility, bundled MCP setup, licensing and authentication are NOT verified.'
+}
+
+function Get-CopilotAppPluginLink {
+    param([string]$Name)
+    if ($Name) {
+        if ($Name -notin @(Get-SetupPluginNames -IncludeDataverse)) { throw 'Unknown Power Platform plugin link.' }
+        $route = 'ghapp://plugins/install?source=' + [uri]::EscapeDataString("$Name@power-platform-skills")
+    } else {
+        $route = 'ghapp://plugins/marketplace/add?source=' + [uri]::EscapeDataString('microsoft/power-platform-skills')
+    }
+    return 'https://github.com/copilot/app/launch?open=' + [uri]::EscapeDataString($route)
+}
+
+function Invoke-PluginSetup {
+    [CmdletBinding()]
+    param(
+        [ValidateSet('', 'Skip', 'ClaudeCode', 'CopilotCli', 'CopilotApp')][string]$PluginHost,
+        [switch]$IncludeDataverse, [switch]$AcceptPlugins, [switch]$NonInteractive
+    )
+    if (-not $PluginHost) {
+        if ($NonInteractive) {
+            Write-Host 'Plugin stage skipped. Request it explicitly with -PluginHost and -AcceptPlugins.'
+            return 0
+        }
+        Write-Host "`nOptional next stage: Power Platform plugins (separate approval)."
+        Write-Host '1 = Claude Code (claude command); 2 = Copilot CLI; 3 = Copilot desktop app links; Enter = skip.'
+        $choice = Read-Host 'Choose the host you already use; no new host will be installed'
+        switch ($choice) {
+            '' { Write-Host 'Plugin stage skipped. You can run it later or use the integration skill.'; return 0 }
+            '1' { $PluginHost = 'ClaudeCode' }
+            '2' { $PluginHost = 'CopilotCli' }
+            '3' { $PluginHost = 'CopilotApp' }
+            default { Write-Host 'Unrecognized host selection. Plugin stage cancelled.'; return 2 }
+        }
+    }
+    if ($PluginHost -eq 'Skip') { Write-Host 'Plugin stage skipped explicitly.'; return 0 }
+    if ($NonInteractive -and -not $AcceptPlugins) {
+        Write-Host 'Plugin approval missing. Use -AcceptPlugins only after the user approves this separate plan.'
+        return 2
+    }
+    if (-not $NonInteractive -and -not $AcceptPlugins -and -not $IncludeDataverse) {
+        $IncludeDataverse = (Read-Host 'Also include Dataverse? Type YES to opt in; Enter = no') -ceq 'YES'
+    }
+    $names = @(Get-SetupPluginNames -IncludeDataverse:$IncludeDataverse)
+    Write-Host "`nPlugin plan for ${PluginHost}: $($names -join ', ')"
+    Write-Host 'Source: microsoft/power-platform-skills (Dataverse, if selected, comes from Microsoft/Dataverse-skills).'
+    Write-Host 'Plugins may include executable hooks, agents and MCP servers. Review their permissions in your host.'
+    Write-Host 'Setup will not enable auto-update, install another host, update prerequisites, or sign in.'
+    $path = $null
+    if ($PluginHost -ne 'CopilotApp') {
+        $command = if ($PluginHost -eq 'ClaudeCode') { 'claude' } else { 'copilot' }
+        $path = Find-SetupExecutable $command
+        if (-not $path) {
+            throw "The selected host command '$command' is not available on PATH. No host was installed. For Copilot desktop only, choose -PluginHost CopilotApp."
+        }
+        Write-Host "Using existing command: $path"
+        Write-Host 'Only this host will be configured, at user scope. Existing plugins/disabled settings will be preserved.'
+    } else {
+        Write-Host 'Setup will print official app links. Open the marketplace first, then confirm each plugin in the app.'
+        Write-Host 'Printing a link does not install a plugin. No browser/app is opened automatically.'
+    }
+    if (-not $AcceptPlugins) {
+        if ((Read-Host 'Type PLUGINS to approve this stage (anything else cancels)') -cne 'PLUGINS') {
+            Write-Host 'Plugin stage cancelled. Any completed prerequisite installs are retained.'
+            return 2
+        }
+    }
+    if ($PluginHost -eq 'CopilotApp') {
+        Write-Host "`nAdd marketplace first:"
+        Write-Host (Get-CopilotAppPluginLink)
+        foreach ($name in $names) {
+            Write-Host "`n${name}:"
+            Write-Host (Get-CopilotAppPluginLink $name)
+        }
+        Write-Host "`nACTION REQUIRED: complete the links in the Copilot app, then check Customize > Installed."
+        Write-Host 'Plugin installation is pending, not verified. Copilot Studio MCP/authentication remain separate.'
+        return 4
+    }
+    Install-SetupPlugins $path $PluginHost $names
+    return 0
+}
+
 function Invoke-Setup {
-    param([switch]$CheckOnly, [switch]$Install, [switch]$Accept, [switch]$NonInteractive, [switch]$IncludeAzureCli)
-    if (($CheckOnly -and ($Install -or $Accept)) -or ($Accept -and -not $Install)) {
+    param(
+        [switch]$CheckOnly, [switch]$Install, [switch]$Accept, [switch]$NonInteractive, [switch]$IncludeAzureCli,
+        [ValidateSet('', 'Skip', 'ClaudeCode', 'CopilotCli', 'CopilotApp')][string]$PluginHost,
+        [switch]$IncludeDataverse, [switch]$AcceptPlugins
+    )
+    if (($CheckOnly -and ($Install -or $Accept -or $AcceptPlugins)) -or ($Accept -and -not $Install)) {
         Write-Host 'Invalid options: use -CheckOnly alone, or -Install [-Accept] [-NonInteractive].'
+        return 2
+    }
+    if (($AcceptPlugins -and (-not $PluginHost -or $PluginHost -eq 'Skip')) -or
+        ($IncludeDataverse -and $PluginHost -eq 'Skip') -or
+        ($NonInteractive -and -not $CheckOnly -and
+            (($IncludeDataverse -and -not $PluginHost) -or
+             ($PluginHost -and $PluginHost -ne 'Skip' -and -not $AcceptPlugins)))) {
+        Write-Host 'Specify -PluginHost ClaudeCode, CopilotCli or CopilotApp. Noninteractive plugin setup also requires separate -AcceptPlugins approval.'
         return 2
     }
     try {
@@ -431,12 +658,22 @@ function Invoke-Setup {
         $state = @(Get-SetupState -Azure:$IncludeAzureCli -Architecture $architecture)
         Show-SetupState $state
         $pending = @($state | Where-Object { -not $_.Ready })
-        if ($pending.Count -eq 0) {
-            Write-Host "`nAll selected prerequisites are ready. Plugins and authentication still need separate verification."
+        if ($CheckOnly) {
+            if ($PluginHost -and $PluginHost -ne 'Skip') {
+                Write-Host "Requested later plugin stage: $PluginHost. Host/plugin readiness is NOT checked in offline check-only mode."
+                Write-Host (@(Get-SetupPluginNames -IncludeDataverse:$IncludeDataverse) -join ', ')
+            }
+            if ($pending.Count) {
+                Write-Host "`nPlanned order: $($pending.Name -join ' -> ')"
+                return 1
+            }
             return 0
         }
+        if ($pending.Count -eq 0) {
+            Write-Host "`nAll selected prerequisites are ready. Plugins and authentication still need separate verification."
+            return (Invoke-PluginSetup -PluginHost $PluginHost -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -NonInteractive:$NonInteractive)
+        }
         Write-Host "`nPlanned order: $($pending.Name -join ' -> ')"
-        if ($CheckOnly) { return 1 }
         if ($NonInteractive -and -not ($Install -and $Accept)) {
             Write-Host 'No changes made. Agent installation requires explicit -Install -Accept -NonInteractive approval.'
             return 2
@@ -463,16 +700,17 @@ function Invoke-Setup {
             Confirm-InstalledTool $tool.Id $state
         }
         Show-SetupState $state
-        Write-Host "`nPrerequisites ready. Restart terminals AND the Copilot desktop app so they inherit the new PATH."
-        Write-Host 'Then follow the README for plugins and intentional sign-in. No tenant has been accessed.'
-        return 0
+        Write-Host "`nPrerequisites ready. Keep this window open for the optional plugin stage."
+        Write-Host 'After setup finishes, restart terminals and your chosen host so they inherit the new PATH.'
+        Write-Host 'No tenant has been accessed. Copilot Studio MCP registration and intentional sign-in remain separate.'
+        return (Invoke-PluginSetup -PluginHost $PluginHost -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -NonInteractive:$NonInteractive)
     } catch {
         Write-Host "`nSetup failed: $($_.Exception.Message)" -ForegroundColor Red
-        Write-Host 'No later prerequisites were installed. Resolve the cause and rerun -CheckOnly; completed installations are preserved.'
+        Write-Host 'No later setup steps were run. Resolve the cause and rerun -CheckOnly; completed prerequisite/plugin installations are preserved.'
         return 3
     }
 }
 
 if ($MyInvocation.InvocationName -ne '.') {
-    exit (Invoke-Setup -CheckOnly:$CheckOnly -Install:$Install -Accept:$Accept -NonInteractive:$NonInteractive -IncludeAzureCli:$IncludeAzureCli)
+    exit (Invoke-Setup -CheckOnly:$CheckOnly -Install:$Install -Accept:$Accept -NonInteractive:$NonInteractive -IncludeAzureCli:$IncludeAzureCli -PluginHost $PluginHost -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins)
 }
