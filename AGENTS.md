@@ -29,11 +29,19 @@ Copilot desktop app. It does not install an agent host or provision cloud resour
    only when requested. Noninteractive runs without a host skip plugins.
    `-Accept` alone is not plugin approval. Do not run plugin setup from
    check-only or after prerequisite failure/restart.
-7. Report tools, plugin registration, runtime visibility, and authentication
+7. Copilot Studio MCP registration is another separately approved stage. Use
+   `-CopilotStudioHost <host> -AcceptCopilotStudio` only after approval, never as
+   an implication of `-Accept` or `-AcceptPlugins`. It registers
+   `npx -y @microsoft/copilot-studio-mcp@latest`; it does not launch the server
+   or download the npm package until the host's first launch. Do not start
+   `npx` standalone, sign in, select an environment, or invoke cloud tools to
+   validate registration. Close the host before edits; keep local config backups
+   private. Stop on conflicts or concurrent writes rather than overwriting them.
+8. Report tools, plugin/MCP registration, runtime visibility, and authentication
    separately. Desktop links return exit `4`: user app confirmations are pending,
    not a verified installation. Do not open authenticated browser URLs or install
    another host as a shortcut. Use `skills/power-platform-integrations/SKILL.md`
-   for custom plugin selections or separately approved Copilot Studio MCP setup.
+   for custom plugin selections or agent-guided Copilot Studio MCP setup.
    Preserve existing MCP configuration and verify desktop visibility separately.
 
 Do not install Copilot CLI/another host, blindly invoke the marketplace's broad
@@ -68,6 +76,9 @@ than trying to bypass them.
   disabled plugins, overwrite marketplace sources, create duplicate Dataverse
   installations, or enable auto-update. Check exit status and structured plugin
   listings; a printed app link or a success-looking log is not installation proof.
+- Preserve unrelated MCP configuration and access controls. Verify only the saved
+  definition during setup, not a live authenticated connection. Tests must use
+  isolated dummy configuration files, never the developer's actual host config.
 - Validate with `.\scripts\Test-Setup.ps1`; run on both Windows PowerShell 5.1 and
   PowerShell 7 when available. Run `.\scripts\New-Release.ps1` to check packaging.
   Do **not** exercise real installation paths on a shared developer host.

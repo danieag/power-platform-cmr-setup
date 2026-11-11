@@ -5,21 +5,23 @@ the right order, with a plan and approval before anything is installed.
 
 You already have **Claude Code, GitHub Copilot CLI, or the GitHub Copilot desktop
 app**. Setup installs prerequisites, then offers a separately approved Power
-Platform plugin stage for the host you choose. It does not install an agent
-host, register Copilot Studio MCP, sign in, or create cloud resources. The optional
+Platform plugin stage for the host you choose, followed by optional **Copilot
+Studio MCP registration** with its own approval. It does not install an agent
+host, sign in, or create cloud resources. The optional
 [integration skill](skills/power-platform-integrations/SKILL.md) can guide custom
 plugin selections and separate Copilot Studio MCP registration. This is a
 community bootstrap, not a Microsoft product or an official installer.
 
 ## Short version
 
-**Run Setup.cmd: prerequisites first, then choose your plugin host in the same window.**
+**Run Setup.cmd: prerequisites, plugins, and optional Copilot Studio MCP in the same window.**
 
 | Step | What you do | What it sets up |
 |---|---|---|
 | 1. Prerequisites | Download/extract this repository, review the script, then double-click **Setup.cmd**. Approve the displayed plan by typing **INSTALL**. | Git, Node.js/npm, .NET 10 SDK, and PAC CLI, in order. Azure CLI is optional. |
 | 2. Power Platform plugins | Once prerequisites are ready, choose **Claude Code**, **Copilot CLI**, or **Copilot desktop app links**. Opt into Dataverse if needed, review the plugin plan, and type **PLUGINS** to approve. Enter skips this stage. | Installs the reviewed Power Platform plugin set through the chosen existing CLI, or prints official Copilot desktop links for you to open and confirm. |
-| 3. MCP and sign-in | Restart your chosen host. If you also need Copilot Studio MCP, use the integration skill below. Complete sign-in/environment selection intentionally afterward. | MCP registration, account access, and permissions are separate from plugin installation. |
+| 3. Copilot Studio MCP | Choose the host for MCP registration (or Enter to skip). Close that host, review the plan, and type **MCP** to approve. | Saves `npx -y @microsoft/copilot-studio-mcp@latest` as the host's server launch command. No server or sign-in is started by setup. |
+| 4. Sign-in | Restart your host, check the installed capabilities, then intentionally complete sign-in/environment selection. | The host downloads the MCP package on first launch. Authentication and environment access are separate. |
 
 **Setup.cmd already launches PowerShell.** You do not need to open a terminal
 or paste the official JavaScript one-liner separately. CLI installation is
@@ -27,7 +29,7 @@ automated; desktop-only Copilot installation still requires the app's own
 confirmations. Choose the host you actually use; setup never configures all
 detected hosts behind your back.
 
-For **optional Copilot Studio MCP setup**, paste this into a Copilot desktop chat:
+For **custom or agent-guided setup**, you can instead paste this into a Copilot desktop chat:
 
 > I have finished running Setup.cmd. Read and follow
 > https://github.com/danieag/power-platform-setup/blob/main/skills/power-platform-integrations/SKILL.md.
@@ -39,7 +41,7 @@ The agent can read the skill from the repository; you do not have to install
 the skill separately just to ask it to follow those instructions. A link does
 not permanently register a skill in the app.
 
-**Setup.cmd offers plugin setup directly but does not automatically run the
+**Setup.cmd offers plugin and Copilot Studio MCP setup directly but does not automatically run the
 integration skill.** The skill is an alternative for agent-guided selections
 and MCP registration, not a mandatory extra step after plugin installation.
 If a required capability or permission is unavailable, setup reports the
@@ -112,7 +114,8 @@ workflow supports ARM64.
    [step 2: Power Platform plugins](#step-2-power-platform-plugins-in-the-same-setup-window).
    Choose your existing host, review the separate plan, and type `PLUGINS` to
    approve, or press Enter to skip. Restart your host/terminals afterward.
-   Copilot Studio MCP registration and sign-in remain separate.
+   The next optional stage offers Copilot Studio MCP registration; it needs
+   separate `MCP` approval. Sign-in remains separate and is not started by setup.
 
 Internet access is needed **only after installation approval**. Setup does not
 need `winget`, Git, npm, or .NET to start. This is important in Windows Sandbox,
@@ -351,21 +354,75 @@ remote JavaScript into Node. It uses scoped host commands instead, without
 changing auto-update settings, updating PAC, or installing unselected prerequisites.
 Existing host-managed update behavior is left unchanged.
 
-### Optional integration skill and Copilot Studio MCP
+## Step 3: optional Copilot Studio MCP registration
+
+The script now offers this stage after plugin setup (including a plugin skip
+or a pending Copilot desktop link handoff). It never runs after prerequisite
+failure/restart or plugin failure/cancellation. Choose the desired existing
+host independently of your plugin choice, or press Enter to skip.
+
+The package comes from
+[`@microsoft/copilot-studio-mcp`](https://github.com/microsoft/copilot-studio-mcp).
+This is **MCP server registration**, not installation of the cloud Copilot Studio
+product, a new agent host, or an authentication session.
+
+| Host | Registration method |
+|---|---|
+| Claude Code | Runs the existing `claude mcp add --scope user --transport stdio copilot-studio -- npx -y @microsoft/copilot-studio-mcp@latest`, then checks the saved user definition in `%USERPROFILE%\.claude.json`. |
+| Copilot CLI or desktop app | Safely adds the user definition to `%USERPROFILE%\.copilot\mcp-config.json`. The desktop path does **not** require installing Copilot CLI. |
+
+Review the printed user-scope path and close that host before approving, to
+avoid concurrent configuration writes. Matching existing user definitions,
+including an equivalent name, are reused without changing tool restrictions or
+disabled settings. Conflicting definitions, pinned versions, duplicate keys,
+invalid JSON, unsupported encodings, and custom `COPILOT_HOME` /
+`CLAUDE_CONFIG_DIR` locations stop setup rather than being overwritten.
+Project, plugin, and managed definitions may override user configuration;
+setup does not start those servers to inspect them.
+
+For Copilot, existing **UTF-8 JSON** is edited without reserializing unrelated
+content. An atomic replacement preserves the existing file's access controls
+and retains its original content in a sibling
+`mcp-config.json.setup-backup-<id>` file. This backup may contain credentials
+from other servers: **keep it private**, never attach it to issues or include
+it in a repository/ZIP. A stale snapshot stops the write; if a race is detected
+after replacement, the displaced live content is retained in the backup and
+setup reports an error for manual reconciliation. It never silently discards
+a concurrent new file. No JSON/configuration content is logged.
+
+After separate approval for prerequisites and MCP registration, an agent can use:
+
+```powershell
+.\Setup.cmd -Install -Accept -NonInteractive -CopilotStudioHost CopilotApp -AcceptCopilotStudio
+```
+
+Use `ClaudeCode` or `CopilotCli` instead for that host. Add the separate
+`-PluginHost <host> -AcceptPlugins` options if plugin setup was also approved,
+and `-IncludeDataverse` only when requested. Noninteractive runs without
+`-CopilotStudioHost` skip MCP registration. `-Accept` and `-AcceptPlugins` do
+**not** authorize it. `-CopilotStudioHost Skip` skips the interactive MCP chooser.
+`-CheckOnly` never reads or writes MCP configuration, even with a requested host.
+
+The result is explicitly **CONFIGURED, NOT RUNTIME-VERIFIED**. Restart the host,
+check its MCP list and trust/permission prompts, and deliberately sign in when
+ready. Setup does not check connectivity to an environment or invoke cloud tools.
+If plugin links were printed, exit `4` still means those app confirmations are
+pending even when MCP configuration succeeded.
+
+### Optional integration skill
 
 The [integration skill](skills/power-platform-integrations/SKILL.md) remains
-available for custom plugin selections and separate Copilot Studio MCP
+available for custom plugin selections and agent-guided Copilot Studio MCP
 registration. In a Copilot desktop chat, ask it to read the skill and propose a
 plan; it should reuse plugins already installed by Setup.cmd. A repository URL
 does not permanently install the skill into any host.
 
-For Copilot Studio MCP, the skill can use an existing supported
-`copilot mcp add` command, or safely merge a server definition into the documented
-user configuration. This is not part of the script's plugin stage. Neither
-plugin approval nor prerequisite approval authorizes MCP registration or sign-in.
+For the normal user-scope registration, the skill should reuse the script's
+separately approved MCP stage. Neither plugin approval nor prerequisite approval
+authorizes MCP registration or sign-in.
 
 `npx -y @microsoft/copilot-studio-mcp@latest` **launches a server**; by itself it
-does not register that server with the app. The skill saves the approved launch
+does not register that server with the app. The script's MCP stage saves the approved launch
 configuration so the app can start it over stdio when needed. The first launch
 can download/cache the package; `@latest` permits future version changes.
 The [package instructions](https://www.npmjs.com/package/@microsoft/copilot-studio-mcp)
@@ -386,9 +443,10 @@ use **Customize > MCP**. Check **Installed** afterward.
 These are documented controls, not a claim that every app version or enterprise
 policy exposes the same UI. Refresh/restart the app/session if necessary and
 verify that the actual capabilities appear. This repository's tests do **not**
-install plugins, register an MCP server, or prove a live desktop integration.
+install plugins, alter real user MCP configuration, launch an MCP server, or
+prove a live desktop integration.
 
-### Step 3: sign in separately
+## Step 4: sign in separately
 
 Only after integration setup, intentionally set up sign-in/connections using the correct
 account, tenant, and environment. Relevant licensing and permissions remain
@@ -409,10 +467,10 @@ Use **`npm.cmd`** in PowerShell to avoid the unrelated `npm.ps1` policy issue.
 
 | Code | Meaning / next action |
 |---|---|
-| `0` | Selected local prerequisites ready; plugin stage skipped or selected CLI registrations verified. Actual runtime/auth readiness is still separate. |
+| `0` | Selected prerequisites ready; optional plugin/MCP stages skipped or their registrations verified. Actual runtime/auth readiness is still separate. |
 | `1` | Check-only found missing or unsupported prerequisites. This is an expected readiness result. |
 | `2` | Cancelled, invalid options, or missing explicit opt-in. A cancelled plugin stage retains any prerequisites already installed. |
-| `3` | Unsupported host/CLI output, detection, download, trust, installer, or prerequisite/plugin verification failure. Stop and fix the reported cause. |
+| `3` | Unsupported host/CLI output, detection, download, trust, installer, or prerequisite/plugin/MCP configuration verification failure. Stop and fix the reported cause. |
 | `4` | Copilot desktop plugin links printed. App confirmations and plugin verification are still required. Prerequisites are ready. |
 | `3010` | Installer requested/reported a restart. Chain stopped; restart Windows yourself, then rerun. |
 
@@ -431,6 +489,7 @@ starts may return PowerShell's own nonzero code instead.
 | PAC installation fails | Check NuGet.org access, Windows policy, and whether an existing PAC shim conflicts. Source configuration is isolated, not taken from your project. |
 | Selected `claude`/`copilot` command is missing | Use the host already installed. For Copilot desktop only choose `CopilotApp`; do not install another host as a workaround. |
 | Plugin JSON output/source/disabled-state error | Review the selected CLI's supported version, marketplace source, scope, and policy privately. Setup does not fall back to guessed text parsing, force-enable plugins, or expose full configuration. |
+| MCP configuration conflict, encoding, or concurrent-edit error | Stop, close the host, and inspect/reconcile the local configuration privately. Keep any reported backup; do not share it. No sign-in or cloud operation is needed to repair local registration. |
 
 It is safe to rerun: completed compatible tools are skipped; a failure stops
 the chain and does not roll back earlier successful vendor installations.
@@ -452,8 +511,10 @@ installation paths: approval, ordered plan, skip/rerun, failures, restart,
 version verification, architecture detection (including an emulated shell),
 x64/ARM64 package selection, PAC/SDK architecture matching, source/integrity
 gates, and PATH preservation. Plugin tests mock both CLI schemas, approvals,
-source collisions, skip/rerun, failures and official desktop links. No plugin
-install, app launch, host configuration write, or sign-in is performed.
+source collisions, skip/rerun, failures and official desktop links. MCP tests use
+isolated dummy files for safe merge, backup, rerun, malformed/conflicting config,
+and concurrent-write cases, plus mocked Claude registration. No plugin install,
+app/server launch, real user configuration write, or sign-in is performed.
 A real local inventory test uses only reads.
 CI runs on Windows PowerShell 5.1 and PowerShell 7. CI does **not** install tools
 or validate a pristine Sandbox installation on either architecture.

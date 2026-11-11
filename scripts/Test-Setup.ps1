@@ -571,6 +571,7 @@ Test-Case 'native command exit status is captured correctly' {
 Test-Case 'plugin stage runs only after prerequisites finish and never after failure or restart' {
     $script:installed = @()
     $script:pluginStages = 0
+    $script:mcpStages = 0
     function Get-SetupArchitecture { 'arm64' }
     function Get-SetupState { New-TestState -Ready $script:installed }
     function Update-SetupPath {}
@@ -581,14 +582,17 @@ Test-Case 'plugin stage runs only after prerequisites finish and never after fai
         $script:pluginStages++
         return 0
     }
-    Assert-Equal (Invoke-Setup -Install -Accept -NonInteractive -PluginHost ClaudeCode -AcceptPlugins) 0
+    function Invoke-CopilotStudioSetup { $script:mcpStages++; return 0 }
+    Assert-Equal (Invoke-Setup -Install -Accept -NonInteractive -PluginHost ClaudeCode -AcceptPlugins -CopilotStudioHost CopilotApp -AcceptCopilotStudio) 0
     Assert-Equal $script:pluginStages 1
+    Assert-Equal $script:mcpStages 1
     $script:installed = @()
     function Install-SetupTool { $true }
-    Assert-Equal (Invoke-Setup -Install -Accept -NonInteractive -PluginHost ClaudeCode -AcceptPlugins) 3010
+    Assert-Equal (Invoke-Setup -Install -Accept -NonInteractive -PluginHost ClaudeCode -AcceptPlugins -CopilotStudioHost CopilotApp -AcceptCopilotStudio) 3010
     function Install-SetupTool { throw 'Mock failure' }
-    Assert-Equal (Invoke-Setup -Install -Accept -NonInteractive -PluginHost ClaudeCode -AcceptPlugins) 3
+    Assert-Equal (Invoke-Setup -Install -Accept -NonInteractive -PluginHost ClaudeCode -AcceptPlugins -CopilotStudioHost CopilotApp -AcceptCopilotStudio) 3
     Assert-Equal $script:pluginStages 1
+    Assert-Equal $script:mcpStages 1
 }
 
 Test-Case 'check-only with a plugin plan stays offline, CLI-free and prompt-free' {
@@ -777,6 +781,179 @@ Test-Case 'interactive app selection requires separate approval and Dataverse op
     Assert-Equal (Invoke-PluginSetup -InformationVariable information) 4
     Assert-Equal $script:answers.Count 0
     Assert-Equal (($information -join "`n").Contains('dataverse%2540power-platform-skills')) $true
+}
+
+Test-Case 'Copilot Studio approval is independent and validated before any prerequisite changes' {
+    function Get-SetupArchitecture { throw 'SHOULD VALIDATE FIRST' }
+    Assert-Equal (Invoke-Setup -NonInteractive -CopilotStudioHost CopilotApp) 2
+    Assert-Equal (Invoke-Setup -AcceptCopilotStudio) 2
+    Assert-Equal (Invoke-Setup -CopilotStudioHost Skip -AcceptCopilotStudio) 2
+    Assert-Equal (Invoke-Setup -CheckOnly -CopilotStudioHost CopilotCli -AcceptCopilotStudio) 2
+}
+
+Test-Case 'MCP stage cannot run from check-only and ordinary noninteractive runs skip it' {
+    function Get-SetupArchitecture { 'arm64' }
+    function Get-SetupState { New-TestState -Ready @('git','node','dotnet','pac') }
+    function Get-CopilotStudioConfigPath { throw 'CONFIG ACCESS FORBIDDEN' }
+    function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
+    function Read-Host { throw 'PROMPT FORBIDDEN' }
+    Assert-Equal (Invoke-Setup -CheckOnly -CopilotStudioHost CopilotApp) 0
+    Assert-Equal (Invoke-Setup -NonInteractive) 0
+    Assert-Equal (Invoke-CopilotStudioSetup -CopilotStudioHost Skip) 0
+}
+
+Test-Case 'MCP interactive approval does not accept INSTALL or PLUGINS' {
+    function Get-CopilotStudioConfigPath { 'C:\fixture\mcp-config.json' }
+    function Read-McpUserConfig { throw 'CONFIG READ FORBIDDEN' }
+    function Read-Host { 'PLUGINS' }
+    Assert-Equal (Invoke-CopilotStudioSetup -CopilotStudioHost CopilotApp) 2
+    function Read-Host { 'INSTALL' }
+    Assert-Equal (Invoke-CopilotStudioSetup -CopilotStudioHost CopilotApp) 2
+}
+
+Test-Case 'integration sequence keeps pending app action and stops MCP on plugin failure/cancellation' {
+    $script:mcpCalls = 0
+    $script:pluginCode = 4
+    function Invoke-PluginSetup { $script:pluginCode }
+    function Invoke-CopilotStudioSetup { $script:mcpCalls++; 0 }
+    Assert-Equal (Invoke-SetupIntegrations -NonInteractive) 4
+    Assert-Equal $script:mcpCalls 1
+    foreach ($code in @(2,3,3010)) {
+        $script:pluginCode = $code
+        Assert-Equal (Invoke-SetupIntegrations -NonInteractive) $code
+    }
+    Assert-Equal $script:mcpCalls 1
+    $script:pluginCode = 0
+    function Invoke-CopilotStudioSetup { 2 }
+    Assert-Equal (Invoke-SetupIntegrations -NonInteractive) 2
+}
+
+Test-Case 'MCP config merge preserves all unrelated text, creates a backup, and is safe on rerun' {
+    $directory = Join-Path ([IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString('N'))
+    $script:mcpFixturePath = Join-Path $directory 'mcp-config.json'
+    New-Item -ItemType Directory -Path $directory | Out-Null
+    try {
+        $original = '{"largeNumber":123456789012345678901234567890,"custom":{"text":"a } brace and \"quote\""},"mcpServers":{"existing":{"command":"fixture","env":{"SECRET":"dummy-private-value"}}}}'
+        [IO.File]::WriteAllText($script:mcpFixturePath, $original, [Text.UTF8Encoding]::new($false))
+        function Get-CopilotStudioConfigPath { $script:mcpFixturePath }
+        function Start-Process { throw 'PROCESS LAUNCH FORBIDDEN' }
+        function Invoke-SetupNative { throw 'CLI/SERVER LAUNCH FORBIDDEN' }
+        $information = @()
+        Assert-Equal (Invoke-CopilotStudioSetup -CopilotStudioHost CopilotApp -AcceptCopilotStudio -NonInteractive -InformationVariable information) 0
+        $updated = [IO.File]::ReadAllText($script:mcpFixturePath)
+        Assert-Equal ($updated.Contains('"largeNumber":123456789012345678901234567890')) $true
+        Assert-Equal ($updated.Contains('"existing":{"command":"fixture","env":{"SECRET":"dummy-private-value"}}')) $true
+        Assert-Equal (($information -join "`n").Contains('dummy-private-value')) $false
+        $backups = @(Get-ChildItem -LiteralPath $directory -Filter '*.setup-backup-*')
+        Assert-Equal $backups.Count 1
+        Assert-Equal ([IO.File]::ReadAllText($backups[0].FullName)) $original
+        $config = Read-McpUserConfig $script:mcpFixturePath
+        Assert-Equal (Test-CopilotStudioRegistration $config) $true
+        Assert-Equal ($config.Data.mcpServers.'copilot-studio'.args -join ' ') '-y @microsoft/copilot-studio-mcp@latest'
+        Assert-Equal (Invoke-CopilotStudioSetup -CopilotStudioHost CopilotApp -AcceptCopilotStudio -NonInteractive) 0
+        Assert-Equal ([IO.File]::ReadAllText($script:mcpFixturePath)) $updated
+        Assert-Equal (@(Get-ChildItem -LiteralPath $directory -Filter '*.setup-backup-*').Count) 1
+    } finally { Remove-Item -LiteralPath $directory -Recurse -Force }
+}
+
+Test-Case 'MCP configuration creates only the target entry when the user has no config yet' {
+    $directory = Join-Path ([IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString('N'))
+    $path = Join-Path $directory 'mcp-config.json'
+    try {
+        $config = Read-McpUserConfig $path
+        Save-CopilotStudioConfig $path $config
+        $saved = Read-McpUserConfig $path
+        Assert-Equal (Test-CopilotStudioRegistration $saved) $true
+        Assert-Equal @($saved.Data.PSObject.Properties).Count 1
+        Assert-Equal @($saved.Data.mcpServers.PSObject.Properties).Count 1
+    } finally {
+        if (Test-Path -LiteralPath $directory) { Remove-Item -LiteralPath $directory -Recurse -Force }
+    }
+}
+
+Test-Case 'MCP insertion handles missing/empty server maps, escaped keys and nested JSON safely' {
+    $directory = Join-Path ([IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Path $directory | Out-Null
+    $path = Join-Path $directory 'mcp-config.json'
+    try {
+        foreach ($text in @(
+            '{}',
+            '{"settings":[{"x":1},2]}',
+            '{"mcpServers":{}}',
+            '{"mcp\u0053ervers":{"other":{"command":"fixture","args":["}", "{"]}},"tail":{"a":1}}')) {
+            [IO.File]::WriteAllText($path, $text, [Text.UTF8Encoding]::new($true))
+            Save-CopilotStudioConfig $path (Read-McpUserConfig $path)
+            Assert-Equal (Test-CopilotStudioRegistration (Read-McpUserConfig $path)) $true
+            Assert-Equal ([IO.File]::ReadAllBytes($path)[0]) 0xEF
+        }
+    } finally { Remove-Item -LiteralPath $directory -Recurse -Force }
+}
+
+Test-Case 'MCP malformed, duplicate, nonobject and non-UTF8 configs fail closed' {
+    $directory = Join-Path ([IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Path $directory | Out-Null
+    $path = Join-Path $directory 'mcp-config.json'
+    try {
+        foreach ($text in @(
+            '{invalid}', '[]', '{"mcpServers":null}', '{"mcpServers":[]}',
+            '{"mcpServers":{},"mcpServers":{}}',
+            '{"mcpServers":{"same":{},"same":{}}}', '{"mcpservers":{}}')) {
+            [IO.File]::WriteAllText($path, $text, [Text.UTF8Encoding]::new($false))
+            try { Assert-Throws { Read-McpUserConfig $path } 'JSON|object|Duplicate|casing' } catch {
+                throw "Invalid fixture was not rejected correctly: $text - $($_.Exception.Message)"
+            }
+            Assert-Equal ([IO.File]::ReadAllText($path)) $text
+        }
+        [IO.File]::WriteAllBytes($path, [byte[]]@(0xFF,0xFE,0,0))
+        Assert-Throws { Read-McpUserConfig $path } 'UTF-8'
+    } finally { Remove-Item -LiteralPath $directory -Recurse -Force }
+}
+
+Test-Case 'MCP pinned/conflicting definitions fail without overwrite while matching aliases are reused' {
+    foreach ($json in @(
+        '{"mcpServers":{"copilot-studio":{"command":"different"}}}',
+        '{"mcpServers":{"pinned":{"command":"npx","args":["-y","@microsoft/copilot-studio-mcp@1.2.3"]}}}')) {
+        $config = [pscustomobject]@{ Data = $json | ConvertFrom-Json }
+        Assert-Throws { Test-CopilotStudioRegistration $config } 'will not overwrite or duplicate'
+    }
+    $config = [pscustomobject]@{ Data = '{"mcpServers":{"my-studio":{"command":"npx.cmd","args":["-y","@microsoft/copilot-studio-mcp@latest"],"disabled":true,"tools":["restricted"]}}}' | ConvertFrom-Json }
+    Assert-Equal (Test-CopilotStudioRegistration $config) $true
+}
+
+Test-Case 'MCP concurrent edits and concurrent new-file creation are never silently discarded' {
+    $directory = Join-Path ([IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Path $directory | Out-Null
+    $path = Join-Path $directory 'mcp-config.json'
+    try {
+        $newFile = Read-McpUserConfig $path
+        [IO.File]::WriteAllText($path, '{"changed":true}')
+        Assert-Throws { Save-CopilotStudioConfig $path $newFile } 'was created while setup'
+        $existing = Read-McpUserConfig $path
+        [IO.File]::WriteAllText($path, '{"changed":2}')
+        Assert-Throws { Save-CopilotStudioConfig $path $existing } 'changed while setup'
+        Assert-Equal ([IO.File]::ReadAllText($path)) '{"changed":2}'
+        Assert-Equal (@(Get-ChildItem -LiteralPath $directory -Filter '*.setup-tmp').Count) 0
+    } finally { Remove-Item -LiteralPath $directory -Recurse -Force }
+}
+
+Test-Case 'Claude MCP registration uses user-scope CLI arguments and verifies the saved definition without launch' {
+    $directory = Join-Path ([IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Path $directory | Out-Null
+    $script:claudeMcpFixturePath = Join-Path $directory '.claude.json'
+    try {
+        function Get-CopilotStudioConfigPath { $script:claudeMcpFixturePath }
+        function Find-SetupExecutable { 'C:\fixture\claude.exe' }
+        function Invoke-SetupNative {
+            param($Path, $Arguments)
+            Assert-Equal $Path 'C:\fixture\claude.exe'
+            Assert-Equal ($Arguments -join ' ') 'mcp add --scope user --transport stdio copilot-studio -- npx -y @microsoft/copilot-studio-mcp@latest'
+            [IO.File]::WriteAllText($script:claudeMcpFixturePath, '{"mcpServers":{"copilot-studio":{"type":"stdio","command":"npx","args":["-y","@microsoft/copilot-studio-mcp@latest"]}}}')
+        }
+        Assert-Equal (Invoke-CopilotStudioSetup -CopilotStudioHost ClaudeCode -AcceptCopilotStudio -NonInteractive) 0
+        Remove-Item -LiteralPath $script:claudeMcpFixturePath
+        function Invoke-SetupNative {}
+        Assert-Throws { Invoke-CopilotStudioSetup -CopilotStudioHost ClaudeCode -AcceptCopilotStudio -NonInteractive } 'registration could not be verified'
+    } finally { Remove-Item -LiteralPath $directory -Recurse -Force }
 }
 
 Test-Case 'launcher forwards arguments to the same script and preserves exit code' {

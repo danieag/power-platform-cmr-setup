@@ -1,7 +1,7 @@
 #requires -Version 5.1
 <#
 .SYNOPSIS
-Checks and, only with approval, installs local Power Platform prerequisites and offers host-aware plugin setup.
+Checks and, only with approval, installs local Power Platform prerequisites and offers plugin/MCP setup.
 .EXAMPLE
 .\Setup.ps1 -CheckOnly
 .EXAMPLE
@@ -16,7 +16,9 @@ param(
     [switch]$IncludeAzureCli,
     [ValidateSet('', 'Skip', 'ClaudeCode', 'CopilotCli', 'CopilotApp')][string]$PluginHost,
     [switch]$IncludeDataverse,
-    [switch]$AcceptPlugins
+    [switch]$AcceptPlugins,
+    [ValidateSet('', 'Skip', 'ClaudeCode', 'CopilotCli', 'CopilotApp')][string]$CopilotStudioHost,
+    [switch]$AcceptCopilotStudio
 )
 
 Set-StrictMode -Version Latest
@@ -629,14 +631,239 @@ function Invoke-PluginSetup {
     return 0
 }
 
+function Get-CopilotStudioConfigPath {
+    param([string]$HostName)
+    if ($HostName -eq 'ClaudeCode') {
+        if ($env:CLAUDE_CONFIG_DIR) { throw 'Custom CLAUDE_CONFIG_DIR is set. Register the server through that host explicitly; setup will not guess its user config location.' }
+        return Join-Path $env:USERPROFILE '.claude.json'
+    }
+    if ($env:COPILOT_HOME) { throw 'Custom COPILOT_HOME is set. Register the server through that host explicitly; setup will not guess its user config location.' }
+    return Join-Path $env:USERPROFILE '.copilot\mcp-config.json'
+}
+
+function Read-McpUserConfig {
+    param([string]$Path)
+    $bytes = $null
+    $text = '{}'
+    if (Test-Path -LiteralPath $Path) {
+        if ((Get-Item -LiteralPath $Path).Attributes -band [IO.FileAttributes]::ReparsePoint) {
+            throw 'MCP configuration is a link/reparse point. Review it manually; setup will not replace it.'
+        }
+        $bytes = [IO.File]::ReadAllBytes($Path)
+        try { $text = [Text.UTF8Encoding]::new($false, $true).GetString($bytes).TrimStart([char]0xFEFF) } catch {
+            throw 'MCP configuration is not valid UTF-8. Review it privately; setup will not rewrite its encoding.'
+        }
+    }
+    try { $data = $text | ConvertFrom-Json } catch {
+        throw 'MCP configuration contains invalid JSON. No configuration was replaced; inspect the file privately.'
+    }
+    if (-not $text.TrimStart().StartsWith('{') -or $data -isnot [pscustomobject]) {
+        throw 'MCP configuration must be a JSON object; no configuration was replaced.'
+    }
+    $servers = Get-PluginProperty $data 'mcpServers'
+    if ($data.PSObject.Properties['mcpServers'] -and $servers -isnot [pscustomobject]) {
+        throw 'The mcpServers value must be a JSON object; no configuration was replaced.'
+    }
+    # Locate insertion points without reserializing unrelated settings, numbers or secrets.
+    $depth = 0
+    $serverStart = -1
+    $serverEnd = -1
+    $rootKeys = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $serverKeys = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    for ($i = 0; $i -lt $text.Length; $i++) {
+        $character = $text[$i]
+        if ($character -eq '"') {
+            $start = $i
+            for ($i++; $i -lt $text.Length; $i++) {
+                if ($text[$i] -eq '\') { $i++; continue }
+                if ($text[$i] -eq '"') { break }
+            }
+            $after = $i + 1
+            while ($after -lt $text.Length -and [char]::IsWhiteSpace($text[$after])) { $after++ }
+            if ($after -lt $text.Length -and $text[$after] -eq ':') {
+                $key = @(('[' + $text.Substring($start, $i - $start + 1) + ']') | ConvertFrom-Json)[0]
+                if ($depth -eq 1) {
+                    if (-not $rootKeys.Add($key)) { throw 'Duplicate root configuration keys are unsupported; review the file privately.' }
+                    if ($key -ceq 'mcpServers') {
+                        $serverStart = $after + 1
+                        while ([char]::IsWhiteSpace($text[$serverStart])) { $serverStart++ }
+                        if ($text[$serverStart] -ne '{') { throw 'The mcpServers value must be a JSON object.' }
+                    } elseif ($key -ieq 'mcpServers') {
+                        throw 'Use the exact mcpServers key casing before running setup.'
+                    }
+                } elseif ($depth -eq 2 -and $serverStart -ge 0 -and $serverEnd -lt 0) {
+                    if (-not $serverKeys.Add($key)) { throw 'Duplicate MCP server keys are unsupported; review the file privately.' }
+                }
+            }
+        } elseif ($character -in @('{', '[')) {
+            $depth++
+        } elseif ($character -in @('}', ']')) {
+            if ($depth -eq 2 -and $serverStart -ge 0 -and $serverEnd -lt 0) { $serverEnd = $i }
+            $depth--
+        } elseif ($character -eq '/') {
+            throw 'Comments in MCP JSON are unsupported; review the file privately.'
+        } elseif ($character -eq ',') {
+            $after = $i + 1
+            while ($after -lt $text.Length -and [char]::IsWhiteSpace($text[$after])) { $after++ }
+            if ($text[$after] -in @('}', ']')) { throw 'Trailing commas in MCP JSON are unsupported.' }
+        }
+    }
+    [pscustomobject]@{ Bytes = $bytes; Text = $text; Data = $data; ServerEnd = $serverEnd }
+}
+
+function Test-CopilotStudioRegistration {
+    param($Config)
+    $servers = Get-PluginProperty $Config.Data 'mcpServers'
+    if ($null -eq $servers) { return $false }
+    $found = $false
+    foreach ($property in $servers.PSObject.Properties) {
+        $entry = $property.Value
+        $arguments = @(Get-PluginProperty $entry 'args')
+        $isStudio = @($arguments | Where-Object { $_ -is [string] -and $_ -match '^@microsoft/copilot-studio-mcp(?:@|$)' }).Count -gt 0
+        if ($property.Name -ieq 'copilot-studio' -or $isStudio) {
+            if ($found) { throw 'Multiple Copilot Studio MCP definitions found. Resolve duplicates manually.' }
+            $command = Get-PluginProperty $entry 'command'
+            $type = Get-PluginProperty $entry 'type'
+            if ($command -notin @('npx', 'npx.cmd') -or
+                ($type -and $type -notin @('local', 'stdio')) -or
+                ($arguments -join "`n") -cne "-y`n@microsoft/copilot-studio-mcp@latest") {
+                throw 'An existing Copilot Studio MCP definition differs (possibly a pinned version). Setup will not overwrite or duplicate it.'
+            }
+            $found = $true
+        }
+    }
+    return $found
+}
+
+function Save-CopilotStudioConfig {
+    param([string]$Path, $Config)
+    $entry = '"copilot-studio":{"type":"local","command":"npx","args":["-y","@microsoft/copilot-studio-mcp@latest"],"tools":["*"]}'
+    $servers = Get-PluginProperty $Config.Data 'mcpServers'
+    if ($null -ne $servers) {
+        $position = $Config.ServerEnd
+        $separator = if (@($servers.PSObject.Properties).Count) { ',' } else { '' }
+        $insertion = $separator + "`n" + $entry + "`n"
+    } else {
+        $position = $Config.Text.LastIndexOf('}')
+        $separator = if (@($Config.Data.PSObject.Properties).Count) { ',' } else { '' }
+        $insertion = $separator + "`n`"mcpServers`":{" + $entry + "}`n"
+    }
+    $content = $Config.Text.Insert($position, $insertion)
+    $parent = Split-Path -Parent $Path
+    if ((Test-Path -LiteralPath $parent) -and
+        ((Get-Item -LiteralPath $parent).Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+        throw 'MCP config directory is a link/reparse point. Review it manually before registration.'
+    }
+    New-Item -ItemType Directory -Path $parent -Force | Out-Null
+    $temporary = Join-Path $parent ([guid]::NewGuid().ToString('N') + '.setup-tmp')
+    $backup = $Path + '.setup-backup-' + [guid]::NewGuid().ToString('N')
+    try {
+        [IO.File]::WriteAllBytes($temporary, [byte[]]@())
+        if ($null -ne $Config.Bytes) {
+            $acl = Get-Acl -LiteralPath $Path
+            Set-Acl -LiteralPath $temporary -AclObject $acl
+        }
+        $hadBom = $null -ne $Config.Bytes -and $Config.Bytes.Length -ge 3 -and
+            $Config.Bytes[0] -eq 0xEF -and $Config.Bytes[1] -eq 0xBB -and $Config.Bytes[2] -eq 0xBF
+        [IO.File]::WriteAllText($temporary, $content, [Text.UTF8Encoding]::new($hadBom, $true))
+        if ($null -ne $Config.Bytes) {
+            $live = [IO.File]::ReadAllBytes($Path)
+            if ([Convert]::ToBase64String($live) -cne [Convert]::ToBase64String($Config.Bytes)) {
+                throw 'MCP configuration changed while setup was preparing the update. No replacement was made; close the host and retry explicitly.'
+            }
+            [IO.File]::Replace($temporary, $Path, $backup)
+            if ([Convert]::ToBase64String([IO.File]::ReadAllBytes($backup)) -cne [Convert]::ToBase64String($Config.Bytes)) {
+                throw "A concurrent config replacement was detected. Its displaced content is preserved in $backup. Stop and reconcile it before using the host."
+            }
+            Write-Host "Previous MCP configuration preserved in $backup (may contain secrets; keep private)."
+        } else {
+            # Move without overwrite: a concurrently created config must not be discarded.
+            if (Test-Path -LiteralPath $Path) {
+                throw 'MCP configuration was created while setup was preparing the update. No replacement was made; close the host and retry explicitly.'
+            }
+            [IO.File]::Move($temporary, $Path)
+        }
+    } finally {
+        if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force }
+    }
+}
+
+function Invoke-CopilotStudioSetup {
+    [CmdletBinding()]
+    param(
+        [ValidateSet('', 'Skip', 'ClaudeCode', 'CopilotCli', 'CopilotApp')][string]$CopilotStudioHost,
+        [switch]$AcceptCopilotStudio, [switch]$NonInteractive
+    )
+    if (-not $CopilotStudioHost) {
+        if ($NonInteractive) { Write-Host 'Copilot Studio MCP stage skipped (no explicit host/approval).'; return 0 }
+        Write-Host "`nOptional Copilot Studio MCP registration: 1 = Claude Code; 2 = Copilot CLI; 3 = Copilot desktop; Enter = skip."
+        switch (Read-Host 'Choose the host for Copilot Studio MCP') {
+            '' { Write-Host 'Copilot Studio MCP stage skipped.'; return 0 }
+            '1' { $CopilotStudioHost = 'ClaudeCode' }
+            '2' { $CopilotStudioHost = 'CopilotCli' }
+            '3' { $CopilotStudioHost = 'CopilotApp' }
+            default { Write-Host 'Unrecognized host. Copilot Studio MCP stage cancelled.'; return 2 }
+        }
+    }
+    if ($CopilotStudioHost -eq 'Skip') { return 0 }
+    if ($NonInteractive -and -not $AcceptCopilotStudio) { Write-Host 'Separate -AcceptCopilotStudio approval is required.'; return 2 }
+    $path = Get-CopilotStudioConfigPath $CopilotStudioHost
+    Write-Host "`nCopilot Studio MCP plan for ${CopilotStudioHost}: user-scope registration in $path"
+    Write-Host 'Launch command: npx -y @microsoft/copilot-studio-mcp@latest'
+    Write-Host 'The host downloads/caches the package on first launch; @latest allows future package updates.'
+    Write-Host 'This stage saves configuration only: no server launch, sign-in, tenant selection or cloud operations.'
+    Write-Host 'New Copilot entries expose the server tools to the host without enabling automatic approval.'
+    Write-Host 'Close the selected host before approval to avoid concurrent config writes. Existing definitions/settings are preserved.'
+    if (-not $AcceptCopilotStudio -and (Read-Host 'Type MCP to approve registration (anything else cancels)') -cne 'MCP') {
+        Write-Host 'Copilot Studio MCP stage cancelled. Earlier installations are retained.'
+        return 2
+    }
+    $config = Read-McpUserConfig $path
+    if (Test-CopilotStudioRegistration $config) {
+        Write-Host 'Matching user-scope Copilot Studio MCP definition already exists; left unchanged (including tool restrictions/disabled settings).'
+    } elseif ($CopilotStudioHost -eq 'ClaudeCode') {
+        $claude = Find-SetupExecutable 'claude'
+        if (-not $claude) { throw 'Claude Code command not found. No host was installed and no configuration was changed.' }
+        Invoke-SetupNative $claude @('mcp', 'add', '--scope', 'user', '--transport', 'stdio', 'copilot-studio', '--',
+            'npx', '-y', '@microsoft/copilot-studio-mcp@latest') | Out-Null
+    } else {
+        Save-CopilotStudioConfig $path $config
+    }
+    if (-not (Test-CopilotStudioRegistration (Read-McpUserConfig $path))) {
+        throw 'Copilot Studio MCP registration could not be verified in the user configuration.'
+    }
+    Write-Host 'Copilot Studio MCP: CONFIGURED, NOT RUNTIME-VERIFIED. Restart the host and inspect its MCP list/permissions.'
+    Write-Host 'Project/plugin/managed definitions can override this user config; runtime visibility, authentication and environment access remain unverified.'
+    return 0
+}
+
+function Invoke-SetupIntegrations {
+    param(
+        [string]$PluginHost, [switch]$IncludeDataverse, [switch]$AcceptPlugins, [switch]$NonInteractive,
+        [string]$CopilotStudioHost, [switch]$AcceptCopilotStudio
+    )
+    $plugins = Invoke-PluginSetup -PluginHost $PluginHost -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -NonInteractive:$NonInteractive
+    if ($plugins -notin @(0, 4)) { return $plugins }
+    $mcp = Invoke-CopilotStudioSetup -CopilotStudioHost $CopilotStudioHost -AcceptCopilotStudio:$AcceptCopilotStudio -NonInteractive:$NonInteractive
+    if ($mcp -ne 0) { return $mcp }
+    return $plugins
+}
+
 function Invoke-Setup {
     param(
         [switch]$CheckOnly, [switch]$Install, [switch]$Accept, [switch]$NonInteractive, [switch]$IncludeAzureCli,
         [ValidateSet('', 'Skip', 'ClaudeCode', 'CopilotCli', 'CopilotApp')][string]$PluginHost,
-        [switch]$IncludeDataverse, [switch]$AcceptPlugins
+        [switch]$IncludeDataverse, [switch]$AcceptPlugins,
+        [ValidateSet('', 'Skip', 'ClaudeCode', 'CopilotCli', 'CopilotApp')][string]$CopilotStudioHost,
+        [switch]$AcceptCopilotStudio
     )
-    if (($CheckOnly -and ($Install -or $Accept -or $AcceptPlugins)) -or ($Accept -and -not $Install)) {
+    if (($CheckOnly -and ($Install -or $Accept -or $AcceptPlugins -or $AcceptCopilotStudio)) -or ($Accept -and -not $Install)) {
         Write-Host 'Invalid options: use -CheckOnly alone, or -Install [-Accept] [-NonInteractive].'
+        return 2
+    }
+    if (($AcceptCopilotStudio -and (-not $CopilotStudioHost -or $CopilotStudioHost -eq 'Skip')) -or
+        ($NonInteractive -and -not $CheckOnly -and $CopilotStudioHost -and $CopilotStudioHost -ne 'Skip' -and -not $AcceptCopilotStudio)) {
+        Write-Host 'Choose -CopilotStudioHost ClaudeCode, CopilotCli or CopilotApp and provide separate -AcceptCopilotStudio approval for noninteractive registration.'
         return 2
     }
     if (($AcceptPlugins -and (-not $PluginHost -or $PluginHost -eq 'Skip')) -or
@@ -659,6 +886,9 @@ function Invoke-Setup {
         Show-SetupState $state
         $pending = @($state | Where-Object { -not $_.Ready })
         if ($CheckOnly) {
+            if ($CopilotStudioHost -and $CopilotStudioHost -ne 'Skip') {
+                Write-Host "Requested later Copilot Studio MCP stage: $CopilotStudioHost (configuration/runtime not inspected in offline check-only mode)."
+            }
             if ($PluginHost -and $PluginHost -ne 'Skip') {
                 Write-Host "Requested later plugin stage: $PluginHost. Host/plugin readiness is NOT checked in offline check-only mode."
                 Write-Host (@(Get-SetupPluginNames -IncludeDataverse:$IncludeDataverse) -join ', ')
@@ -671,7 +901,7 @@ function Invoke-Setup {
         }
         if ($pending.Count -eq 0) {
             Write-Host "`nAll selected prerequisites are ready. Plugins and authentication still need separate verification."
-            return (Invoke-PluginSetup -PluginHost $PluginHost -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -NonInteractive:$NonInteractive)
+            return (Invoke-SetupIntegrations -PluginHost $PluginHost -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -NonInteractive:$NonInteractive -CopilotStudioHost $CopilotStudioHost -AcceptCopilotStudio:$AcceptCopilotStudio)
         }
         Write-Host "`nPlanned order: $($pending.Name -join ' -> ')"
         if ($NonInteractive -and -not ($Install -and $Accept)) {
@@ -702,8 +932,8 @@ function Invoke-Setup {
         Show-SetupState $state
         Write-Host "`nPrerequisites ready. Keep this window open for the optional plugin stage."
         Write-Host 'After setup finishes, restart terminals and your chosen host so they inherit the new PATH.'
-        Write-Host 'No tenant has been accessed. Copilot Studio MCP registration and intentional sign-in remain separate.'
-        return (Invoke-PluginSetup -PluginHost $PluginHost -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -NonInteractive:$NonInteractive)
+        Write-Host 'No tenant has been accessed. Optional MCP registration needs its own approval; intentional sign-in remains separate.'
+        return (Invoke-SetupIntegrations -PluginHost $PluginHost -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -NonInteractive:$NonInteractive -CopilotStudioHost $CopilotStudioHost -AcceptCopilotStudio:$AcceptCopilotStudio)
     } catch {
         Write-Host "`nSetup failed: $($_.Exception.Message)" -ForegroundColor Red
         Write-Host 'No later setup steps were run. Resolve the cause and rerun -CheckOnly; completed prerequisite/plugin installations are preserved.'
@@ -712,5 +942,5 @@ function Invoke-Setup {
 }
 
 if ($MyInvocation.InvocationName -ne '.') {
-    exit (Invoke-Setup -CheckOnly:$CheckOnly -Install:$Install -Accept:$Accept -NonInteractive:$NonInteractive -IncludeAzureCli:$IncludeAzureCli -PluginHost $PluginHost -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins)
+    exit (Invoke-Setup -CheckOnly:$CheckOnly -Install:$Install -Accept:$Accept -NonInteractive:$NonInteractive -IncludeAzureCli:$IncludeAzureCli -PluginHost $PluginHost -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -CopilotStudioHost $CopilotStudioHost -AcceptCopilotStudio:$AcceptCopilotStudio)
 }

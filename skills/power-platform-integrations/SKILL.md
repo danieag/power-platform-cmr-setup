@@ -137,16 +137,33 @@ Its launch command is `npx -y @microsoft/copilot-studio-mcp@latest`.
 The MCP host starts it over stdio when needed. Running that command alone in a
 terminal is **not** registration, and can leave an unused long-running process.
 
-If the existing `copilot` command supports the documented MCP subcommands:
+The normal setup path is now the script's **separately approved** MCP stage:
+
+```powershell
+.\Setup.cmd -Install -Accept -NonInteractive -CopilotStudioHost CopilotApp -AcceptCopilotStudio
+```
+
+Choose `CopilotCli` or `ClaudeCode` instead when appropriate. Approve only the
+intended host, not all three. The script rechecks prerequisites, reuses matching
+user definitions, rejects conflicts, and verifies the saved configuration
+without launching a server or invoking tenant tools. Copilot hosts share the
+documented user config; Claude Code uses its existing user-scope MCP command.
+Keep local config backups private; never commit them or attach them to a report.
+Custom host config directories require explicit manual review rather than
+guessing their location. Prerequisite/plugin approval is not MCP approval.
+
+The script does not pre-download or start the npm server: its output must say
+**configured, not runtime-verified**. The first launch by the selected host
+downloads/caches `@latest` and may request trust/sign-in separately.
+Do not invoke `/mcp auth` in a desktop-hosted conversation.
+
+For a separately approved custom setup outside the normal script path, these
+documented command/configuration details are reference only; do not bypass the
+script's conflict detection by overwriting a definition it refused to change:
 
 ```powershell
 copilot mcp add copilot-studio -- npx -y @microsoft/copilot-studio-mcp@latest
 ```
-
-This is a user-scope configuration change. Inspect for an existing equivalent
-server, including a differently named or plugin-provided one, first. Skip an
-exact match; ask before replacing a different server or duplicating it.
-Do not invoke `/mcp auth` in a desktop-hosted conversation.
 
 **No CLI executable is required for the documented configuration-file route.**
 With explicit approval for user scope, merge this single server definition

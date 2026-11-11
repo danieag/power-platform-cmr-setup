@@ -33,10 +33,14 @@ does not automatically register this skill in the desktop app.
    installed. The app route prints official confirmation links and returns
    `4`, meaning pending user action, not verified installation. Do not retry
    installations solely because the app handoff returns that code.
-7. For custom plugin selections or separate Copilot Studio MCP registration,
-   read `skills/power-platform-integrations/SKILL.md`. Reuse plugins already
-   installed by setup. Do not claim prerequisite/plugin installation completed
-   MCP registration or sign-in.
+7. For Copilot Studio MCP, obtain independent approval for the chosen host and
+   append `-CopilotStudioHost <host> -AcceptCopilotStudio`. The script saves the
+   launch command but does not start the server; the package downloads/caches
+   at the host's first launch. Do not run `npx` standalone or claim runtime/auth
+   readiness from a saved JSON entry.
+8. For custom plugin selections or agent-guided MCP setup, read
+   `skills/power-platform-integrations/SKILL.md`. Reuse existing registrations.
+   Stop on configuration conflicts; keep any local backup private.
 
 Never install Copilot CLI/another agent host, enable auto-approval, change
 persistent execution policy, blindly run the broad marketplace installer, sign
