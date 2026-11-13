@@ -9,8 +9,10 @@ Platform plugin stage for the host you choose, followed by optional **Copilot
 Studio MCP registration** with its own approval. It does not install an agent
 host, sign in, or create cloud resources. The optional
 [integration skill](skills/power-platform-integrations/SKILL.md) can guide custom
-plugin selections and separate Copilot Studio MCP registration. This is a
-community bootstrap, not a Microsoft product or an official installer.
+plugin selections and separate Copilot Studio MCP registration. After setup,
+the optional [connection skill](skills/power-platform-connect/SKILL.md) guides
+separately approved sign-in and secure session reuse. This is a community
+bootstrap, not a Microsoft product or an official installer.
 
 ## Short version
 
@@ -21,7 +23,7 @@ community bootstrap, not a Microsoft product or an official installer.
 | 1. Prerequisites | Download/extract this repository, review the script, then double-click **Setup.cmd**. Approve the displayed plan by typing **INSTALL**. | Git, Node.js/npm, .NET 10 SDK, and PAC CLI, in order. Azure CLI is optional. |
 | 2. Power Platform plugins | Once prerequisites are ready, choose **Claude Code**, **Copilot CLI**, or **Copilot desktop app links**. Opt into Dataverse if needed, review the plugin plan, and type **PLUGINS** to approve. Enter skips this stage. | Installs the reviewed Power Platform plugin set through the chosen existing CLI, or prints official Copilot desktop links for you to open and confirm. |
 | 3. Copilot Studio MCP | Choose the host for MCP registration (or Enter to skip). Close that host, review the plan, and type **MCP** to approve. | Saves `npx -y @microsoft/copilot-studio-mcp@latest` as the host's server launch command. No server or sign-in is started by setup. |
-| 4. Sign-in | Restart your host, check the installed capabilities, then intentionally complete sign-in/environment selection. | The host downloads the MCP package on first launch. Authentication and environment access are separate. |
+| 4. Connect and reuse sign-in | Restart your host, then ask it to follow **power-platform-connect** using the prompt below. Confirm your account, tenant, environment, and separate onboarding plan. | Reuses matching Dataverse/PAC/Azure profiles and supported MCP sessions; guides only missing sign-ins. No shared-token copying or automatic tenant writes. |
 
 **Setup.cmd already launches PowerShell.** You do not need to open a terminal
 or paste the official JavaScript one-liner separately. CLI installation is
@@ -36,6 +38,21 @@ For **custom or agent-guided setup**, you can instead paste this into a Copilot 
 > Check the plugins I already installed and help me register Copilot Studio MCP.
 > Show the plan and ask for approval before changing anything.
 > Do not sign in or select an environment.
+
+For **sign-in and persistent connections after installation**, use this separate
+prompt in your chosen agent chat:
+
+> Read and follow
+> https://github.com/danieag/power-platform-setup/blob/main/skills/power-platform-connect/SKILL.md.
+> Help me connect Dataverse CLI, PAC CLI, Azure CLI, and my Dataverse MCP server.
+> Check existing profiles first. Ask me to confirm my account, tenant, environment,
+> and the plan before signing in, switching profiles, or changing configuration.
+> Reuse working sessions and do not change tenant permissions or create resources.
+
+Remove Azure or any other surface you do not need. Mention Copilot Studio MCP
+if you also want its separate sign-in configured. You do not need to type
+authentication commands yourself when the agent has the necessary approved
+tools; you still complete Microsoft sign-in/MFA and any host trust prompts.
 
 The agent can read the skill from the repository; you do not have to install
 the skill separately just to ask it to follow those instructions. A link does
@@ -446,13 +463,59 @@ verify that the actual capabilities appear. This repository's tests do **not**
 install plugins, alter real user MCP configuration, launch an MCP server, or
 prove a live desktop integration.
 
-## Step 4: sign in separately
+## Step 4: connect and remember sign-in (optional skill)
 
-Only after integration setup, intentionally set up sign-in/connections using the correct
-account, tenant, and environment. Relevant licensing and permissions remain
-separate. Neither setup stage collects tokens, runs `az login` / `pac auth
-create`, enables agent auto-approval or Windows features, or writes cloud
-resources. Some plugins have additional workflow-specific prerequisites.
+Use [power-platform-connect](skills/power-platform-connect/SKILL.md) **after**
+prerequisites and the requested plugins/MCP definitions are installed. This
+agent-guided stage is deliberately not run by `Setup.cmd`: installation flags
+do not grant permission to sign in, select an environment, switch an active
+profile, or call a tenant.
+
+The skill coordinates the existing tools, not a new authentication service:
+
+| Surface | Reuse strategy |
+|---|---|
+| Azure CLI, when selected | Reuse an approved cache directory for the expected tenant/account, or create a dedicated local directory after approval. Scope `AZURE_CONFIG_DIR` for each process rather than changing the default account for every tool. |
+| PAC CLI | Reuse a matching named profile. It has its own authentication client/cache; an initial PAC sign-in may still be necessary. |
+| Dataverse CLI | Reuse a matching saved profile through the official Dataverse plugin's connection/authentication flow. The CLI is an additional package, not automatically installed merely by selecting the plugin. |
+| Dataverse MCP | Configure the installed official CLI stdio proxy to use supported cached authentication and an explicit environment URL. A direct HTTP MCP connection can have separate OAuth. |
+| Copilot Studio MCP, when selected | Reuse its registered server and supported sign-in flow. The current package documents OS-protected persistence across chats; verify the installed version and actual reported persistence. |
+
+The agent first confirms the exact account, tenant, environment URL and
+selected surfaces. It checks matching profiles before proposing new login,
+and saves only approved connection bindings in a private local record under
+`%LOCALAPPDATA%\PowerPlatformSetup\connections`. A connection alias is a convenient
+lookup, not authorization to access its tenant. Personal connection records,
+cache files and MCP configuration must never be copied into this public repo.
+
+Missing Dataverse CLI, Azure CLI, or optional Python SDK dependencies need their
+own installation approval. Python/SDK setup is not required merely to authenticate
+the CLIs. The skill reuses Microsoft's installed `dv-connect` guidance, but does
+not authorize its broader environment-creation or administrative operations.
+Tenant consent, MCP allowlisting, role assignment, and connector creation remain
+separate decisions; a blocked setup stops rather than silently granting access.
+
+**The promise is one guided onboarding and fewer repeat prompts, not one
+universal login.** Separate OAuth clients, MFA, revoked sessions and tenant
+policy can require additional sign-in. Credentials stay in the official tools'
+supported stores; the skill never reads/copies tokens or implements its own
+refresh mechanism. Matching profile metadata is not proof of a valid session.
+
+After permission for bounded read-only verification, the agent checks the
+selected account/tenant/environment and actual MCP identity. Then test a fresh
+terminal and new host chat under the same Windows user to confirm session reuse.
+If a restart or user sign-in is pending, the result must say so. A working
+Dataverse CLI is not proof that PAC or every MCP server is connected.
+
+In Sandbox, do this restart test **inside the same running guest**. Closing or
+resetting Sandbox normally discards its caches. Do not copy protected caches
+back to the host to try to preserve sign-in.
+
+Relevant licensing and permissions remain separate. The installer and integration
+stage still never run `az login` or `pac auth create`; the connection skill may
+guide those only after its own explicit approval. It does not collect passwords
+or tokens, enable agent auto-approval or Windows features, or write cloud resources.
+Some plugins have additional workflow-specific prerequisites.
 
 **PAC limitation:** Microsoft's .NET tool does not include `pac data` or certain
 `pac package` commands (`deploy`, `show`), even on Windows.

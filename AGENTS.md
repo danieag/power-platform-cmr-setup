@@ -47,12 +47,37 @@ Copilot desktop app. It does not install an agent host or provision cloud resour
 Do not install Copilot CLI/another host, blindly invoke the marketplace's broad
 `scripts/install.js`, claim unverified desktop registration, persistently relax
 execution policy, enable agent auto-approval, disable Windows protections, log
-credentials, sign in, pick a tenant, enable Windows features, or write cloud
-resources. The broad installer can target multiple hosts and enable auto-update;
+credentials, sign in or pick a tenant under installation approval, enable Windows
+features, or write cloud resources. The broad installer can target multiple
+hosts and enable auto-update;
 its effects require separate explicit approval. Preserve existing configuration
 when registering MCP servers. No private/personal skill, account, router, or MCP
 configuration belongs in this public project. Avoid exposing local paths in
 public reports.
+
+## Optional connection onboarding (not part of installation)
+
+For an explicit request to connect/sign in after setup, use
+`skills/power-platform-connect/SKILL.md`. Creating or editing that public skill
+does not authorize running it against the current user's tenants.
+
+- Confirm the exact account, tenant, environment and selected surfaces before
+  authentication, profile switching, live reads or connection writes. Obtain
+  separate approval for sign-in, private binding records, MCP registration and
+  minimal read-only identity verification. Missing tools need install approval.
+- Reuse Microsoft's installed `dv-overview` / `dv-connect` mechanisms for
+  Dataverse authentication, only within the approved subset. Their broader
+  setup capabilities do not authorize tenant writes or unrelated project files.
+- Reuse matching profiles; isolate Azure tenant/account caches and scope
+  `AZURE_CONFIG_DIR` per process. Never copy/decode token caches, inject bearer
+  tokens, create custom OAuth flows, store passwords, disable MFA, or clear
+  working sessions as a troubleshooting shortcut.
+- Store only approved private connection bindings outside repositories, not
+  credentials. Do not publish personal identities, local registries, cache paths
+  or MCP config. Consent, allowlist, role and connector changes need a separate
+  decision; setup must not silently perform them.
+- Distinguish configuration, live identity checks, and new-process/chat
+  persistence. Do not promise one universal login or lifetime authentication.
 
 The reviewed launcher uses a **child-process-only** execution-policy exception;
 it never changes the persistent policy. Respect enterprise restrictions rather

@@ -220,7 +220,11 @@ approve a specific published version after checking its requirements.
   or access tenant data under installation approval.
 - When the user is ready to authenticate, follow the desktop app's sign-in
   action for this server. Account/environment/connector setup is separate and
-  may require additional permissions. Never collect credentials or log tokens.
+  may require additional permissions. For reusable CLI profiles and coordinated
+  authentication, hand off to
+  [power-platform-connect](../power-platform-connect/SKILL.md) after separate
+  target/sign-in approval. Do not start that workflow merely because installation
+  completed. Never collect credentials or log tokens.
 - Report completed actions and precise blockers. If visibility/launch has not
   been confirmed, say **configured, not runtime-verified** rather than "ready".
   Do not retry an uncertain installation/write without inspecting its result.

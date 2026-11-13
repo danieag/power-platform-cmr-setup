@@ -41,6 +41,10 @@ does not automatically register this skill in the desktop app.
 8. For custom plugin selections or agent-guided MCP setup, read
    `skills/power-platform-integrations/SKILL.md`. Reuse existing registrations.
    Stop on configuration conflicts; keep any local backup private.
+9. If the user explicitly requests sign-in or persistent connections afterward,
+   use `skills/power-platform-connect/SKILL.md` as a separate approval-gated
+   workflow. Installation approval never authorizes authenticating, selecting a
+   tenant, or inspecting that tenant's data.
 
 Never install Copilot CLI/another agent host, enable auto-approval, change
 persistent execution policy, blindly run the broad marketplace installer, sign
