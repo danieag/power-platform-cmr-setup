@@ -174,7 +174,11 @@ Test-Case 'binary compatibility preserves emulated tools only on compatible Wind
 
 Test-Case 'check-only cannot reach mutating, network or prompt operations' {
     function Get-SetupArchitecture { 'x64' }
-    function Get-SetupState { New-TestState }
+    function Get-SetupState {
+        param([switch]$Azure)
+        Assert-Equal $Azure.IsPresent $true
+        New-TestState -Azure:$Azure
+    }
     function Install-SetupTool { throw 'INSTALL FORBIDDEN' }
     function Update-SetupPath { throw 'PATH CHANGE FORBIDDEN' }
     function Invoke-WebRequest { throw 'DOWNLOAD FORBIDDEN' }
@@ -271,7 +275,7 @@ Test-Case 'ARM64 inventory preserves compatible x64 tools but requires PAC to ma
     Assert-Equal (Get-SetupState -Architecture arm64 | Where-Object Id -eq 'pac').Ready $false
 }
 
-Test-Case 'optional Azure inventory reads the bundled Python architecture without launching it' {
+Test-Case 'Azure inventory reads the bundled Python architecture without launching it' {
     function Find-SetupExecutable { param($Name, $Candidates) "C:\fixture\wbin\$Name" }
     function Get-ExecutableArchitecture { 'x64' }
     function Get-BinaryVersion { [version]'24.10.0' }
@@ -303,7 +307,7 @@ Test-Case 'interactive initial launch requires exact explicit approval' {
     Assert-Equal (Invoke-Setup) 2
 }
 
-Test-Case 'approved installation obeys order and verifies each tool' {
+Test-Case 'default approved installation includes Azure after PAC and verifies each tool' {
     $script:installed = @()
     $script:verified = @()
     function Get-SetupArchitecture { 'x64' }
@@ -311,12 +315,12 @@ Test-Case 'approved installation obeys order and verifies each tool' {
     function Update-SetupPath {}
     function Install-SetupTool { param($Id) $script:installed += $Id; return $false }
     function Confirm-InstalledTool { param($Id, $State) $script:verified += $Id }
-    Assert-Equal (Invoke-Setup -Install -Accept -NonInteractive -IncludeAzureCli) 0
+    Assert-Equal (Invoke-Setup -Install -Accept -NonInteractive) 0
     Assert-Equal ($script:installed -join ',') 'git,node,dotnet,pac,azure'
     Assert-Equal ($script:verified -join ',') 'git,node,dotnet,pac,azure'
 }
 
-Test-Case 'ARM64 approved installation forwards architecture and retains the same order and opt-in' {
+Test-Case 'ARM64 default installation includes Azure after PAC and forwards architecture' {
     $script:installed = @()
     $script:observedArchitecture = @()
     function Get-SetupArchitecture { 'arm64' }
@@ -328,15 +332,15 @@ Test-Case 'ARM64 approved installation forwards architecture and retains the sam
     function Update-SetupPath {}
     function Install-SetupTool { param($Id) $script:installed += $Id; $false }
     function Confirm-InstalledTool {}
-    Assert-Equal (Invoke-Setup -Install -Accept -NonInteractive -IncludeAzureCli) 0
+    Assert-Equal (Invoke-Setup -Install -Accept -NonInteractive) 0
     Assert-Equal ($script:installed -join ',') 'git,node,dotnet,pac,azure'
     Assert-Equal (@($script:observedArchitecture | Where-Object { $_ -ne 'arm64' }).Count) 0
 }
 
-Test-Case 'safe rerun skips compatible tools and does not add Azure by default' {
-    $script:installed = @('git', 'node', 'dotnet', 'pac')
+Test-Case 'safe rerun preserves compatible Azure and the other default tools' {
+    $script:installed = @('git', 'node', 'dotnet', 'pac', 'azure')
     function Get-SetupArchitecture { 'x64' }
-    function Get-SetupState { New-TestState -Ready $script:installed }
+    function Get-SetupState { param([switch]$Azure) New-TestState -Ready $script:installed -Azure:$Azure }
     function Install-SetupTool { throw 'INSTALL FORBIDDEN' }
     function Update-SetupPath { throw 'PATH CHANGE FORBIDDEN' }
     function Read-Host { throw 'PROMPT FORBIDDEN' }
@@ -348,12 +352,81 @@ Test-Case 'partial rerun installs only missing tools' {
     $script:installed = @('git', 'dotnet')
     $script:added = @()
     function Get-SetupArchitecture { 'x64' }
-    function Get-SetupState { New-TestState -Ready $script:installed }
+    function Get-SetupState { param([switch]$Azure) New-TestState -Ready $script:installed -Azure:$Azure }
     function Update-SetupPath {}
     function Install-SetupTool { param($Id) $script:installed += $Id; $script:added += $Id; $false }
     function Confirm-InstalledTool {}
     Assert-Equal (Invoke-Setup -Install -Accept -NonInteractive) 0
-    Assert-Equal ($script:added -join ',') 'node,pac'
+    Assert-Equal ($script:added -join ',') 'node,pac,azure'
+}
+
+Test-Case 'an existing core setup plans missing Azure by default but still requires installation approval' {
+    $script:installed = @('git','node','dotnet','pac')
+    $script:added = @()
+    function Get-SetupArchitecture { 'x64' }
+    function Get-SetupState { param([switch]$Azure) New-TestState -Ready $script:installed -Azure:$Azure }
+    function Update-SetupPath {}
+    function Install-SetupTool { param($Id) $script:installed += $Id; $script:added += $Id; $false }
+    function Confirm-InstalledTool {}
+    function Read-Host { throw 'PROMPT FORBIDDEN' }
+    Assert-Equal (Invoke-Setup -CheckOnly) 1
+    Assert-Equal (Invoke-Setup -NonInteractive) 2
+    Assert-Equal $script:added.Count 0
+    Assert-Equal (Invoke-Setup -Install -Accept -NonInteractive) 0
+    Assert-Equal ($script:added -join ',') 'azure'
+}
+
+Test-Case 'explicit minimal opt-out skips Azure for both check-only and approved installation' {
+    $script:installed = @()
+    function Get-SetupArchitecture { 'x64' }
+    function Get-SetupState {
+        param([switch]$Azure)
+        Assert-Equal $Azure.IsPresent $false
+        New-TestState -Ready $script:installed -Azure:$Azure
+    }
+    function Update-SetupPath {}
+    function Install-SetupTool { param($Id) $script:installed += $Id; $false }
+    function Confirm-InstalledTool {}
+    Assert-Equal (Invoke-Setup -CheckOnly -SkipAzureCli) 1
+    Assert-Equal $script:installed.Count 0
+    Assert-Equal (Invoke-Setup -Install -Accept -NonInteractive -SkipAzureCli) 0
+    Assert-Equal ($script:installed -join ',') 'git,node,dotnet,pac'
+}
+
+Test-Case 'legacy Azure opt-in still works and contradictory Azure switches fail before changes' {
+    function Get-SetupArchitecture { 'x64' }
+    function Get-SetupState {
+        param([switch]$Azure)
+        Assert-Equal $Azure.IsPresent $true
+        New-TestState -Ready @('git','node','dotnet','pac','azure') -Azure:$Azure
+    }
+    function Install-SetupTool { throw 'INSTALL FORBIDDEN' }
+    Assert-Equal (Invoke-Setup -CheckOnly -IncludeAzureCli) 0
+    function Get-SetupArchitecture { throw 'SHOULD VALIDATE FIRST' }
+    Assert-Equal (Invoke-Setup -Install -Accept -NonInteractive -IncludeAzureCli -SkipAzureCli) 2
+}
+
+Test-Case 'PAC failure or restart prevents the default Azure download and all later integrations' {
+    $script:attempted = @()
+    function Get-SetupArchitecture { 'arm64' }
+    function Get-SetupState {
+        param([switch]$Azure)
+        New-TestState -Ready @('git','node','dotnet') -Azure:$Azure
+    }
+    function Update-SetupPath {}
+    function Invoke-SetupIntegrations { throw 'INTEGRATIONS FORBIDDEN' }
+    function Install-SetupTool {
+        param($Id)
+        $script:attempted += $Id
+        if ($Id -ne 'pac') { throw 'AZURE MUST NOT START' }
+        throw 'PAC failure'
+    }
+    Assert-Equal (Invoke-Setup -Install -Accept -NonInteractive) 3
+    Assert-Equal ($script:attempted -join ',') 'pac'
+    $script:attempted = @()
+    function Install-SetupTool { param($Id) $script:attempted += $Id; $true }
+    Assert-Equal (Invoke-Setup -Install -Accept -NonInteractive) 3010
+    Assert-Equal ($script:attempted -join ',') 'pac'
 }
 
 Test-Case 'first failure prevents later installations' {

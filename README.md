@@ -20,7 +20,7 @@ bootstrap, not a Microsoft product or an official installer.
 
 | Step | What you do | What it sets up |
 |---|---|---|
-| 1. Prerequisites | Download/extract this repository, review the script, then double-click **Setup.cmd**. Approve the displayed plan by typing **INSTALL**. | Git, Node.js/npm, .NET 10 SDK, and PAC CLI, in order. Azure CLI is optional. |
+| 1. Prerequisites | Download/extract this repository, review the script, then double-click **Setup.cmd**. Approve the displayed plan by typing **INSTALL**. | Git, Node.js/npm, .NET 10 SDK, PAC CLI, then Azure CLI, in that order. Compatible existing installs are skipped. |
 | 2. Power Platform plugins | Once prerequisites are ready, choose **Claude Code**, **Copilot CLI**, or **Copilot desktop app links**. Opt into Dataverse if needed, review the plugin plan, and type **PLUGINS** to approve. Enter skips this stage. | Installs the reviewed Power Platform plugin set through the chosen existing CLI, or prints official Copilot desktop links for you to open and confirm. |
 | 3. Copilot Studio MCP | Choose the host for MCP registration (or Enter to skip). Close that host, review the plan, and type **MCP** to approve. | Saves `npx -y @microsoft/copilot-studio-mcp@latest` as the host's server launch command. No server or sign-in is started by setup. |
 | 4. Install the connection skill | At the final prompt choose Claude Code, Copilot CLI, or Copilot desktop, review the personal skill directory, and type **SKILL** to approve. Enter skips installation. | Installs the bundled **power-platform-connect** instructions locally. No authentication is started. |
@@ -99,7 +99,7 @@ emulation, and prints the selected architecture before approval.
 | Node.js/npm | Official Node 24 x64 MSI | Official Node 24 native ARM64 MSI |
 | .NET 10 SDK | Official x64 SDK installer | Official native ARM64 SDK installer |
 | PAC | .NET global tool using the selected SDK host | Same package; native ARM64 shim when using the native SDK |
-| Optional Azure CLI | Official x64 MSI | Official **x64 MSI under Windows 11 emulation**, not a native ARM64 package |
+| Azure CLI | Official x64 MSI | Official **x64 MSI under Windows 11 emulation**, not a native ARM64 package |
 
 Compatible existing x64/x86 tools are preserved on ARM64 and run using
 [Windows 11's built-in emulation](https://learn.microsoft.com/en-us/windows/arm/apps-on-arm-x86-emulation).
@@ -109,8 +109,8 @@ must not be treated as ready just because both version numbers look correct.
 An emulated x64 SDK/PAC pair can remain in place; a fresh installation uses the
 native SDK and PAC shim. No emulation software or Windows feature is installed.
 
-The optional Azure CLI emulation path is explicitly shown in the plan when you
-use `-IncludeAzureCli` on ARM64. Its real-world compatibility, including a clean
+The Azure CLI emulation path is explicitly shown in the default ARM64 plan.
+Its real-world compatibility, including a clean
 ARM64 Sandbox installation, still needs acceptance testing; the script verifies
 that `az version` works after an approved installation and stops on failure.
 Native package availability does not guarantee every Power Platform plugin or
@@ -127,7 +127,7 @@ workflow supports ARM64.
    if you approve the displayed plan and the vendors' software licenses.
    Anything else cancels without downloading or installing anything.
 4. Approve Windows administrator prompts only for the expected Node.js,
-   Microsoft .NET SDK, or optional Microsoft Azure CLI installer.
+   Microsoft .NET SDK, or Microsoft Azure CLI installer.
    If setup requests a restart, save your work, restart yourself, and run it again.
 5. After prerequisites succeed, the same window offers
    [step 2: Power Platform plugins](#step-2-power-platform-plugins-in-the-same-setup-window).
@@ -160,7 +160,7 @@ Or, when your execution policy permits local scripts:
 
 Check-only reads native Windows architecture, local executable version metadata
 and PE architecture headers, npm's package manifest, SDK directories, and
-(if requested) Azure CLI's Windows uninstall registration and bundled Python
+Azure CLI's Windows uninstall registration and bundled Python
 architecture.
 It **does not execute any CLI** (including plugin commands), open app links,
 download files, write diagnostics, alter PATH,
@@ -190,13 +190,23 @@ authorization to change plugin settings, sign in, or access an environment.
 An unattended process without a usable UAC session will fail rather than bypass
 Windows security. Agents must not add `-Accept` without user approval.
 
-For workflows that need Azure CLI, opt in explicitly on **both** the check and
-install commands:
+**Azure CLI is included by default, after PAC CLI.** The full plugin set includes
+Azure-dependent workflows (Power Automate, Process Intelligence, and PCF
+verification/inventory), so no extra Azure flag is needed. It still requires
+approval as part of the displayed prerequisite plan and never runs `az login`.
+
+For an intentionally minimal setup without those workflows, use `-SkipAzureCli`
+on **both** the check and install commands:
 
 ```powershell
-.\Setup.cmd -CheckOnly -IncludeAzureCli
-.\Setup.cmd -Install -Accept -NonInteractive -IncludeAzureCli
+.\Setup.cmd -CheckOnly -SkipAzureCli
+.\Setup.cmd -Install -Accept -NonInteractive -SkipAzureCli
 ```
+
+Skipping Azure can leave Azure-dependent plugins without a required runtime
+tool even if their plugin installation succeeds. The old `-IncludeAzureCli`
+flag remains accepted for compatibility but is no longer necessary; do not
+combine it with `-SkipAzureCli`.
 
 The optional [prerequisite skill](skills/power-platform-setup/SKILL.md) contains
 these same instructions. Noninteractive runs do not silently opt into the new
@@ -212,7 +222,7 @@ No personalized skills, MCP endpoints, or account settings are bundled.
 ## What gets installed
 
 Compatible tools are left alone. Missing/unsupported tools are handled in this
-order; optional Azure CLI comes last:
+order; Azure CLI is included by default and comes after PAC:
 
 | Order | Tool | Preserved when | If setup is needed |
 |---|---|---|---|
@@ -220,7 +230,7 @@ order; optional Azure CLI comes last:
 | 2 | Node.js and npm | Node **22.18+ or 24 LTS**, bundled npm 10+, compatible executable architecture | Current **24 LTS** native x64/ARM64 MSI, machine-wide |
 | 3 | .NET **SDK** | Stable **10.0** SDK files and a compatible SDK host present | Current stable .NET 10 native x64/ARM64 SDK installer, machine-wide |
 | 4 | Power Platform CLI (PAC) | Recognized PAC executable version 1.0+ with a shim matching the selected SDK host architecture | Current stable `Microsoft.PowerApps.CLI.Tool`, global .NET tool for the current user |
-| Optional | Azure CLI | Recognized MSI installation 2.60+, launcher, and compatible bundled Python present | Official x64 Azure CLI MSI, machine-wide; uses emulation on ARM64 |
+| 5 | Azure CLI | Recognized MSI installation 2.60+, launcher, and compatible bundled Python present | Official x64 Azure CLI MSI, machine-wide; uses emulation on ARM64 |
 
 These are this bootstrap's compatibility baselines, not a guarantee that every
 Power Platform plugin supports every accepted version. Node 22.18+ and 24 cover
@@ -352,7 +362,8 @@ both plans, for example:
 Choose **one** command for the intended host; do not run all three.
 `-Accept` approves prerequisites; `-AcceptPlugins` approves only the chosen plugin
 stage. Neither authorizes sign-in. `-IncludeDataverse` applies only to plugins;
-`-IncludeAzureCli` remains a separate prerequisite option.
+Azure CLI is now a default prerequisite. `-SkipAzureCli` is a minimal-setup
+opt-out, not recommended for the full plugin set.
 
 Noninteractive runs without `-PluginHost` skip plugins. `-PluginHost Skip`
 explicitly suppresses the interactive chooser. `-CheckOnly -PluginHost
@@ -642,14 +653,14 @@ No Windows feature is enabled by these scripts. In your own Sandbox:
    shared host folder read-only; install inside the guest, not on the host.
 2. Run `.\Setup.cmd -CheckOnly`. Confirm it reports the guest's Windows
    architecture and lists missing tools in order without downloading or prompting.
-3. Double-click `Setup.cmd`, review the plan, and type `INSTALL` to approve.
-   For an Azure-dependent workflow, use `.\Setup.cmd -IncludeAzureCli` instead;
-   on ARM64 confirm the plan explicitly identifies x64 Azure emulation.
+3. Double-click `Setup.cmd`, review the plan (Azure comes after PAC), and type
+   `INSTALL` to approve. On ARM64 confirm the plan explicitly identifies x64
+   Azure emulation. Use `-SkipAzureCli` only for an intentional minimal-tool test.
 4. If a restart is required, stop and follow the reported instructions. Do not
    treat that as a passing install or assume that closing/reopening Sandbox
    preserves its state.
 5. After success, reopen the terminal and run `.\Setup.cmd -CheckOnly` again
-   (with the same Azure flag if used). Expect exit `0` and no install plan.
+   (with the same `-SkipAzureCli` flag if used). Expect exit `0` and no install plan.
    An interactive rerun should skip compatible tools without asking to install
    prerequisites; its optional plugin chooser can be skipped with Enter or
    `-PluginHost Skip`.

@@ -57,9 +57,11 @@ separately approved admin action, not silently "fixed."
 Locate the reviewed, extracted setup repository and run `.\Setup.cmd -CheckOnly`
 **from that folder** first. If unavailable, ask where it was extracted or obtain
 and review the full official source before running it; do not assume the script
-exists in the current project or download a random launcher. Use
-`-IncludeAzureCli` only when Azure was
-selected. Missing prerequisites still need their own installation approval.
+exists in the current project or download a random launcher. The full setup now
+includes Azure CLI after PAC by default. Use `-SkipAzureCli` only if the user
+chooses a minimal setup without Azure-dependent workflows. Installing Azure
+does not authorize signing into it; connect only the selected surfaces.
+Missing prerequisites still need their own installation approval.
 The same installer handles x64/ARM64; do not replace it with ad hoc installers.
 
 Read the installed Microsoft Dataverse plugin's **`dv-overview`**, then

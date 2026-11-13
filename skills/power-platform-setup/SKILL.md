@@ -12,17 +12,19 @@ does not automatically register this skill in the desktop app.
 
 1. Read the repository's `AGENTS.md`, `README.md`, and `Setup.ps1`. Obtain the full
    source if it is not already available locally. Do not run unreviewed downloads.
-2. Run `.\Setup.cmd -CheckOnly` in that folder. Add `-IncludeAzureCli` only if the
-   requested workflow needs it. This mode is offline and read-only.
+2. Run `.\Setup.cmd -CheckOnly` in that folder. Azure CLI is included by default
+   after PAC. Use `-SkipAzureCli` only for a user-approved minimal setup without
+   Azure-dependent workflows. This mode is offline and read-only.
    Use the same launcher on x64 and ARM64 Windows 11; it detects native Windows
    architecture even in an emulated terminal. Explain any existing emulated
-   tools and optional x64 Azure CLI emulation shown in the plan. Do not replace
+   tools and x64 Azure CLI emulation shown in the plan. Do not replace
    the script with ad hoc architecture-specific installation commands.
 3. Summarize the plan and ask the user to explicitly approve installing the
    missing/unsupported tools and accepting the applicable software licenses.
 4. After approval, run
-   `.\Setup.cmd -Install -Accept -NonInteractive`, with the same approved Azure
-   flag if applicable. This still permits Windows UAC to require human action.
+   `.\Setup.cmd -Install -Accept -NonInteractive`, with the same approved
+   `-SkipAzureCli` flag if applicable. This still permits Windows UAC to require
+   human action.
 5. Respect exit codes, stop on failure/restart requirement, and explain any
    terminal/Copilot restart needed. Report binaries, desktop plugins, and
    authentication separately.

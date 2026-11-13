@@ -14,6 +14,7 @@ param(
     [switch]$Accept,
     [switch]$NonInteractive,
     [switch]$IncludeAzureCli,
+    [switch]$SkipAzureCli,
     [ValidateSet('', 'Skip', 'ClaudeCode', 'CopilotCli', 'CopilotApp')][string]$PluginHost,
     [switch]$IncludeDataverse,
     [switch]$AcceptPlugins,
@@ -184,7 +185,7 @@ function Get-SetupState {
         }
         $ready = $null -ne $az -and $null -ne $version -and $version -ge [version]'2.60.0' -and
             (Test-ExecutableArchitecture $azArchitecture $Architecture)
-        New-ToolState 'azure' 'Azure CLI' $version $ready $az 'Azure CLI MSI >= 2.60 (optional; x64 emulation on ARM64)' $azArchitecture
+        New-ToolState 'azure' 'Azure CLI' $version $ready $az 'Azure CLI MSI >= 2.60 (x64 emulation on ARM64)' $azArchitecture
     }
 }
 
@@ -201,7 +202,7 @@ function Show-SetupState {
     }
     Write-Host "`nDesktop plugins: NOT VERIFIED. Configure separately in the Copilot app; see README."
     Write-Host 'Authentication / environment permissions: NOT CHECKED. Setup never signs you in.'
-    Write-Host 'Azure CLI is optional; use -IncludeAzureCli for workflows that require it.'
+    Write-Host 'Azure CLI is included after PAC by default. -SkipAzureCli is for minimal setups without Azure-dependent plugins.'
 }
 
 function Update-SetupPath {
@@ -974,7 +975,7 @@ function Invoke-ConnectionSkillSetup {
 
 function Invoke-Setup {
     param(
-        [switch]$CheckOnly, [switch]$Install, [switch]$Accept, [switch]$NonInteractive, [switch]$IncludeAzureCli,
+        [switch]$CheckOnly, [switch]$Install, [switch]$Accept, [switch]$NonInteractive, [switch]$IncludeAzureCli, [switch]$SkipAzureCli,
         [ValidateSet('', 'Skip', 'ClaudeCode', 'CopilotCli', 'CopilotApp')][string]$PluginHost,
         [switch]$IncludeDataverse, [switch]$AcceptPlugins,
         [ValidateSet('', 'Skip', 'ClaudeCode', 'CopilotCli', 'CopilotApp')][string]$CopilotStudioHost,
@@ -986,6 +987,11 @@ function Invoke-Setup {
         Write-Host 'Invalid options: use -CheckOnly alone, or -Install [-Accept] [-NonInteractive].'
         return 2
     }
+    if ($IncludeAzureCli -and $SkipAzureCli) {
+        Write-Host 'Do not combine -IncludeAzureCli and -SkipAzureCli. Azure CLI is included by default.'
+        return 2
+    }
+    $includeAzure = -not $SkipAzureCli
     if (($AcceptConnectionSkill -and (-not $ConnectionSkillHost -or $ConnectionSkillHost -eq 'Skip')) -or
         ($NonInteractive -and -not $CheckOnly -and $ConnectionSkillHost -and $ConnectionSkillHost -ne 'Skip' -and -not $AcceptConnectionSkill)) {
         Write-Host 'Choose -ConnectionSkillHost ClaudeCode, CopilotCli or CopilotApp and provide separate -AcceptConnectionSkill approval for noninteractive skill installation.'
@@ -1010,9 +1016,10 @@ function Invoke-Setup {
         Write-Host "Missing Git, Node and .NET will use native $architecture installers. PAC will match the selected .NET host."
         if ($architecture -eq 'arm64') {
             Write-Host 'Compatible existing x64/x86 tools are preserved and use Windows 11 emulation.'
-            if ($IncludeAzureCli) { Write-Host 'Optional Azure CLI uses the official x64 MSI under Windows 11 emulation, not a native ARM64 build.' }
+            if ($includeAzure) { Write-Host 'Azure CLI uses the official x64 MSI under Windows 11 emulation, not a native ARM64 build.' }
         }
-        $state = @(Get-SetupState -Azure:$IncludeAzureCli -Architecture $architecture)
+        if ($SkipAzureCli) { Write-Host 'Azure CLI skipped explicitly; Azure-dependent plugin workflows may need it installed later.' }
+        $state = @(Get-SetupState -Azure:$includeAzure -Architecture $architecture)
         Show-SetupState $state
         $pending = @($state | Where-Object { -not $_.Ready })
         if ($CheckOnly) {
@@ -1059,7 +1066,7 @@ function Invoke-Setup {
                 Write-Host 'Setup stopped before installing further prerequisites. No reboot was requested by this script.'
                 return 3010
             }
-            $state = @(Get-SetupState -Azure:$IncludeAzureCli -Architecture $architecture)
+            $state = @(Get-SetupState -Azure:$includeAzure -Architecture $architecture)
             Confirm-InstalledTool $tool.Id $state
         }
         Show-SetupState $state
@@ -1075,5 +1082,5 @@ function Invoke-Setup {
 }
 
 if ($MyInvocation.InvocationName -ne '.') {
-    exit (Invoke-Setup -CheckOnly:$CheckOnly -Install:$Install -Accept:$Accept -NonInteractive:$NonInteractive -IncludeAzureCli:$IncludeAzureCli -PluginHost $PluginHost -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -CopilotStudioHost $CopilotStudioHost -AcceptCopilotStudio:$AcceptCopilotStudio -ConnectionSkillHost $ConnectionSkillHost -AcceptConnectionSkill:$AcceptConnectionSkill)
+    exit (Invoke-Setup -CheckOnly:$CheckOnly -Install:$Install -Accept:$Accept -NonInteractive:$NonInteractive -IncludeAzureCli:$IncludeAzureCli -SkipAzureCli:$SkipAzureCli -PluginHost $PluginHost -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -CopilotStudioHost $CopilotStudioHost -AcceptCopilotStudio:$AcceptCopilotStudio -ConnectionSkillHost $ConnectionSkillHost -AcceptConnectionSkill:$AcceptConnectionSkill)
 }

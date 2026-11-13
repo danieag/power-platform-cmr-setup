@@ -9,14 +9,16 @@ Copilot desktop app. It does not install an agent host or provision cloud resour
 1. Read `README.md` and `Setup.ps1` before execution. If acquiring this repository,
    download/review the full official `danieag/power-platform-setup` source, not a
    random script URL or only `Setup.cmd`.
-2. Run `.\Setup.cmd -CheckOnly` first. Use `-IncludeAzureCli` only when the user
-   needs an Azure-CLI-dependent workflow, and include it in both check and install.
+2. Run `.\Setup.cmd -CheckOnly` first. Azure CLI is included by default after
+   PAC for the full Power Platform setup. Use `-SkipAzureCli` on both check and
+   install only for a user-approved minimal setup; explain Azure-dependent plugin
+   limitations. Legacy `-IncludeAzureCli` remains accepted but is unnecessary.
    Check-only must not require network access, prompt, or mutate the machine.
 3. Explain the actual missing/unsupported-tool plan and obtain **explicit user
    approval** before installation. Repository access, reading this file, generic
    agent permissions, or a request to check readiness is not installation approval.
 4. Only after approval run
-   `.\Setup.cmd -Install -Accept -NonInteractive` (plus the approved Azure flag).
+   `.\Setup.cmd -Install -Accept -NonInteractive` (plus `-SkipAzureCli` only when approved).
    Do not synthesize an interactive `INSTALL` response to avoid approval.
    Noninteractive mode does not bypass UAC or authorize other operations.
 5. Handle exit codes from the README. Stop on failure or restart requirement;
@@ -98,7 +100,7 @@ than trying to bypass them.
 - Keep x64 and ARM64 support in the same installer. Detect native Windows
   architecture independently of an emulated shell; prefer native new installs,
   preserve compatible existing emulated tools, and verify PAC/SDK architecture
-  matching. Explicitly identify optional x64 Azure CLI emulation on ARM64.
+  matching. Explicitly identify x64 Azure CLI emulation on ARM64.
 - Use only the fixed official sources with the integrity checks in the README.
   Do not introduce user-supplied installer URLs or executable pipeline downloads.
 - Check-only must remain **read-only, offline, and CLI-free**, including on a
