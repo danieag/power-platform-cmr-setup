@@ -8,7 +8,11 @@ description: After explicit target and sign-in approval, coordinate reusable Dat
 Use after the local prerequisite/plugin setup when the user asks to connect,
 sign in, remember an environment, switch an existing connection, or diagnose
 repeated login prompts. This is an **agent-guided skill**, not an unattended
-login script. Read this repository's `README.md` and `AGENTS.md` first.
+login script. Read the public setup repository's
+[README](https://github.com/danieag/power-platform-setup/blob/main/README.md)
+and [AGENTS.md](https://github.com/danieag/power-platform-setup/blob/main/AGENTS.md)
+first. This skill can be installed standalone in a personal skills directory;
+its source checkout is not necessarily the current working directory.
 
 The desired result is **one guided onboarding, then secure session reuse**.
 It is not one shared token or a guarantee of no future MFA. Azure CLI, PAC,
@@ -50,7 +54,11 @@ separately approved admin action, not silently "fixed."
 
 ## 2. Check tools; reuse the official Dataverse connection skill
 
-Check `.\Setup.cmd -CheckOnly` first. Use `-IncludeAzureCli` only when Azure was
+Locate the reviewed, extracted setup repository and run `.\Setup.cmd -CheckOnly`
+**from that folder** first. If unavailable, ask where it was extracted or obtain
+and review the full official source before running it; do not assume the script
+exists in the current project or download a random launcher. Use
+`-IncludeAzureCli` only when Azure was
 selected. Missing prerequisites still need their own installation approval.
 The same installer handles x64/ARM64; do not replace it with ad hoc installers.
 
@@ -282,7 +290,7 @@ under sign-in/registration approval.
 ## 6. Optional Copilot Studio MCP
 
 Reuse the server already registered by Setup.cmd. For missing registration,
-use the repository's [integration skill](../power-platform-integrations/SKILL.md)
+use the repository's [integration skill](https://github.com/danieag/power-platform-setup/blob/main/skills/power-platform-integrations/SKILL.md)
 and separately approved `-CopilotStudioHost <host> -AcceptCopilotStudio` stage.
 Never duplicate a working registration or run standalone `npx` as a login test.
 

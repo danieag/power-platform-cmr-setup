@@ -43,6 +43,12 @@ Copilot desktop app. It does not install an agent host or provision cloud resour
    another host as a shortcut. Use `skills/power-platform-integrations/SKILL.md`
    for custom plugin selections or agent-guided Copilot Studio MCP setup.
    Preserve existing MCP configuration and verify desktop visibility separately.
+9. The final optional stage installs only the bundled connection skill file.
+   Use `-ConnectionSkillHost <host> -AcceptConnectionSkill` only after approval
+   for that host's personal skill directory. It never runs authentication.
+   Preserve existing skills; do not overwrite different content or follow linked
+   destinations. If skipped, relay the printed next-chat prompt/public skill URL.
+   File installation is not proof of host discovery or sign-in.
 
 Do not install Copilot CLI/another host, blindly invoke the marketplace's broad
 `scripts/install.js`, claim unverified desktop registration, persistently relax

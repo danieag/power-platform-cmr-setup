@@ -16,14 +16,15 @@ bootstrap, not a Microsoft product or an official installer.
 
 ## Short version
 
-**Run Setup.cmd: prerequisites, plugins, and optional Copilot Studio MCP in the same window.**
+**Run Setup.cmd: prerequisites, plugins, optional Copilot Studio MCP, then the connection skill.**
 
 | Step | What you do | What it sets up |
 |---|---|---|
 | 1. Prerequisites | Download/extract this repository, review the script, then double-click **Setup.cmd**. Approve the displayed plan by typing **INSTALL**. | Git, Node.js/npm, .NET 10 SDK, and PAC CLI, in order. Azure CLI is optional. |
 | 2. Power Platform plugins | Once prerequisites are ready, choose **Claude Code**, **Copilot CLI**, or **Copilot desktop app links**. Opt into Dataverse if needed, review the plugin plan, and type **PLUGINS** to approve. Enter skips this stage. | Installs the reviewed Power Platform plugin set through the chosen existing CLI, or prints official Copilot desktop links for you to open and confirm. |
 | 3. Copilot Studio MCP | Choose the host for MCP registration (or Enter to skip). Close that host, review the plan, and type **MCP** to approve. | Saves `npx -y @microsoft/copilot-studio-mcp@latest` as the host's server launch command. No server or sign-in is started by setup. |
-| 4. Connect and reuse sign-in | Restart your host, then ask it to follow **power-platform-connect** using the prompt below. Confirm your account, tenant, environment, and separate onboarding plan. | Reuses matching Dataverse/PAC/Azure profiles and supported MCP sessions; guides only missing sign-ins. No shared-token copying or automatic tenant writes. |
+| 4. Install the connection skill | At the final prompt choose Claude Code, Copilot CLI, or Copilot desktop, review the personal skill directory, and type **SKILL** to approve. Enter skips installation. | Installs the bundled **power-platform-connect** instructions locally. No authentication is started. |
+| 5. Connect and reuse sign-in | Restart your host, then use **power-platform-connect** with the prompt below (also printed at setup's end). Confirm your account, tenant, environment, and separate onboarding plan. | Reuses matching Dataverse/PAC/Azure profiles and supported MCP sessions; guides only missing sign-ins. No shared-token copying or automatic tenant writes. |
 
 **Setup.cmd already launches PowerShell.** You do not need to open a terminal
 or paste the official JavaScript one-liner separately. CLI installation is
@@ -54,9 +55,10 @@ if you also want its separate sign-in configured. You do not need to type
 authentication commands yourself when the agent has the necessary approved
 tools; you still complete Microsoft sign-in/MFA and any host trust prompts.
 
-The agent can read the skill from the repository; you do not have to install
-the skill separately just to ask it to follow those instructions. A link does
-not permanently register a skill in the app.
+If you skip skill installation or the host does not discover it, the agent can
+read the linked skill directly. A link does not permanently register a skill
+in the app. Setup always prints this next-chat handoff after completed/skipped
+optional stages; it never invokes the connection skill or signs you in itself.
 
 **Setup.cmd offers plugin and Copilot Studio MCP setup directly but does not automatically run the
 integration skill.** The skill is an alternative for agent-guided selections
@@ -463,10 +465,57 @@ verify that the actual capabilities appear. This repository's tests do **not**
 install plugins, alter real user MCP configuration, launch an MCP server, or
 prove a live desktop integration.
 
-## Step 4: connect and remember sign-in (optional skill)
+## Step 4: install the optional connection skill
+
+After the plugin and MCP stages complete or are skipped, setup offers to copy
+the bundled `power-platform-connect` skill into the **chosen host's personal
+skills directory**:
+
+| Host | Destination |
+|---|---|
+| Claude Code | `%USERPROFILE%\.claude\skills\power-platform-connect\SKILL.md` |
+| Copilot CLI or desktop app | `%USERPROFILE%\.copilot\skills\power-platform-connect\SKILL.md` |
+
+These are documented [Copilot personal skill locations](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-skills)
+and [Claude Code skill locations](https://code.claude.com/docs/en/skills).
+No CLI executable is needed just to copy the skill. The host must already be
+installed and must permit/discover personal skills; file presence alone does not
+prove that an enterprise policy allows it.
+
+The script asks for separate **SKILL** approval. It copies only the reviewed
+instruction file from this download, verifies the content, and does not enable
+auto-approval or start any tool, MCP server, or sign-in. An identical existing
+file is reused. A different existing definition, occupied directory, or linked
+destination causes an explicit error rather than overwriting the user's skill.
+Custom `COPILOT_HOME` / `CLAUDE_CONFIG_DIR` locations need manual review instead
+of a guessed destination. Updates of a different previously installed copy need
+intentional review; rerunning is not permission to replace it.
+
+After approval, agents/noninteractive callers can append:
+
+```powershell
+.\Setup.cmd -Install -Accept -NonInteractive -ConnectionSkillHost CopilotApp -AcceptConnectionSkill
+```
+
+Choose `ClaudeCode` or `CopilotCli` instead if appropriate. This approval is
+independent of `-Accept`, `-AcceptPlugins`, and `-AcceptCopilotStudio`.
+Without a host flag, noninteractive runs skip skill installation and still print
+the next-step prompt. `-ConnectionSkillHost Skip` skips the interactive chooser.
+`-CheckOnly` never installs a skill or inspects the user's skill directories.
+Earlier failures/cancellations/restart requirements stop later stages. Pending
+desktop plugin links still return exit `4` even if skill installation succeeds.
+
+Whether you install or skip the skill, successful setup prints a ready-to-copy
+chat request for connection onboarding, with the public skill URL as a fallback.
+Restart the chosen host or open a fresh chat, check that it discovers the skill,
+then make that request yourself. Installing the instructions does **not** run them.
+
+## Step 5: connect and remember sign-in (optional skill)
 
 Use [power-platform-connect](skills/power-platform-connect/SKILL.md) **after**
-prerequisites and the requested plugins/MCP definitions are installed. This
+prerequisites and the requested plugins/MCP definitions are installed. The final
+setup stage can install the skill for you, or you can ask the agent to read the
+linked source. This
 agent-guided stage is deliberately not run by `Setup.cmd`: installation flags
 do not grant permission to sign in, select an environment, switch an active
 profile, or call a tenant.
@@ -530,10 +579,10 @@ Use **`npm.cmd`** in PowerShell to avoid the unrelated `npm.ps1` policy issue.
 
 | Code | Meaning / next action |
 |---|---|
-| `0` | Selected prerequisites ready; optional plugin/MCP stages skipped or their registrations verified. Actual runtime/auth readiness is still separate. |
+| `0` | Selected prerequisites ready; optional plugin/MCP/skill stages skipped or their registrations/files verified. Actual host discovery, runtime/auth readiness is still separate. |
 | `1` | Check-only found missing or unsupported prerequisites. This is an expected readiness result. |
 | `2` | Cancelled, invalid options, or missing explicit opt-in. A cancelled plugin stage retains any prerequisites already installed. |
-| `3` | Unsupported host/CLI output, detection, download, trust, installer, or prerequisite/plugin/MCP configuration verification failure. Stop and fix the reported cause. |
+| `3` | Unsupported host/CLI output, detection, download, trust, installer, or prerequisite/plugin/MCP/skill verification failure. Stop and fix the reported cause. |
 | `4` | Copilot desktop plugin links printed. App confirmations and plugin verification are still required. Prerequisites are ready. |
 | `3010` | Installer requested/reported a restart. Chain stopped; restart Windows yourself, then rerun. |
 
@@ -553,6 +602,7 @@ starts may return PowerShell's own nonzero code instead.
 | Selected `claude`/`copilot` command is missing | Use the host already installed. For Copilot desktop only choose `CopilotApp`; do not install another host as a workaround. |
 | Plugin JSON output/source/disabled-state error | Review the selected CLI's supported version, marketplace source, scope, and policy privately. Setup does not fall back to guessed text parsing, force-enable plugins, or expose full configuration. |
 | MCP configuration conflict, encoding, or concurrent-edit error | Stop, close the host, and inspect/reconcile the local configuration privately. Keep any reported backup; do not share it. No sign-in or cloud operation is needed to repair local registration. |
+| Existing connection skill differs or the destination is linked | Review/update it intentionally in the host's supported skill location. Setup will not overwrite a custom or older definition. You can use the printed public-skill prompt without installing another copy. |
 
 It is safe to rerun: completed compatible tools are skipped; a failure stops
 the chain and does not roll back earlier successful vendor installations.

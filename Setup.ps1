@@ -18,7 +18,9 @@ param(
     [switch]$IncludeDataverse,
     [switch]$AcceptPlugins,
     [ValidateSet('', 'Skip', 'ClaudeCode', 'CopilotCli', 'CopilotApp')][string]$CopilotStudioHost,
-    [switch]$AcceptCopilotStudio
+    [switch]$AcceptCopilotStudio,
+    [ValidateSet('', 'Skip', 'ClaudeCode', 'CopilotCli', 'CopilotApp')][string]$ConnectionSkillHost,
+    [switch]$AcceptConnectionSkill
 )
 
 Set-StrictMode -Version Latest
@@ -840,13 +842,134 @@ function Invoke-CopilotStudioSetup {
 function Invoke-SetupIntegrations {
     param(
         [string]$PluginHost, [switch]$IncludeDataverse, [switch]$AcceptPlugins, [switch]$NonInteractive,
-        [string]$CopilotStudioHost, [switch]$AcceptCopilotStudio
+        [string]$CopilotStudioHost, [switch]$AcceptCopilotStudio,
+        [string]$ConnectionSkillHost, [switch]$AcceptConnectionSkill
     )
     $plugins = Invoke-PluginSetup -PluginHost $PluginHost -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -NonInteractive:$NonInteractive
     if ($plugins -notin @(0, 4)) { return $plugins }
     $mcp = Invoke-CopilotStudioSetup -CopilotStudioHost $CopilotStudioHost -AcceptCopilotStudio:$AcceptCopilotStudio -NonInteractive:$NonInteractive
     if ($mcp -ne 0) { return $mcp }
+    $skill = Invoke-ConnectionSkillSetup -ConnectionSkillHost $ConnectionSkillHost -AcceptConnectionSkill:$AcceptConnectionSkill -NonInteractive:$NonInteractive
+    if ($skill -ne 0) { return $skill }
     return $plugins
+}
+
+function Get-ConnectionSkillDirectory {
+    param([string]$HostName)
+    if ($HostName -eq 'ClaudeCode') {
+        if ($env:CLAUDE_CONFIG_DIR) { throw 'Custom CLAUDE_CONFIG_DIR is set. Install the connection skill through that host explicitly; setup will not guess its personal skill directory.' }
+        return Join-Path $env:USERPROFILE '.claude\skills\power-platform-connect'
+    }
+    if ($env:COPILOT_HOME) { throw 'Custom COPILOT_HOME is set. Install the connection skill through that host explicitly; setup will not guess its personal skill directory.' }
+    return Join-Path $env:USERPROFILE '.copilot\skills\power-platform-connect'
+}
+
+function Assert-SkillDirectoryChain {
+    param([string]$Path)
+    $directory = [IO.DirectoryInfo]::new([IO.Path]::GetFullPath($Path))
+    while ($null -ne $directory) {
+        if (Test-Path -LiteralPath $directory.FullName) {
+            $item = Get-Item -LiteralPath $directory.FullName -Force
+            if (-not $item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+                throw 'The skill destination includes a file or linked directory. Review the location manually; nothing will be overwritten.'
+            }
+        }
+        $directory = $directory.Parent
+    }
+}
+
+function Install-ConnectionSkill {
+    param([string]$Source, [string]$Destination)
+    if (-not (Test-Path -LiteralPath $Source -PathType Leaf)) {
+        throw 'Bundled connection skill is missing. Download/extract the full setup ZIP; do not run just the launcher/script.'
+    }
+    $text = Get-Content -LiteralPath $Source -Raw
+    if ($text -notmatch '(?s)^---\s*\r?\nname: power-platform-connect\r?\ndescription: [^\r\n]+\r?\n---' -or
+        $text -match '(?m)^allowed-tools:') {
+        throw 'The bundled connection skill has an unexpected definition. Review the full source before installing it.'
+    }
+    Assert-SkillDirectoryChain $Destination
+    $expectedHash = (Get-FileHash -LiteralPath $Source -Algorithm SHA256).Hash
+    $target = Join-Path $Destination 'SKILL.md'
+    if (Test-Path -LiteralPath $Destination) {
+        if ((Test-Path -LiteralPath $target -PathType Leaf) -and
+            -not ((Get-Item -LiteralPath $target -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) -and
+            (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash -eq $expectedHash) {
+            Write-Host 'Matching connection skill already exists; left unchanged.'
+            return
+        }
+        throw 'The connection skill directory already contains a different definition or other content. Review/update it manually; setup will not overwrite it.'
+    }
+    $parent = Split-Path -Parent $Destination
+    New-Item -ItemType Directory -Path $parent -Force | Out-Null
+    $staging = Join-Path $parent ('.setup-skill-' + [guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Path $staging | Out-Null
+    try {
+        $stagedFile = Join-Path $staging 'SKILL.md'
+        Copy-Item -LiteralPath $Source -Destination $stagedFile
+        if ((Get-FileHash -LiteralPath $stagedFile -Algorithm SHA256).Hash -ne $expectedHash) {
+            throw 'The bundled skill changed during copy. No skill was installed; retry after reviewing the source.'
+        }
+        # A concurrent installation must not be overwritten.
+        [IO.Directory]::Move($staging, $Destination)
+        if ((Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash -ne $expectedHash) {
+            throw 'The installed skill no longer matches the reviewed bundle. Stop and inspect the destination.'
+        }
+        Write-Host "Connection skill saved to $target"
+    } finally {
+        if (Test-Path -LiteralPath $staging) { Remove-Item -LiteralPath $staging -Recurse -Force }
+    }
+}
+
+function Show-ConnectionNextStep {
+    Write-Host "`nNEXT STEP: restart your chosen host or open a fresh chat, then ask:"
+    Write-Host '"Use the power-platform-connect skill to connect my selected Dataverse/PAC/Azure CLIs and MCP.'
+    Write-Host 'Check existing profiles first, confirm my account/tenant/environment, and ask before sign-in or configuration changes."'
+    Write-Host 'If the skill is not installed/visible, ask the agent to read:'
+    Write-Host 'https://github.com/danieag/power-platform-setup/blob/main/skills/power-platform-connect/SKILL.md'
+    Write-Host 'Remove unneeded surfaces from the request. Skill installation does not sign you in or grant tenant access.'
+}
+
+function Invoke-ConnectionSkillSetup {
+    [CmdletBinding()]
+    param(
+        [ValidateSet('', 'Skip', 'ClaudeCode', 'CopilotCli', 'CopilotApp')][string]$ConnectionSkillHost,
+        [switch]$AcceptConnectionSkill, [switch]$NonInteractive
+    )
+    if (-not $ConnectionSkillHost -and -not $NonInteractive) {
+        Write-Host "`nOptional final step: install the bundled power-platform-connect skill for your user."
+        Write-Host '1 = Claude Code; 2 = Copilot CLI; 3 = Copilot desktop; Enter = skip and show next-step instructions.'
+        switch (Read-Host 'Choose the skill host (no authentication will run)') {
+            '' { $ConnectionSkillHost = 'Skip' }
+            '1' { $ConnectionSkillHost = 'ClaudeCode' }
+            '2' { $ConnectionSkillHost = 'CopilotCli' }
+            '3' { $ConnectionSkillHost = 'CopilotApp' }
+            default { Write-Host 'Unrecognized host. Connection skill stage cancelled.'; return 2 }
+        }
+    }
+    if (-not $ConnectionSkillHost -or $ConnectionSkillHost -eq 'Skip') {
+        Write-Host 'Connection skill installation skipped.'
+        Show-ConnectionNextStep
+        return 0
+    }
+    if ($NonInteractive -and -not $AcceptConnectionSkill) {
+        Write-Host 'Separate -AcceptConnectionSkill approval is required.'
+        return 2
+    }
+    $destination = Get-ConnectionSkillDirectory $ConnectionSkillHost
+    Write-Host "`nConnection skill plan for ${ConnectionSkillHost}: $destination"
+    Write-Host 'Copy the bundled instructions into the documented personal skills directory; no CLI, server or sign-in is started.'
+    Write-Host 'This makes the instructions available across projects. Existing definitions are never overwritten.'
+    Write-Host 'Host discovery/policy must still be checked after restart; no auto-approval permissions will be enabled.'
+    if (-not $AcceptConnectionSkill -and (Read-Host 'Type SKILL to approve installation (anything else cancels)') -cne 'SKILL') {
+        Write-Host 'Connection skill installation cancelled. Earlier setup is retained.'
+        Show-ConnectionNextStep
+        return 2
+    }
+    Install-ConnectionSkill -Source (Join-Path $PSScriptRoot 'skills\power-platform-connect\SKILL.md') -Destination $destination
+    Write-Host 'Skill file installation verified. Host discovery and authentication are NOT verified.'
+    Show-ConnectionNextStep
+    return 0
 }
 
 function Invoke-Setup {
@@ -855,10 +978,17 @@ function Invoke-Setup {
         [ValidateSet('', 'Skip', 'ClaudeCode', 'CopilotCli', 'CopilotApp')][string]$PluginHost,
         [switch]$IncludeDataverse, [switch]$AcceptPlugins,
         [ValidateSet('', 'Skip', 'ClaudeCode', 'CopilotCli', 'CopilotApp')][string]$CopilotStudioHost,
-        [switch]$AcceptCopilotStudio
+        [switch]$AcceptCopilotStudio,
+        [ValidateSet('', 'Skip', 'ClaudeCode', 'CopilotCli', 'CopilotApp')][string]$ConnectionSkillHost,
+        [switch]$AcceptConnectionSkill
     )
-    if (($CheckOnly -and ($Install -or $Accept -or $AcceptPlugins -or $AcceptCopilotStudio)) -or ($Accept -and -not $Install)) {
+    if (($CheckOnly -and ($Install -or $Accept -or $AcceptPlugins -or $AcceptCopilotStudio -or $AcceptConnectionSkill)) -or ($Accept -and -not $Install)) {
         Write-Host 'Invalid options: use -CheckOnly alone, or -Install [-Accept] [-NonInteractive].'
+        return 2
+    }
+    if (($AcceptConnectionSkill -and (-not $ConnectionSkillHost -or $ConnectionSkillHost -eq 'Skip')) -or
+        ($NonInteractive -and -not $CheckOnly -and $ConnectionSkillHost -and $ConnectionSkillHost -ne 'Skip' -and -not $AcceptConnectionSkill)) {
+        Write-Host 'Choose -ConnectionSkillHost ClaudeCode, CopilotCli or CopilotApp and provide separate -AcceptConnectionSkill approval for noninteractive skill installation.'
         return 2
     }
     if (($AcceptCopilotStudio -and (-not $CopilotStudioHost -or $CopilotStudioHost -eq 'Skip')) -or
@@ -886,6 +1016,9 @@ function Invoke-Setup {
         Show-SetupState $state
         $pending = @($state | Where-Object { -not $_.Ready })
         if ($CheckOnly) {
+            if ($ConnectionSkillHost -and $ConnectionSkillHost -ne 'Skip') {
+                Write-Host "Requested later connection skill installation: $ConnectionSkillHost (no user skill directory inspected or changed)."
+            }
             if ($CopilotStudioHost -and $CopilotStudioHost -ne 'Skip') {
                 Write-Host "Requested later Copilot Studio MCP stage: $CopilotStudioHost (configuration/runtime not inspected in offline check-only mode)."
             }
@@ -901,7 +1034,7 @@ function Invoke-Setup {
         }
         if ($pending.Count -eq 0) {
             Write-Host "`nAll selected prerequisites are ready. Plugins and authentication still need separate verification."
-            return (Invoke-SetupIntegrations -PluginHost $PluginHost -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -NonInteractive:$NonInteractive -CopilotStudioHost $CopilotStudioHost -AcceptCopilotStudio:$AcceptCopilotStudio)
+            return (Invoke-SetupIntegrations -PluginHost $PluginHost -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -NonInteractive:$NonInteractive -CopilotStudioHost $CopilotStudioHost -AcceptCopilotStudio:$AcceptCopilotStudio -ConnectionSkillHost $ConnectionSkillHost -AcceptConnectionSkill:$AcceptConnectionSkill)
         }
         Write-Host "`nPlanned order: $($pending.Name -join ' -> ')"
         if ($NonInteractive -and -not ($Install -and $Accept)) {
@@ -933,7 +1066,7 @@ function Invoke-Setup {
         Write-Host "`nPrerequisites ready. Keep this window open for the optional plugin stage."
         Write-Host 'After setup finishes, restart terminals and your chosen host so they inherit the new PATH.'
         Write-Host 'No tenant has been accessed. Optional MCP registration needs its own approval; intentional sign-in remains separate.'
-        return (Invoke-SetupIntegrations -PluginHost $PluginHost -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -NonInteractive:$NonInteractive -CopilotStudioHost $CopilotStudioHost -AcceptCopilotStudio:$AcceptCopilotStudio)
+        return (Invoke-SetupIntegrations -PluginHost $PluginHost -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -NonInteractive:$NonInteractive -CopilotStudioHost $CopilotStudioHost -AcceptCopilotStudio:$AcceptCopilotStudio -ConnectionSkillHost $ConnectionSkillHost -AcceptConnectionSkill:$AcceptConnectionSkill)
     } catch {
         Write-Host "`nSetup failed: $($_.Exception.Message)" -ForegroundColor Red
         Write-Host 'No later setup steps were run. Resolve the cause and rerun -CheckOnly; completed prerequisite/plugin installations are preserved.'
@@ -942,5 +1075,5 @@ function Invoke-Setup {
 }
 
 if ($MyInvocation.InvocationName -ne '.') {
-    exit (Invoke-Setup -CheckOnly:$CheckOnly -Install:$Install -Accept:$Accept -NonInteractive:$NonInteractive -IncludeAzureCli:$IncludeAzureCli -PluginHost $PluginHost -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -CopilotStudioHost $CopilotStudioHost -AcceptCopilotStudio:$AcceptCopilotStudio)
+    exit (Invoke-Setup -CheckOnly:$CheckOnly -Install:$Install -Accept:$Accept -NonInteractive:$NonInteractive -IncludeAzureCli:$IncludeAzureCli -PluginHost $PluginHost -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -CopilotStudioHost $CopilotStudioHost -AcceptCopilotStudio:$AcceptCopilotStudio -ConnectionSkillHost $ConnectionSkillHost -AcceptConnectionSkill:$AcceptConnectionSkill)
 }

@@ -956,6 +956,129 @@ Test-Case 'Claude MCP registration uses user-scope CLI arguments and verifies th
     } finally { Remove-Item -LiteralPath $directory -Recurse -Force }
 }
 
+Test-Case 'connection skill opt-in is independent and rejected before prerequisite changes' {
+    function Get-SetupArchitecture { throw 'SHOULD VALIDATE FIRST' }
+    Assert-Equal (Invoke-Setup -NonInteractive -ConnectionSkillHost CopilotApp) 2
+    Assert-Equal (Invoke-Setup -AcceptConnectionSkill) 2
+    Assert-Equal (Invoke-Setup -ConnectionSkillHost Skip -AcceptConnectionSkill) 2
+    Assert-Equal (Invoke-Setup -CheckOnly -ConnectionSkillHost CopilotCli -AcceptConnectionSkill) 2
+}
+
+Test-Case 'check-only never reads or writes user skill directories and the skip path prints next steps' {
+    function Get-SetupArchitecture { 'arm64' }
+    function Get-SetupState { New-TestState -Ready @('git','node','dotnet','pac') }
+    function Get-ConnectionSkillDirectory { throw 'USER SKILL DIRECTORY ACCESS FORBIDDEN' }
+    function Install-ConnectionSkill { throw 'SKILL WRITE FORBIDDEN' }
+    function Read-Host { throw 'PROMPT FORBIDDEN' }
+    function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
+    Assert-Equal (Invoke-Setup -CheckOnly -ConnectionSkillHost CopilotApp) 0
+    $information = @()
+    Assert-Equal (Invoke-ConnectionSkillSetup -NonInteractive -InformationVariable information) 0
+    Assert-Equal (($information -join "`n").Contains('NEXT STEP:')) $true
+    Assert-Equal (($information -join "`n").Contains('https://github.com/danieag/power-platform-setup/blob/main/skills/power-platform-connect/SKILL.md')) $true
+    Assert-Equal (Invoke-ConnectionSkillSetup -ConnectionSkillHost Skip) 0
+}
+
+Test-Case 'skill installation follows integrations and keeps the desktop pending result' {
+    $script:stageCalls = @()
+    function Invoke-PluginSetup { $script:stageCalls += 'plugins'; 4 }
+    function Invoke-CopilotStudioSetup { $script:stageCalls += 'mcp'; 0 }
+    function Invoke-ConnectionSkillSetup { $script:stageCalls += 'skill'; 0 }
+    Assert-Equal (Invoke-SetupIntegrations -NonInteractive) 4
+    Assert-Equal ($script:stageCalls -join ',') 'plugins,mcp,skill'
+    $script:stageCalls = @()
+    function Invoke-CopilotStudioSetup { $script:stageCalls += 'mcp'; 2 }
+    Assert-Equal (Invoke-SetupIntegrations -NonInteractive) 2
+    Assert-Equal ($script:stageCalls -join ',') 'plugins,mcp'
+}
+
+Test-Case 'skill file installation is verified, idempotent and uses isolated destination only' {
+    $directory = Join-Path ([IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString('N'))
+    $source = Join-Path $root 'skills\power-platform-connect\SKILL.md'
+    $destination = Join-Path $directory 'skills\power-platform-connect'
+    try {
+        function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
+        function Start-Process { throw 'SERVER OR AUTH LAUNCH FORBIDDEN' }
+        Install-ConnectionSkill $source $destination
+        $target = Join-Path $destination 'SKILL.md'
+        Assert-Equal (Get-FileHash $target -Algorithm SHA256).Hash (Get-FileHash $source -Algorithm SHA256).Hash
+        $timestamp = (Get-Item $target).LastWriteTimeUtc
+        Install-ConnectionSkill $source $destination
+        Assert-Equal (Get-Item $target).LastWriteTimeUtc $timestamp
+        Assert-Equal (@(Get-ChildItem (Split-Path -Parent $destination) -Directory -Filter '.setup-skill-*').Count) 0
+    } finally { if (Test-Path -LiteralPath $directory) { Remove-Item -LiteralPath $directory -Recurse -Force } }
+}
+
+Test-Case 'different skill content and occupied directories are not overwritten' {
+    $directory = Join-Path ([IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Path $directory | Out-Null
+    $source = Join-Path $root 'skills\power-platform-connect\SKILL.md'
+    $destination = Join-Path $directory 'power-platform-connect'
+    New-Item -ItemType Directory -Path $destination | Out-Null
+    $target = Join-Path $destination 'SKILL.md'
+    try {
+        Assert-Throws { Install-ConnectionSkill $source $destination } 'will not overwrite'
+        [IO.File]::WriteAllText($target, 'custom skill')
+        Assert-Throws { Install-ConnectionSkill $source $destination } 'will not overwrite'
+        Assert-Equal ([IO.File]::ReadAllText($target)) 'custom skill'
+        Assert-Throws { Install-ConnectionSkill (Join-Path $directory 'missing.md') (Join-Path $directory 'new-skill') } 'Bundled connection skill is missing'
+    } finally { Remove-Item -LiteralPath $directory -Recurse -Force }
+}
+
+Test-Case 'a linked skill destination is rejected without following its target' {
+    $directory = Join-Path ([IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString('N'))
+    $real = Join-Path $directory 'real'
+    $linked = Join-Path $directory 'linked'
+    New-Item -ItemType Directory -Path $real -Force | Out-Null
+    New-Item -ItemType Junction -Path $linked -Target $real | Out-Null
+    try {
+        Assert-Throws { Install-ConnectionSkill (Join-Path $root 'skills\power-platform-connect\SKILL.md') (Join-Path $linked 'power-platform-connect') } 'linked directory'
+        Assert-Equal (@(Get-ChildItem -LiteralPath $real -Force).Count) 0
+    } finally {
+        [IO.Directory]::Delete($linked)
+        Remove-Item -LiteralPath $directory -Recurse -Force
+    }
+}
+
+Test-Case 'skill staging never overwrites a concurrent install and cleans only its own staging directory' {
+    $directory = Join-Path ([IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString('N'))
+    $script:skillFixtureDestination = Join-Path $directory 'power-platform-connect'
+    try {
+        function Copy-Item {
+            param($LiteralPath, $Destination)
+            [IO.File]::Copy($LiteralPath, $Destination)
+            New-Item -ItemType Directory -Path $script:skillFixtureDestination | Out-Null
+            [IO.File]::WriteAllText((Join-Path $script:skillFixtureDestination 'SKILL.md'), 'concurrent skill')
+        }
+        Assert-Throws { Install-ConnectionSkill (Join-Path $root 'skills\power-platform-connect\SKILL.md') $script:skillFixtureDestination } 'Move'
+        Assert-Equal ([IO.File]::ReadAllText((Join-Path $script:skillFixtureDestination 'SKILL.md'))) 'concurrent skill'
+        Assert-Equal (@(Get-ChildItem -LiteralPath $directory -Directory -Filter '.setup-skill-*').Count) 0
+    } finally { if (Test-Path -LiteralPath $directory) { Remove-Item -LiteralPath $directory -Recurse -Force } }
+}
+
+Test-Case 'interactive skill setup requires SKILL approval and uses the selected host only' {
+    $script:skillAnswers = [System.Collections.Generic.Queue[string]]::new()
+    foreach ($answer in @('3', 'SKILL')) { $script:skillAnswers.Enqueue($answer) }
+    $script:skillInstallCalls = 0
+    function Read-Host { $script:skillAnswers.Dequeue() }
+    function Get-ConnectionSkillDirectory {
+        param($HostName)
+        Assert-Equal $HostName 'CopilotApp'
+        'C:\fixture\power-platform-connect'
+    }
+    function Install-ConnectionSkill {
+        param($Source, $Destination)
+        Assert-Equal (Test-Path -LiteralPath $Source -PathType Leaf) $true
+        Assert-Equal $Destination 'C:\fixture\power-platform-connect'
+        $script:skillInstallCalls++
+    }
+    Assert-Equal (Invoke-ConnectionSkillSetup) 0
+    Assert-Equal $script:skillInstallCalls 1
+    function Read-Host { 'MCP' }
+    Assert-Equal (Invoke-ConnectionSkillSetup -ConnectionSkillHost CopilotApp) 2
+    Assert-Equal $script:skillInstallCalls 1
+}
+
 Test-Case 'launcher forwards arguments to the same script and preserves exit code' {
     $launcher = Get-Content -LiteralPath (Join-Path $root 'Setup.cmd') -Raw
     Assert-Equal ($launcher.Contains('-File "%~dp0Setup.ps1" %*')) $true

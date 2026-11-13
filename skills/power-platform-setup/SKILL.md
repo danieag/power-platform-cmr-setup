@@ -45,6 +45,11 @@ does not automatically register this skill in the desktop app.
    use `skills/power-platform-connect/SKILL.md` as a separate approval-gated
    workflow. Installation approval never authorizes authenticating, selecting a
    tenant, or inspecting that tenant's data.
+   To make that skill available locally first, obtain approval for
+   `-ConnectionSkillHost <host> -AcceptConnectionSkill` in the final setup stage.
+   This copies instructions only; relay the final chat prompt and do not start
+   onboarding under skill-installation approval. If installation is skipped or
+   host discovery is pending, the user can ask the agent to read the public link.
 
 Never install Copilot CLI/another agent host, enable auto-approval, change
 persistent execution policy, blindly run the broad marketplace installer, sign
