@@ -112,6 +112,46 @@ The agent can guide the commands; you still complete sign-in/MFA yourself.
 Separate tools can require separate initial sign-ins. One universal login is
 not guaranteed.
 
+<details>
+<summary>What will the connection skill ask me? Wasn't Dataverse already installed?</summary>
+
+| Question | What it means |
+|---|---|
+| Environment URL | The web address of your Power Apps / Dataverse environment, for example `https://yourorg.crm4.dynamics.com`. It is not the general maker-portal address. |
+| Tenant ID / Directory ID | The ID of your Microsoft organization. Find it in **Microsoft Entra admin center > Entra ID > Overview > Properties > Tenant ID**, after selecting the directory that owns your environment. It is **not** an Azure Subscription ID, PPAC Environment ID, or Dataverse Organization ID. |
+| Work sign-in email (UPN) | The username you use to sign in, usually your work or school email address. It can differ from your email mailbox address. |
+| Connection nickname (alias) | A friendly local name you choose, such as **`my-demo-environment`**. It helps the agent remember this connection; it does not rename your actual environment. |
+| Tools to connect | Which tools you want to sign into or connect to chat. The agent should explain the choices, not assume you need every tool. |
+
+**An Azure Subscription ID is not normally needed for this connection setup.**
+It identifies an Azure resource/billing subscription, not your Microsoft
+organization. The agent should not ask for it unless your separate Azure task
+actually needs one. [How to find your Tenant ID](https://learn.microsoft.com/en-us/entra/fundamentals/how-to-find-tenant).
+
+If PPAC's environment details show **Organization ID** and **Environment ID**,
+neither is the Tenant ID. In **Microsoft Entra admin center**, select the
+organization that owns the environment, then open **Entra ID > Overview >
+Properties > Tenant ID**. Ask the tenant's administrator if you cannot access it.
+
+**PAC CLI, the Dataverse plugin, and Dataverse CLI are different things.**
+Setup installs **PAC CLI** (`pac`). The optional **Dataverse plugin** gives your
+agent instructions and tools. The separate **Dataverse CLI** (`dataverse`) is
+the npm package `@microsoft/dataverse`; it is not included in the base
+prerequisite install.
+
+The connection skill should **check whether that CLI is already installed
+before asking to install it**. If it is missing and you want its commands/MCP
+proxy, the agent explains the extra download and asks for approval then.
+"Globally via npm" means making the command available outside one project,
+using Node.js's package manager; it does not grant cloud access or sign you in.
+
+Already installed an older copy of the connection skill? Setup deliberately
+does not overwrite different skill content. Ask your agent to read the
+[updated public skill](skills/power-platform-connect/SKILL.md), or review and
+intentionally update your personal copy.
+
+</details>
+
 ## Walkthrough with screenshots
 
 These are cropped screenshots from a user-reported **ARM64 Windows Sandbox**

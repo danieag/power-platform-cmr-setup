@@ -488,6 +488,54 @@ agent-guided stage is deliberately not run by `Setup.cmd`: installation flags
 do not grant permission to sign in, select an environment, switch an active
 profile, or call a tenant.
 
+### User-facing connection questions
+
+The connection skill must ask one explained question at a time, not collect a
+technical six-field form followed by speculative installation consent:
+
+- **Tenant ID / Directory ID:** identifies the Microsoft organization that owns
+  the environment. It differs from both an Azure Subscription ID and a Power
+  Platform Environment ID. Offer help finding it via
+  [Microsoft's documented portal location](https://learn.microsoft.com/en-us/entra/fundamentals/how-to-find-tenant)
+  or, with permission, matching local profile metadata; confirm the candidate.
+  PPAC environment details may show **Organization ID** and **Environment ID**;
+  neither is the Tenant ID. Select the owning directory in Entra admin center
+  and open **Entra ID > Overview > Properties > Tenant ID**, or ask its admin.
+  Include this navigation in the question's own visible help text, not only in
+  a separate documentation link or after the user asks where to find it.
+- **Subscription ID:** identifies an Azure resource/billing subscription. It is
+  not required for normal tenant-scoped Power Platform onboarding. Azure CLI
+  selection alone is not a reason to require one.
+- **Work sign-in email (UPN):** the Microsoft sign-in username, usually the
+  user's work/school email. Do not assume it always equals their mailbox address.
+- **Connection nickname (alias):** a local label such as `my-demo-environment`,
+  not a tenant-provided ID or a request to rename/create an environment. Explain
+  the lowercase/hyphen/30-character rules and propose a friendly default.
+- **Tools to connect:** describe each requested CLI/MCP in plain language.
+  Checking a tool is not advance approval to install an unchecked dependency.
+
+### Why an additional Dataverse package may be requested
+
+The base installer installs **PAC CLI**, not the separate **Dataverse CLI**.
+The optional **Dataverse plugin** supplies agent capabilities and connection
+instructions, but installing it does not guarantee that the global npm package
+`@microsoft/dataverse` exists. The connection skill must inspect the command and,
+if needed, the installed global package metadata before proposing an install.
+An installed package with a missing PATH entry needs launcher discovery/restart
+guidance, not an automatic duplicate install.
+
+If the package is actually missing and its CLI/MCP proxy is requested, explain
+what it adds, the actual configured npm install location and permissions, then
+ask separately to download/install it. Do not use the vague initial question
+"Approve installing @microsoft/dataverse globally via npm?" without that context.
+Here, "global" means available outside one project via npm's configured prefix;
+it does not mean access to every environment or a universal Microsoft login.
+
+Older installed skill copies are not silently replaced by Setup.cmd. A user can
+ask the agent to follow the latest public skill for these clearer questions, or
+approve a reviewed update to their personal copy. Writing documentation/tests
+does not prove an AI host will always phrase every question identically.
+
 The skill coordinates the existing tools, not a new authentication service:
 
 | Surface | Reuse strategy |

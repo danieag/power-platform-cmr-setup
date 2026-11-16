@@ -21,6 +21,60 @@ and caches. Front-load only the sign-ins actually required; skip working ones.
 
 ## 1. Confirm the target and the approval boundary
 
+### Ask in everyday language
+
+Guide the user **one question at a time**, not through a six-question technical
+form. Explain why each answer is needed and give a clearly fictional example.
+Use details already supplied; do not make the user repeat them. Do not say
+"per the skill" or expose implementation terms such as "exact HTTPS origin,"
+"tenant GUID," "UPN," or "surfaces" without explaining them.
+
+Use the following wording/help when a detail is missing:
+
+| Detail | Plain-language question and explanation |
+|---|---|
+| Agent app | "Which app are you using for this connection?" Offer Copilot desktop, Copilot CLI, or Claude Code when it is not already clear. This determines where the connection is saved. |
+| Environment URL | "What is the web address of the Power Apps / Dataverse environment you want to connect to? For example, `https://yourorg.crm4.dynamics.com`." Explain that this is the environment's address, not `make.powerapps.com` or a link to a particular app/page. Help the user find **Environment URL** in their selected environment's details in Power Platform admin center; the fictional example is not a target to use. |
+| Tenant ID | "What is the Tenant ID of the Microsoft organization that owns this environment? Find it in **Microsoft Entra admin center > Entra ID > Overview > Properties > Tenant ID**. Select the directory that owns your environment, then copy and paste that Tenant ID here." Explain that **tenant = Microsoft organization/directory** and Tenant ID (also called Directory ID) is its unique identifier, normally shown as a long value such as `11111111-2222-3333-4444-555555555555`. It is **not** an Azure Subscription ID, PPAC Environment ID, or Dataverse Organization ID. Offer help if the user cannot access it. |
+| Sign-in email | "Which work or school email address do you use to sign in to this environment? For example, `alex@example.com`." Explain **UPN = sign-in username**, usually the work email address, but use the actual Microsoft sign-in name if their mailbox address differs. Never ask for a password. |
+| Connection nickname | "What short name would you like to give this saved connection? For example, `my-demo-environment`." Explain that this **alias** is a local label so the agent can find the right saved setup later; it does **not** create or rename a Power Platform environment. Use lowercase letters, digits and hyphens, start with a letter, and keep it at most 30 characters. Suggest an alias and ask for confirmation rather than making it look like an ID the user must find. |
+| Tools to connect | "Which tools would you like to connect?" Explain the selected choices: **PAC CLI** for Power Platform development/deployment; **Dataverse CLI** for Dataverse commands and its MCP proxy; **Azure CLI** for Azure-dependent plugin workflows; **Dataverse MCP** for Dataverse tools in chat; **Copilot Studio MCP** for Copilot Studio tools in chat. Do not silently select everything or label a choice "install via npm" before checking whether it is missing. |
+
+**Tenant ID is not Subscription ID.** An Azure subscription organizes/bills
+Azure resources and has a different ID. Do not ask for a subscription ID during
+this ordinary Power Platform connection flow, even if Azure CLI is selected.
+Use the tenant-scoped `--allow-no-subscriptions` flow below. Ask about a
+subscription only for a separately requested Azure-resource task that needs it.
+
+Include each field's explanation and example **in the question/help text shown
+to the user**, not just in a separate chat summary or a link they may not open.
+In particular, always include the Entra navigation in the Tenant ID question;
+do not wait until the user gets stuck.
+
+Offer "Help me find it" when the user does not know a value. For Tenant ID,
+guide them to **Microsoft Entra admin center > Entra ID > Overview > Properties >
+Tenant ID** (access depends on their permissions), or ask their administrator.
+See [Microsoft's tenant ID guide](https://learn.microsoft.com/en-us/entra/fundamentals/how-to-find-tenant).
+If the user pastes Power Platform admin center **environment details**, explain
+that **Organization ID** identifies the Dataverse organization/database and
+**Environment ID** identifies the Power Platform environment. Neither is the
+Tenant ID, and "Trial (subscription-based)" is not an Azure Subscription ID.
+Use any supplied environment URL without reasking, but guide them to Entra for
+the still-missing Tenant ID and have them select the owning directory first.
+The URL's region suffix does not identify that directory.
+With approval, existing local profile metadata can supply a candidate to show
+and confirm. Do not log in, enumerate tenants, or query the environment merely
+to fill the form before that access has been approved. Do not guess or swap
+in a subscription ID when the tenant is unknown.
+
+**Do not ask for permission to install software as one of these initial
+questions.** First collect/confirm the target and requested tools, then inspect
+the local installation as described in step 2. Ask about an additional package
+only when there is evidence that it is needed and missing, or that a separately
+approved upgrade is required. Configuration/sign-in approvals remain separate.
+
+### Confirm the technical target before acting
+
 Before any authentication, profile selection, tenant request, installation,
 or configuration write, establish:
 
@@ -83,9 +137,56 @@ flow can propose installs, `.env`, SDK scaffolding, or tenant writes: do **only*
 the subset approved here. Do not create a project, solution, Python environment,
 service principal, or repository-local settings just to sign in.
 
-The Dataverse plugin is not the Dataverse CLI. Check for an installed
-`dataverse` command. If missing, inspect the current package requirements and,
-only after specific approval, use the official package:
+### Explain any additional Dataverse CLI installation
+
+The three similarly named components are different:
+
+| Component | What the user may already have |
+|---|---|
+| Power Platform CLI (**PAC**, command `pac`) | Installed by Setup.cmd as a .NET global tool. It is not the separate `dataverse` command. |
+| **Dataverse plugin** | Agent instructions/tools installed through the optional plugin stage or app links. Selecting Dataverse in that stage does not by itself install the npm CLI. |
+| **Dataverse CLI**, command `dataverse` | The separate official npm package **`@microsoft/dataverse`**. It provides commands and the stdio MCP proxy used by this connection flow. It may already be installed from previous setup, so check first. |
+
+First check the local application command without attempting sign-in:
+
+```powershell
+Get-Command dataverse -CommandType Application -ErrorAction SilentlyContinue
+```
+
+If the command exists, inspect its installed package/version through supported
+local tooling and reuse it when compatible. **Do not ask to install it again
+merely because onboarding was invoked or the Dataverse plugin was selected.**
+If the command is missing, check the installed npm global package listing:
+
+```powershell
+npm.cmd list --global @microsoft/dataverse --depth=0 --json
+```
+
+Treat an empty package listing differently from a command failure. If the
+package is installed but its launcher is not on PATH, explain that the app/
+terminal may need restarting and resolve its actual installed launcher; do
+not reinstall a second copy as a PATH fix. A broken or incompatible installation
+needs a stated diagnosis and repair/upgrade approval, not a claim it is absent.
+
+Only when the package is missing and Dataverse CLI/proxy was selected, inspect
+the current package requirements and explain the additional installation:
+
+> "The Dataverse command-line tool is not installed yet. Setup installed PAC,
+> and the Dataverse plugin adds instructions for your agent; neither is this
+> separate command-line tool. The official `@microsoft/dataverse` package adds
+> the `dataverse` command and the MCP proxy so your chat tools can reuse its
+> sign-in. May I download and install it for this computer? This does not sign
+> you in or change your Power Platform environment."
+
+Replace this example with the **actual finding**; do not claim that a plugin
+or PAC is installed if it is not. Explain that **npm** is the package manager
+included with Node.js, **`@microsoft/dataverse`** is Microsoft's package name,
+and **global** means a reusable command outside one project, not access to
+all tenants/environments. Inspect/show the configured npm install prefix when
+proposing the change: a custom or machine-wide prefix can require additional
+permission; do not promise it always affects only one user.
+
+After that specific approval, use:
 
 ```powershell
 npm.cmd install --global @microsoft/dataverse@latest
