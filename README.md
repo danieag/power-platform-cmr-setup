@@ -1,6 +1,6 @@
 # Power Platform setup for Windows
 
-**Download, extract, run Setup.** This helps you prepare a Windows PC to use
+**Download, extract, then choose Setup or your coding agent.** This helps you prepare a Windows PC to use
 Microsoft's Power Platform plugins with **GitHub Copilot or Claude Code**.
 You must already have your chosen app installed.
 
@@ -14,19 +14,72 @@ It does not sign you in or create anything in your Microsoft environment.
    click **Code > Download ZIP**.
 2. **Extract:** right-click the ZIP, choose **Extract All**, and open the extracted
    folder containing `Setup.cmd` and `Setup.ps1`.
-3. **Run:** review the downloaded script, then double-click **Setup.cmd**
+
+Now choose **Alternative A or B**, not both at the same time. They use the
+same setup script and approval rules. Keep all extracted files together.
+
+### Alternative A: run Setup yourself
+
+1. **Run:** review the downloaded script, then double-click **Setup.cmd**
    (Windows may show it simply as **Setup**). You do not need to open PowerShell.
-4. **Approve:** read the plan, type **INSTALL**, and press **Enter**.
+2. **Approve:** read the plan, type **INSTALL**, and press **Enter**.
    Setup installs missing tools in this order:
    **Git > Node.js/npm > .NET 10 SDK > PAC CLI > Azure CLI**.
    Compatible tools already installed are skipped.
-5. **Wait, then answer the optional prompts** below. Keep this window open.
+3. **Wait, then answer the optional prompts** below. Keep this window open.
    When finished, restart your chosen app and terminals.
+
+### Alternative B: use your coding agent
+
+1. Open your coding agent and **add the extracted local folder to the session**.
+   In the Copilot desktop app, click **+ > Add local folder or repository** and
+   select the folder containing `AGENTS.md`, `README.md`, and `Setup.ps1`.
+   In Claude Code, open/start it in that folder. You do not need to initialize
+   a Git repository or install Git just to open the extracted folder.
+2. Use an agent session that can run local terminal commands, with normal
+   interactive approvals. If the app asks you to trust the folder, review it
+   and make that decision yourself; do not enable blanket auto-approval.
+3. Paste this prompt:
+
+> Read `AGENTS.md`, `README.md`, and `Setup.ps1` in this folder.
+> Run `.\Setup.cmd -CheckOnly`, explain which prerequisites are missing,
+> and ask for approval before installing anything.
+>
+> After prerequisites are ready, guide me through Power Platform plugins,
+> Copilot Studio MCP registration, and connection-skill installation.
+> Ask for approval separately for each stage.
+> Do not sign in, select a tenant, or change cloud resources.
+
+`AGENTS.md` is an instruction file for the agent, **not a program you run**.
+The agent checks first, explains the plan, and runs the same installer after
+your approval. It can use the script's noninteractive flags after that approval,
+so you may approve in chat rather than typing the terminal keywords yourself.
+Windows administrator prompts and Copilot desktop plugin confirmations may
+still need your action.
+
+<details>
+<summary>Screenshots: add the local folder, then send the prompt</summary>
+
+Choose **Add local folder or repository** (unrelated recent projects have been
+cropped out):
+
+![Copilot menu option to add a local folder or repository](docs/images/09-add-local-folder.png)
+
+The extracted folder is attached to the session before the prompt is sent:
+
+![Coding-agent setup prompt with the power-platform-setup-main folder attached](docs/images/10-agent-setup-prompt.png)
+
+</details>
+
+### Approvals and next steps for either alternative
 
 Only run code you trust. If unsure, ask your IT administrator or agent to review
 `Setup.ps1` first. Start setup as your **normal user**, not "Run as administrator";
 Windows can ask separately when an individual installer needs admin permission.
 Follow your organization's restrictions rather than disabling Windows protections.
+
+For Alternative A, the terminal prompts are below. For Alternative B, the agent
+guides the same stages and requests the corresponding approval in chat.
 
 | Setup asks about... | What to do |
 |---|---|

@@ -22,7 +22,9 @@ $files = @(
     'docs\images\05-dotnet-download.png',
     'docs\images\06-dotnet-error.png',
     'docs\images\07-dotnet-ready.png',
-    'docs\images\08-approve-plugins.png'
+    'docs\images\08-approve-plugins.png',
+    'docs\images\09-add-local-folder.png',
+    'docs\images\10-agent-setup-prompt.png'
 )
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
 $temporary = Join-Path $destination ([guid]::NewGuid().ToString('N') + '.zip')
