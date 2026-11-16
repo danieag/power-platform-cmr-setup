@@ -174,6 +174,12 @@ The agent can guide the commands; you still complete sign-in/MFA yourself.
 Separate tools can require separate initial sign-ins. One universal login is
 not guaranteed.
 
+**See the [illustrated Power Platform Connect guide](docs/power-platform-connect-guide.md)**
+for the questions, separate installation/sign-in approvals, private connection
+record, MCP registration, and post-restart verification. It uses redacted
+screenshots from a user-reported run. Start with **power-platform-connect**;
+you do not need to run Microsoft's full `dv-connect` workflow first.
+
 <details>
 <summary>Do I also run the official curl / Node Power Platform Skills installer?</summary>
 

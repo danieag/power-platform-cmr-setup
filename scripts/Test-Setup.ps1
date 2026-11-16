@@ -1346,8 +1346,8 @@ Test-Case 'step 5 Azure scope example restores the inherited directory on succes
     } finally { $env:AZURE_CONFIG_DIR = $previous }
 }
 
-Test-Case 'beginner and detailed documentation resolve all local links and screenshot files' {
-    foreach ($relative in @('README.md', 'docs\advanced-setup.md')) {
+Test-Case 'public documentation resolves all local links and screenshot files' {
+    foreach ($relative in @('README.md', 'docs\advanced-setup.md', 'docs\power-platform-connect-guide.md')) {
         $path = Join-Path $root $relative
         $text = Get-Content -LiteralPath $path -Raw
         foreach ($match in [regex]::Matches($text, '\[[^\]]*\]\(([^)]+)\)')) {

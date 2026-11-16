@@ -15,6 +15,7 @@ $files = @(
     'skills\power-platform-integrations\SKILL.md',
     'skills\power-platform-connect\SKILL.md',
     'docs\advanced-setup.md',
+    'docs\power-platform-connect-guide.md',
     'docs\images\01-download-zip.png',
     'docs\images\02-extracted-folder.png',
     'docs\images\03-open-setup.png',
@@ -28,7 +29,21 @@ $files = @(
     'docs\images\11-vscode-configure-marketplaces.png',
     'docs\images\12-vscode-add-marketplace.png',
     'docs\images\13-vscode-marketplace-source.png',
-    'docs\images\14-vscode-plugin-catalog.png'
+    'docs\images\14-vscode-plugin-catalog.png',
+    'docs\images\15-connect-start.png',
+    'docs\images\16-connect-environment-url.png',
+    'docs\images\17-connect-tenant-id.png',
+    'docs\images\18-connect-sign-in-email.png',
+    'docs\images\19-connect-nickname.png',
+    'docs\images\20-connect-tools.png',
+    'docs\images\21-connect-install-cli.png',
+    'docs\images\22-connect-sign-in-approval.png',
+    'docs\images\23-connect-read-only-checks.png',
+    'docs\images\24-connect-private-record.png',
+    'docs\images\25-connect-mcp-registration.png',
+    'docs\images\26-connect-restart.png',
+    'docs\images\27-connect-before-restart.png',
+    'docs\images\28-connect-after-restart.png'
 )
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
 $temporary = Join-Path $destination ([guid]::NewGuid().ToString('N') + '.zip')
