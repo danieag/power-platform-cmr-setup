@@ -412,6 +412,14 @@ that IDE with `CopilotCli` or send desktop-only confirmation links expecting
 them to target VS Code. Installation and component support must be verified
 in the intended host.
 
+The user-verified menu route is **Customizations > Browse > source dropdown
+(All Sources) > Configure Marketplaces > Add Marketplace...**. Enter
+`microsoft/power-platform-skills` and press **Enter**, then select that source
+on Browse and install the desired plugins individually. Merely adding the
+marketplace makes the catalog available; it is not an all-plugin install or
+an authentication step. See the [README screenshot walkthrough](../README.md#manual-option-add-the-power-platform-plugins-in-vs-code).
+Git must be discoverable by the running IDE, not only installed somewhere.
+
 ## Step 3: optional Copilot Studio MCP registration
 
 The script now offers this stage after plugin setup (including a plugin skip
@@ -694,6 +702,7 @@ its own diagnostics without starting a competing setup.
 | Permission/UAC denied or installer code `1603` | Review admin/policy requirements; ask your administrator. Do not elevate the whole agent. |
 | Installer code `1618` | Another Windows installation is running; let it finish, then rerun. |
 | Installer succeeded but tool is still missing/old | Restart the Copilot app and terminal; inspect the reported path for a shadowing old install. Do not repeatedly install blindly. |
+| Marketplace says Git is missing, but Git works by its full path | Check in a fresh terminal. If appending the saved Machine/User PATH to that terminal's existing PATH makes `git --version` work, persisted PATH is registered and the process inherited a stale copy. Fully exit the IDE and launch it from that refreshed terminal (for VS Code, `code` if available). A new terminal inside an old app process can inherit the same stale PATH. Do not reinstall Git or move the setup repository as a PATH fix. |
 | .NET download/installation appears slow | User-reported ARM64 Sandbox installation has taken 30-60 minutes or longer. During vendor installer execution the script prints an elapsed-time heartbeat about every 30 seconds; it does not measure per-package progress or predict completion. Downloads use `Invoke-WebRequest -TimeoutSec 600` and PAC's tool command has separate output; neither uses that heartbeat. There is no download resume/alternate endpoint in this version. Do not launch parallel retries or assume a reachable URL proves the full transfer will complete. |
 | `Access to the path 'dotnet.exe' is denied` / exit `3` | Treat it as a failure, even if a later check finds the SDK. The supplied screenshot does not establish whether the fault was download, installation, cleanup, permissions, or a file lock. Let any active installer finish; reopen the terminal and run `.\Setup.cmd -CheckOnly`. Continue only after reviewing the new plan. If the error repeats or the SDK is still missing, stop and investigate rather than weakening Windows security. |
 | TLS/proxy/certificate/download error or GitHub API rate limit | Fix access to the listed official endpoints, wait for a rate-limit reset if applicable, then rerun. Do not disable certificate checks or substitute random downloads. |

@@ -104,6 +104,61 @@ Press **Enter** at an optional host chooser to skip that stage. Other text at an
 approval prompt cancels that stage; earlier successful installs stay installed.
 Setup never installs another agent app just to make a host command available.
 
+### Manual option: add the Power Platform plugins in VS Code
+
+You can use VS Code's normal marketplace controls instead of a CLI installer.
+**Copilot CLI and Claude Code are not required for this route**, but Git must be
+installed and discoverable by VS Code. After installing Git, fully exit and
+reopen VS Code so it picks up the updated PATH.
+
+1. Open **Customizations** (or **Customize**) and choose **Browse**.
+2. Open the source dropdown beside the search box (often **All Sources**),
+   then choose **Configure Marketplaces**.
+3. Choose **Add Marketplace...**, enter **`microsoft/power-platform-skills`**,
+   and press **Enter**.
+4. Back on **Browse**, select **power-platform-skills** in the source dropdown.
+   If it was already added, just select it rather than adding a duplicate.
+5. Choose the plugins you want and select **Install** for each. Include
+   **dataverse** if you need it. Review any permissions/trust prompts, then check
+   the installed plugins list and reload/restart if VS Code asks.
+
+**Adding the marketplace only shows the catalog; it does not install every
+plugin.** Plugins can contain skills, agents, hooks and MCP tools. Installation
+still does not sign you in or prove that every tool is connected.
+Menu wording can vary by VS Code version; the Command Palette alternative is
+**Chat: Manage Plugin Marketplaces > Add Marketplace...**.
+
+<details>
+<summary>Screenshots: configure the marketplace, add its source, and choose plugins</summary>
+
+From **Customizations > Browse**, open the source dropdown and choose
+**Configure Marketplaces**:
+
+![VS Code source dropdown showing Configure Marketplaces](docs/images/11-vscode-configure-marketplaces.png)
+
+Choose **Add Marketplace...**:
+
+![Manage Plugin Marketplaces dialog with Add Marketplace selected](docs/images/12-vscode-add-marketplace.png)
+
+Enter **microsoft/power-platform-skills** and press **Enter**:
+
+![Add Plugin Marketplace dialog with the Microsoft Power Platform repository entered](docs/images/13-vscode-marketplace-source.png)
+
+Select **power-platform-skills** to browse the available plugins. Select
+**Install** beside each one you want; a visible Install button does not mean
+that plugin has already been installed:
+
+![Power Platform marketplace catalog with individual plugin Install buttons](docs/images/14-vscode-plugin-catalog.png)
+
+</details>
+
+If Git runs by its full path but VS Code cannot find `git`, **do not reinstall
+it immediately**. A running app or its parent may still have the old PATH.
+See [Git/PATH troubleshooting](docs/advanced-setup.md#exit-codes-and-troubleshooting)
+before retrying the marketplace.
+
+### After installation: connect in a fresh chat
+
 **Next: sign in through your agent chat.** Reopen your app, start a new chat,
 and paste:
 
@@ -151,6 +206,8 @@ Copilot desktop users can install plugins normally through **Customize**.
 VS Code agent-mode users can use **Chat: Manage Plugin Marketplaces > Add
 Marketplace...**, enter `microsoft/power-platform-skills`, then install the
 plugins from **Customize**. Neither native app route requires Copilot CLI.
+The [manual walkthrough above](#manual-option-add-the-power-platform-plugins-in-vs-code)
+shows the **Configure Marketplaces** menu route with screenshots.
 See [GitHub's VS Code plugin instructions](https://docs.github.com/en/copilot/how-tos/copilot-in-your-ide/customize-copilot/extend-copilot-with-tools-and-context/using-plugins).
 The script's `CopilotApp` links target the desktop app, not VS Code; there is
 currently no `VSCode` host flag. Respect each host/plugin's support and policies.

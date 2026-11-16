@@ -24,7 +24,11 @@ $files = @(
     'docs\images\07-dotnet-ready.png',
     'docs\images\08-approve-plugins.png',
     'docs\images\09-add-local-folder.png',
-    'docs\images\10-agent-setup-prompt.png'
+    'docs\images\10-agent-setup-prompt.png',
+    'docs\images\11-vscode-configure-marketplaces.png',
+    'docs\images\12-vscode-add-marketplace.png',
+    'docs\images\13-vscode-marketplace-source.png',
+    'docs\images\14-vscode-plugin-catalog.png'
 )
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
 $temporary = Join-Path $destination ([guid]::NewGuid().ToString('N') + '.zip')

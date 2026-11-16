@@ -72,6 +72,17 @@ selected plugins. Use supported UI tools if available; otherwise guide the user.
 See [GitHub's VS Code instructions](https://docs.github.com/en/copilot/how-tos/copilot-in-your-ide/customize-copilot/extend-copilot-with-tools-and-context/using-plugins).
 Do not install another agent host just to drive that marketplace. Plugin
 components/policies can differ by surface, so verify the actual IDE capabilities.
+An equivalent user-verified route is **Customizations > Browse > All Sources
+dropdown > Configure Marketplaces > Add Marketplace...**; enter the repository,
+press **Enter**, then select **power-platform-skills** and install the chosen
+plugins. Refer to the README screenshots when helpful. Adding the source only
+exposes the catalog; it does not install every plugin.
+If the IDE reports missing Git, distinguish an absent installation from stale
+inherited PATH before suggesting installation. A successful absolute-path
+`git.exe --version` proves the binary exists; if reloading saved Windows PATH
+fixes command resolution, relaunch the IDE from that refreshed environment.
+Do not delete/reinstall working Git or change installation directories as a
+substitute for refreshing the app's environment.
 
 Setup.cmd now offers the reviewed plugin set after prerequisites are ready.
 For that set, prefer its shared implementation after approval, choosing **one**
