@@ -1152,6 +1152,109 @@ Test-Case 'interactive skill setup requires SKILL approval and uses the selected
     Assert-Equal $script:skillInstallCalls 1
 }
 
+Test-Case 'step 4 installs for each host in disposable profiles and survives a new process without touching real user skills' {
+    $directory = Join-Path ([IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString('N'))
+    $engine = (Get-Process -Id $PID).Path
+    $source = Join-Path $root 'skills\power-platform-connect\SKILL.md'
+    $setup = Join-Path $root 'Setup.ps1'
+    $installScript = @'
+$ErrorActionPreference = 'Stop'
+$env:USERPROFILE = '__PROFILE__'
+$env:COPILOT_HOME = $null
+$env:CLAUDE_CONFIG_DIR = $null
+. '__SETUP__'
+function Invoke-SetupNative { throw 'CLI OR AUTH EXECUTION FORBIDDEN' }
+function Find-SetupExecutable { throw 'HOST DISCOVERY FORBIDDEN' }
+function Start-Process { throw 'SERVER OR AUTH LAUNCH FORBIDDEN' }
+function Read-Host { throw 'PROMPT FORBIDDEN' }
+$result = Invoke-ConnectionSkillSetup -ConnectionSkillHost '__HOST__' -AcceptConnectionSkill -NonInteractive
+if ($result -ne 0) { throw "Skill installation failed: $result" }
+'@
+    try {
+        foreach ($hostName in @('CopilotApp', 'CopilotCli', 'ClaudeCode')) {
+            $profile = Join-Path $directory $hostName
+            $script = $installScript.Replace('__PROFILE__', $profile.Replace("'", "''")).
+                Replace('__SETUP__', $setup.Replace("'", "''")).Replace('__HOST__', $hostName)
+            $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($script))
+            $output = & $engine -NoLogo -NoProfile -NonInteractive -EncodedCommand $encoded 2>&1
+            if ($LASTEXITCODE -ne 0) { throw "Isolated $hostName skill install failed: $($output -join "`n")" }
+            $hostDirectory = if ($hostName -eq 'ClaudeCode') { '.claude' } else { '.copilot' }
+            $target = Join-Path $profile "$hostDirectory\skills\power-platform-connect\SKILL.md"
+            $expectedHash = (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash
+            Assert-Equal (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash $expectedHash
+            $timestamp = (Get-Item -LiteralPath $target).LastWriteTimeUtc
+            $output = & $engine -NoLogo -NoProfile -NonInteractive -EncodedCommand $encoded 2>&1
+            if ($LASTEXITCODE -ne 0) { throw "Isolated $hostName skill rerun failed: $($output -join "`n")" }
+            Assert-Equal (Get-Item -LiteralPath $target).LastWriteTimeUtc $timestamp
+            Assert-Equal (@(Get-ChildItem -LiteralPath $profile -Recurse -File -Force).Count) 1
+        }
+    } finally {
+        if (Test-Path -LiteralPath $directory) { Remove-Item -LiteralPath $directory -Recurse -Force }
+    }
+    Assert-Equal (Test-Path -LiteralPath $directory) $false
+}
+
+Test-Case 'installed connection skill is standalone and all its PowerShell examples parse without execution' {
+    $skill = Get-Content -LiteralPath (Join-Path $root 'skills\power-platform-connect\SKILL.md') -Raw
+    $blocks = [regex]::Matches($skill, '(?s)```powershell\s*\r?\n(.*?)\r?\n```')
+    if (-not $blocks.Count) { throw 'No connection examples were found to validate.' }
+    foreach ($block in $blocks) {
+        $tokens = $null
+        $errors = $null
+        [Management.Automation.Language.Parser]::ParseInput($block.Groups[1].Value, [ref]$tokens, [ref]$errors) | Out-Null
+        if ($errors.Count) { throw ($errors.Message -join '; ') }
+    }
+    # Only SKILL.md is installed. Relative references to unbundled files would break.
+    foreach ($link in [regex]::Matches($skill, '\[[^\]]+\]\(([^)]+)\)')) {
+        if ($link.Groups[1].Value -notmatch '^(https://|#)') {
+            throw "Standalone skill references an unbundled file: $($link.Groups[1].Value)"
+        }
+    }
+    $record = [regex]::Match($skill, '(?s)```json\s*\r?\n(.*?)\r?\n```').Groups[1].Value | ConvertFrom-Json
+    Assert-Equal $record.schemaVersion 1
+    Assert-Equal ($record.PSObject.Properties.Name -contains 'azureConfigDir') $true
+}
+
+Test-Case 'step 5 Azure scope example restores the inherited directory on success and failure with a mocked CLI' {
+    $skill = Get-Content -LiteralPath (Join-Path $root 'skills\power-platform-connect\SKILL.md') -Raw
+    $matches = @([regex]::Matches($skill, '(?s)```powershell\s*\r?\n(.*?)\r?\n```') |
+        Where-Object { $_.Groups[1].Value -match '\$previousAzureConfigDir' })
+    Assert-Equal $matches.Count 1
+    $tokens = $null
+    $errors = $null
+    $ast = [Management.Automation.Language.Parser]::ParseInput($matches[0].Groups[1].Value, [ref]$tokens, [ref]$errors)
+    if ($errors.Count) { throw ($errors.Message -join '; ') }
+    foreach ($command in $ast.FindAll({ param($node) $node -is [Management.Automation.Language.CommandAst] }, $true)) {
+        if ($command.GetCommandName() -ne 'az') {
+            throw 'Azure example contains a command this isolated test does not mock. Review the test before executing it.'
+        }
+    }
+    $example = $ast.GetScriptBlock()
+    $connection = [pscustomobject]@{ azureConfigDir = 'C:\fixture\approved-azure-cache' }
+    $previous = $env:AZURE_CONFIG_DIR
+    $script:azureExampleCalls = 0
+    function az {
+        Assert-Equal $env:AZURE_CONFIG_DIR $connection.azureConfigDir
+        Assert-Equal ($args -join ' ') 'account show --query {tenant:tenantId,user:user.name} --output json'
+        $script:azureExampleCalls++
+        if ($script:failAzureExample) { throw 'Mock authentication check failed' }
+        '{"tenant":"fixture-tenant","user":"fixture-user"}'
+    }
+    try {
+        foreach ($inherited in @($null, 'C:\fixture\previous-azure-cache')) {
+            foreach ($fail in @($false, $true)) {
+                $env:AZURE_CONFIG_DIR = $inherited
+                $script:failAzureExample = $fail
+                if ($fail) {
+                    Assert-Throws { & $example } 'Mock authentication check failed'
+                } else { & $example | Out-Null }
+                Assert-Equal $env:AZURE_CONFIG_DIR $inherited
+            }
+        }
+        Assert-Equal $script:azureExampleCalls 4
+    } finally { $env:AZURE_CONFIG_DIR = $previous }
+}
+
 Test-Case 'launcher forwards arguments to the same script and preserves exit code' {
     $launcher = Get-Content -LiteralPath (Join-Path $root 'Setup.cmd') -Raw
     Assert-Equal ($launcher.Contains('-File "%~dp0Setup.ps1" %*')) $true

@@ -47,6 +47,14 @@ metadata. Do not sign in, switch profiles, acquire tokens, launch servers, or
 query an environment. State that local configuration does not prove live access.
 The installer's `-CheckOnly` remains offline and does none of this onboarding.
 
+For a test or rehearsal without an approved live target, use the repository's
+isolated tests and instruction review only; do not run the authentication
+examples against whatever account is already active. Installing this skill in
+a temporary folder does not isolate PAC/Dataverse profiles, Windows account
+brokers, or MCP servers under the same Windows user. Track explicitly approved
+test additions and stop before removing anything not created by that test.
+Never use broad logout/cache deletion as "cleanup."
+
 No automatic environment creation, service principal, app registration, admin
 consent, role grant, MCP allowlist change, connector creation, or cloud resource
 write is part of this flow. A consent/403/policy blocker must be reported for a

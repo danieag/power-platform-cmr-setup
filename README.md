@@ -643,6 +643,48 @@ A real local inventory test uses only reads.
 CI runs on Windows PowerShell 5.1 and PowerShell 7. CI does **not** install tools
 or validate a pristine Sandbox installation on either architecture.
 
+### Test steps 4 and 5 without Windows Sandbox
+
+Run `.\scripts\Test-Setup.ps1` from the full source folder. A disposable Windows
+VM is **not needed** for these local, non-authenticating checks:
+
+- **Step 4:** the tests run the actual skill-copy stage in separate PowerShell
+  processes with temporary user-profile directories for all three host choices.
+  They verify the copied content and a rerun in a new process, check that no
+  other files were created there, and delete those specific test directories.
+  Existing personal skills and credential stores are not changed.
+- **Step 5:** the tests parse the skill's command examples and binding-record
+  JSON, check that its links work as a standalone file, and execute its
+  Azure-directory scoping example against a mocked CLI, including failure
+  paths. These are instruction/example checks, **not real authentication**.
+
+The tests do not start an AI host to prove skill discovery, test an agent's
+decisions, or establish that a cached session survives an actual sign-in.
+File visibility from a second PowerShell process is not proof of desktop skill
+discovery or cross-chat authentication.
+
+For a manual instruction rehearsal without personal installation, ask the
+agent to read the skill file from the extracted source in a fresh chat. No
+personal skill copy is needed for that route. Merely loading the instructions
+does not prove automatic skill discovery or authorize authentication or
+configuration changes.
+
+**A local folder is not an authentication sandbox.** A dedicated Azure cache
+can be scoped to that folder, but PAC/Dataverse profiles and Windows protected
+authentication can still be shared with other sessions of the same Windows
+user. Do not copy their caches, redirect undocumented storage, or delete
+working profiles after a test. For a live test with safe disposal, use a
+separately approved disposable Windows user/VM, or explicitly approve a
+specific existing account/environment and non-destructive checks. Track any
+new profiles, registrations, bindings and files before making changes; cleanup
+must target only those additions, preserve shared sessions, and be approved
+separately before removing authentication or host configuration.
+
+Keep the current division of responsibility: **the script installs the skill;
+the skill guides sign-in** with the user choosing the target and completing MFA.
+Combining them into automatic post-install login would not solve separate
+credential caches, consent, or account-selection requirements.
+
 ### Manual Sandbox acceptance (x64 or ARM64)
 
 Use a separately authorized disposable Windows environment of the architecture
