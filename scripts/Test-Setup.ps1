@@ -1255,6 +1255,22 @@ Test-Case 'step 5 Azure scope example restores the inherited directory on succes
     } finally { $env:AZURE_CONFIG_DIR = $previous }
 }
 
+Test-Case 'beginner and detailed documentation resolve all local links and screenshot files' {
+    foreach ($relative in @('README.md', 'docs\advanced-setup.md')) {
+        $path = Join-Path $root $relative
+        $text = Get-Content -LiteralPath $path -Raw
+        foreach ($match in [regex]::Matches($text, '\[[^\]]*\]\(([^)]+)\)')) {
+            $target = $match.Groups[1].Value
+            if ($target -match '^(https?://|#)') { continue }
+            $file = ($target -split '#')[0].Replace('/', '\')
+            $resolved = Join-Path (Split-Path -Parent $path) $file
+            if (-not (Test-Path -LiteralPath $resolved -PathType Leaf)) {
+                throw "Broken local documentation link in ${relative}: $target"
+            }
+        }
+    }
+}
+
 Test-Case 'launcher forwards arguments to the same script and preserves exit code' {
     $launcher = Get-Content -LiteralPath (Join-Path $root 'Setup.cmd') -Raw
     Assert-Equal ($launcher.Contains('-File "%~dp0Setup.ps1" %*')) $true
