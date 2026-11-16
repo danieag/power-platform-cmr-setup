@@ -57,6 +57,11 @@ so you may approve in chat rather than typing the terminal keywords yourself.
 Windows administrator prompts and Copilot desktop plugin confirmations may
 still need your action.
 
+If Windows blocks running `Setup.ps1` directly, use **`Setup.cmd`** instead,
+including for `-CheckOnly`. The launcher is the intended entry point and uses
+a child-process-only policy exception; do not change persistent execution policy.
+Enterprise restrictions can still block it and should be handled by your IT team.
+
 <details>
 <summary>Screenshots: add the local folder, then send the prompt</summary>
 
@@ -151,6 +156,12 @@ Sandbox session it took over an hour around this stage. That is one user's
 experience, not an expected duration or a reason to ignore a reported failure.
 Windows/connection speed can vary, and the download can time out.
 
+While a vendor installer is running, the current script prints a **"Still
+waiting" message about every 30 seconds**, with elapsed time. This is a heartbeat,
+not a percentage, proof of package progress, or an estimated finish time.
+Downloads and PAC's .NET tool command have their own output and are not covered
+by this installer heartbeat.
+
 Keep the window open while it is working and check for a Windows permission
 prompt. Do not start a second setup while an installer is still running.
 If setup reports **failed**, use [the recovery steps below](#if-setup-shows-an-error).
@@ -242,3 +253,10 @@ resources or enables agent auto-approval. Setup behavior has automated local
 tests; full vendor installation, actual app discovery, and live authentication
 are separate acceptance checks. [MIT license](LICENSE); vendor tools have their
 own licenses.
+
+**Latest user-reported ARM64 Sandbox result:** Git, Node.js/npm, .NET SDK, PAC,
+and x64 Azure CLI under emulation completed. Copilot desktop plugin links were
+printed (plugins not installed); MCP configuration and the skill file were saved
+after a workaround for the then-incorrect default `COPILOT_HOME` rejection.
+The current script accepts that default path without clearing the variable.
+Actual app discovery and live sign-in were not tested in that run.

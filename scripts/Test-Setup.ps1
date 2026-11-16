@@ -618,10 +618,12 @@ Test-Case 'successful installer exit still requires actual usable version' {
 Test-Case 'installer process checks exit status, propagates restart, and never invokes reboot' {
     $script:processCode = 0
     $script:lastProcess = $null
-    function Start-Process {
-        param($FilePath, $ArgumentList, [switch]$Wait, [switch]$PassThru, $Verb)
-        $script:lastProcess = @{ File = $FilePath; Arguments = $ArgumentList; Verb = $Verb }
-        [pscustomobject]@{ ExitCode = $script:processCode }
+    function Invoke-InstallerProcess {
+        param($Parameters, $Label)
+        Assert-Equal $Parameters.Wait $true
+        Assert-Equal $Parameters.PassThru $true
+        $script:lastProcess = @{ File = $Parameters.FilePath; Arguments = $Parameters.ArgumentList }
+        return $script:processCode
     }
     $spec = @{ Arguments = '/qn /norestart'; Admin = $true }
     Assert-Equal (Invoke-VerifiedInstaller 'C:\fixture with spaces\node.msi' $spec) $false
@@ -633,6 +635,33 @@ Test-Case 'installer process checks exit status, propagates restart, and never i
     Assert-Equal (Invoke-VerifiedInstaller 'C:\fixture\sdk.exe' $spec) $true
     $script:processCode = 1603
     Assert-Throws { Invoke-VerifiedInstaller 'C:\fixture\sdk.exe' $spec } 'exit code 1603'
+}
+
+Test-Case 'installer heartbeat reports a real wait and preserves process exit codes without installing tools' {
+    $engine = (Get-Process -Id $PID).Path
+    $information = @()
+    $code = Invoke-InstallerProcess -Parameters @{
+        FilePath = $engine
+        ArgumentList = '-NoLogo -NoProfile -NonInteractive -Command "Start-Sleep -Seconds 2; exit 7"'
+        Wait = $true
+        PassThru = $true
+        WindowStyle = 'Hidden'
+    } -Label 'harmless test process' -HeartbeatSeconds 1 -InformationVariable information
+    Assert-Equal $code 7
+    $text = $information -join "`n"
+    Assert-Equal ($text.Contains('Still waiting for harmless test process installer')) $true
+    Assert-Equal ($text.Contains('No completion result yet')) $true
+    Assert-Equal ($text.Contains('installer exited after')) $true
+}
+
+Test-Case 'installer startup failures surface instead of being reported as success' {
+    Assert-Throws {
+        Invoke-InstallerProcess -Parameters @{
+            FilePath = 'C:\nonexistent-setup-test\missing-installer.exe'
+            Wait = $true
+            PassThru = $true
+        } -Label 'missing test process' -HeartbeatSeconds 1
+    } '.+'
 }
 
 Test-Case 'native command exit status is captured correctly' {
@@ -873,6 +902,68 @@ Test-Case 'MCP stage cannot run from check-only and ordinary noninteractive runs
     Assert-Equal (Invoke-Setup -CheckOnly -CopilotStudioHost CopilotApp) 0
     Assert-Equal (Invoke-Setup -NonInteractive) 0
     Assert-Equal (Invoke-CopilotStudioSetup -CopilotStudioHost Skip) 0
+}
+
+Test-Case 'default COPILOT_HOME is accepted for both Copilot hosts without clearing the variable' {
+    $previousProfile = $env:USERPROFILE
+    $previousHome = $env:COPILOT_HOME
+    try {
+        $env:USERPROFILE = 'C:\fixture\copilot-user'
+        foreach ($homeValue in @(
+            $null,
+            'C:\fixture\copilot-user\.copilot',
+            'C:\FIXTURE\copilot-user\.copilot\',
+            'C:/fixture/copilot-user/.copilot/.',
+            '%USERPROFILE%\.copilot')) {
+            $env:COPILOT_HOME = $homeValue
+            foreach ($hostName in @('CopilotApp', 'CopilotCli')) {
+                Assert-Equal (Get-CopilotStudioConfigPath $hostName) 'C:\fixture\copilot-user\.copilot\mcp-config.json'
+                Assert-Equal (Get-ConnectionSkillDirectory $hostName) 'C:\fixture\copilot-user\.copilot\skills\power-platform-connect'
+            }
+            Assert-Equal $env:COPILOT_HOME $homeValue
+        }
+    } finally {
+        $env:USERPROFILE = $previousProfile
+        $env:COPILOT_HOME = $previousHome
+    }
+}
+
+Test-Case 'truly custom or relative COPILOT_HOME values still fail before config or skill writes' {
+    $previousProfile = $env:USERPROFILE
+    $previousHome = $env:COPILOT_HOME
+    try {
+        $env:USERPROFILE = 'C:\fixture\copilot-user'
+        foreach ($homeValue in @('C:\fixture\other-home', '.copilot', 'C:\fixture\copilot-user\.copilot-other', 'C:relative')) {
+            $env:COPILOT_HOME = $homeValue
+            Assert-Throws { Get-CopilotStudioConfigPath 'CopilotApp' } 'custom location'
+            Assert-Throws { Get-ConnectionSkillDirectory 'CopilotCli' } 'custom location'
+            Assert-Equal $env:COPILOT_HOME $homeValue
+        }
+    } finally {
+        $env:USERPROFILE = $previousProfile
+        $env:COPILOT_HOME = $previousHome
+    }
+}
+
+Test-Case 'default Copilot home permits MCP and skill installation together in a disposable profile only' {
+    $directory = Join-Path ([IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString('N'))
+    $previousProfile = $env:USERPROFILE
+    $previousHome = $env:COPILOT_HOME
+    try {
+        $env:USERPROFILE = $directory
+        $env:COPILOT_HOME = Join-Path $directory '.copilot'
+        function Invoke-SetupNative { throw 'CLI OR AUTH EXECUTION FORBIDDEN' }
+        function Start-Process { throw 'HOST LAUNCH FORBIDDEN' }
+        Assert-Equal (Invoke-CopilotStudioSetup -CopilotStudioHost CopilotApp -AcceptCopilotStudio -NonInteractive) 0
+        Assert-Equal (Invoke-ConnectionSkillSetup -ConnectionSkillHost CopilotApp -AcceptConnectionSkill -NonInteractive) 0
+        Assert-Equal (Test-CopilotStudioRegistration (Read-McpUserConfig (Get-CopilotStudioConfigPath 'CopilotApp'))) $true
+        $skillPath = Join-Path (Get-ConnectionSkillDirectory 'CopilotApp') 'SKILL.md'
+        Assert-Equal (Get-FileHash -LiteralPath $skillPath -Algorithm SHA256).Hash (Get-FileHash -LiteralPath (Join-Path $root 'skills\power-platform-connect\SKILL.md') -Algorithm SHA256).Hash
+    } finally {
+        $env:USERPROFILE = $previousProfile
+        $env:COPILOT_HOME = $previousHome
+        if (Test-Path -LiteralPath $directory) { Remove-Item -LiteralPath $directory -Recurse -Force }
+    }
 }
 
 Test-Case 'MCP interactive approval does not accept INSTALL or PLUGINS' {
@@ -1160,7 +1251,7 @@ Test-Case 'step 4 installs for each host in disposable profiles and survives a n
     $installScript = @'
 $ErrorActionPreference = 'Stop'
 $env:USERPROFILE = '__PROFILE__'
-$env:COPILOT_HOME = $null
+$env:COPILOT_HOME = Join-Path $env:USERPROFILE '.copilot'
 $env:CLAUDE_CONFIG_DIR = $null
 . '__SETUP__'
 function Invoke-SetupNative { throw 'CLI OR AUTH EXECUTION FORBIDDEN' }

@@ -25,6 +25,15 @@ Run commands below **from the extracted repository root**, not this `docs` folde
 > vendor-supported Windows version; Windows 10 support/security servicing is
 > your responsibility.
 
+**User-reported ARM64 Sandbox acceptance:** Git, Node.js/npm, .NET 10 SDK and
+PAC were installed/verified as ARM64; Azure CLI was installed/verified as x64
+under emulation. The desktop plugin stage printed links (exit `4`, no plugins
+installed). Copilot Studio MCP and the connection skill were saved, but app
+discovery and live sign-in were not verified. That run cleared an explicitly
+default `COPILOT_HOME` to work around an older setup bug; the corrected script
+now accepts the default without requiring that workaround. This is evidence
+for those reported stages, not full acceptance of every current feature.
+
 **Intel/AMD x64 or ARM64: use the same Setup.cmd.** No separate ARM script,
 architecture flag, or special skill is needed. Setup reads the native Windows
 architecture from the machine registry, even if the terminal is running under
@@ -47,9 +56,9 @@ An emulated x64 SDK/PAC pair can remain in place; a fresh installation uses the
 native SDK and PAC shim. No emulation software or Windows feature is installed.
 
 The Azure CLI emulation path is explicitly shown in the default ARM64 plan.
-Its real-world compatibility, including a clean
-ARM64 Sandbox installation, still needs acceptance testing; the script verifies
-that `az version` works after an approved installation and stops on failure.
+A user-reported ARM64 Sandbox run verified installation and `az version` under
+emulation. Other Windows images and current vendor versions still require
+their own acceptance; setup verifies `az version` after installation and stops on failure.
 Native package availability does not guarantee every Power Platform plugin or
 workflow supports ARM64.
 
@@ -232,6 +241,12 @@ normal registration). Existing Copilot/terminal processes must be restarted.
 
 ### PowerShell and downloaded-file security
 
+Use **`Setup.cmd`**, even from an agent terminal. It is expected that directly
+running `Setup.ps1` can be blocked by Windows PowerShell execution policy in
+a fresh Sandbox. This is not a failed prerequisite installation and does not
+require changing policy permanently. The launcher forwards flags/exit codes
+and uses the same script; it is not a different installation path.
+
 `Setup.cmd` starts Windows PowerShell with `-NoProfile -ExecutionPolicy Bypass`
 **for that child process only** so a downloaded, unsigned script can run after
 you review it. It does not call `Set-ExecutionPolicy` or change persistent policy.
@@ -342,8 +357,11 @@ Review the printed user-scope path and close that host before approving, to
 avoid concurrent configuration writes. Matching existing user definitions,
 including an equivalent name, are reused without changing tool restrictions or
 disabled settings. Conflicting definitions, pinned versions, duplicate keys,
-invalid JSON, unsupported encodings, and custom `COPILOT_HOME` /
+invalid JSON, unsupported encodings, and genuinely custom `COPILOT_HOME` /
 `CLAUDE_CONFIG_DIR` locations stop setup rather than being overwritten.
+An unset `COPILOT_HOME` or one explicitly equal to `%USERPROFILE%\.copilot`
+(including normalized casing, separators and trailing slashes) uses that default.
+Setup neither clears the variable nor interprets a different path as the default.
 Project, plugin, and managed definitions may override user configuration;
 setup does not start those servers to inspect them.
 
@@ -435,8 +453,10 @@ instruction file from this download, verifies the content, and does not enable
 auto-approval or start any tool, MCP server, or sign-in. An identical existing
 file is reused. A different existing definition, occupied directory, or linked
 destination causes an explicit error rather than overwriting the user's skill.
-Custom `COPILOT_HOME` / `CLAUDE_CONFIG_DIR` locations need manual review instead
-of a guessed destination. Updates of a different previously installed copy need
+Genuinely custom `COPILOT_HOME` / `CLAUDE_CONFIG_DIR` locations need manual review
+instead of a guessed destination. The Copilot app may explicitly set
+`COPILOT_HOME` to the normal `%USERPROFILE%\.copilot`; that is accepted and left
+unchanged. Updates of a different previously installed copy need
 intentional review; rerunning is not permission to replace it.
 
 After approval, agents/noninteractive callers can append:
@@ -537,13 +557,20 @@ Use **`npm.cmd`** in PowerShell to avoid the unrelated `npm.ps1` policy issue.
 The launcher forwards this code. Policy/PowerShell failures before the script
 starts may return PowerShell's own nonzero code instead.
 
+For live installer feedback, run `Setup.cmd` directly or stream its output.
+Piping all output through `Select-Object -Last ...` hides it until the command
+finishes, including the new wait heartbeat. A heartbeat is not evidence that
+individual vendor packages are advancing; if the installer is blocked, investigate
+its own diagnostics without starting a competing setup.
+
 | Symptom | Safe next step |
 |---|---|
 | No `winget` in Sandbox | No action needed; this setup uses official direct installers. |
+| Direct `Setup.ps1` execution is blocked | Use `.\Setup.cmd` with the same flags. Do not persistently relax execution policy; enterprise restrictions still apply. |
 | Permission/UAC denied or installer code `1603` | Review admin/policy requirements; ask your administrator. Do not elevate the whole agent. |
 | Installer code `1618` | Another Windows installation is running; let it finish, then rerun. |
 | Installer succeeded but tool is still missing/old | Restart the Copilot app and terminal; inspect the reported path for a shadowing old install. Do not repeatedly install blindly. |
-| .NET download/installation appears slow | A user-reported ARM64 Sandbox session took over an hour around this stage; that is an observation, not a normal duration or guarantee. Downloads use `Invoke-WebRequest -TimeoutSec 600`; installer execution is a separate wait. There is no resume/alternate endpoint in this version. Do not launch parallel retries or assume a reachable URL proves the full transfer will complete. |
+| .NET download/installation appears slow | User-reported ARM64 Sandbox installation has taken 30-60 minutes or longer. During vendor installer execution the script prints an elapsed-time heartbeat about every 30 seconds; it does not measure per-package progress or predict completion. Downloads use `Invoke-WebRequest -TimeoutSec 600` and PAC's tool command has separate output; neither uses that heartbeat. There is no download resume/alternate endpoint in this version. Do not launch parallel retries or assume a reachable URL proves the full transfer will complete. |
 | `Access to the path 'dotnet.exe' is denied` / exit `3` | Treat it as a failure, even if a later check finds the SDK. The supplied screenshot does not establish whether the fault was download, installation, cleanup, permissions, or a file lock. Let any active installer finish; reopen the terminal and run `.\Setup.cmd -CheckOnly`. Continue only after reviewing the new plan. If the error repeats or the SDK is still missing, stop and investigate rather than weakening Windows security. |
 | TLS/proxy/certificate/download error or GitHub API rate limit | Fix access to the listed official endpoints, wait for a rate-limit reset if applicable, then rerun. Do not disable certificate checks or substitute random downloads. |
 | .NET SDK exists but a project uses another SDK | Inspect that project's `global.json`; setup does not change it. |
@@ -552,6 +579,7 @@ starts may return PowerShell's own nonzero code instead.
 | Selected `claude`/`copilot` command is missing | Use the host already installed. For Copilot desktop only choose `CopilotApp`; do not install another host as a workaround. |
 | Plugin JSON output/source/disabled-state error | Review the selected CLI's supported version, marketplace source, scope, and policy privately. Setup does not fall back to guessed text parsing, force-enable plugins, or expose full configuration. |
 | MCP configuration conflict, encoding, or concurrent-edit error | Stop, close the host, and inspect/reconcile the local configuration privately. Keep any reported backup; do not share it. No sign-in or cloud operation is needed to repair local registration. |
+| An older release rejects the default `COPILOT_HOME` | Download the latest full source. The corrected setup accepts an explicitly configured default; it still rejects genuinely custom paths for manual review. Do not remove your working configuration or clear the variable globally. |
 | Existing connection skill differs or the destination is linked | Review/update it intentionally in the host's supported skill location. Setup will not overwrite a custom or older definition. You can use the printed public-skill prompt without installing another copy. |
 
 It is safe to rerun: completed compatible tools are skipped; a failure stops
@@ -573,7 +601,9 @@ The dependency-free tests parse every PowerShell script and mock all
 installation paths: approval, ordered plan, skip/rerun, failures, restart,
 version verification, architecture detection (including an emulated shell),
 x64/ARM64 package selection, PAC/SDK architecture matching, source/integrity
-gates, and PATH preservation. Plugin tests mock both CLI schemas, approvals,
+gates, and PATH preservation. Default Copilot-home tests use isolated profiles,
+and heartbeat tests start only harmless test processes, not vendor installers.
+Plugin tests mock both CLI schemas, approvals,
 source collisions, skip/rerun, failures and official desktop links. MCP tests use
 isolated dummy files for safe merge, backup, rerun, malformed/conflicting config,
 and concurrent-write cases, plus mocked Claude registration. No plugin install,

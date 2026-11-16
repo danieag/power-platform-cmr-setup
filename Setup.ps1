@@ -308,6 +308,41 @@ function Assert-InstallerIntegrity {
     }
 }
 
+function Invoke-InstallerProcess {
+    [CmdletBinding()]
+    param(
+        [hashtable]$Parameters,
+        [string]$Label,
+        [ValidateRange(1, 3600)][int]$HeartbeatSeconds = 30
+    )
+    # Keep Start-Process -Wait's process-tree semantics while the caller prints heartbeat output.
+    $runner = [PowerShell]::Create()
+    $clock = [Diagnostics.Stopwatch]::StartNew()
+    try {
+        $runner.AddScript({
+            param($StartParameters)
+            $ErrorActionPreference = 'Stop'
+            $process = Start-Process @StartParameters
+            $process.ExitCode
+        }).AddArgument($Parameters) | Out-Null
+        Write-Host "Starting $Label installer. Check for any Windows permission prompt; keep this window open."
+        $operation = $runner.BeginInvoke()
+        while (-not $operation.AsyncWaitHandle.WaitOne($HeartbeatSeconds * 1000)) {
+            Write-Host ("Still waiting for {0} installer ({1:hh\:mm\:ss} elapsed). No completion result yet; do not start another installer." -f $Label, $clock.Elapsed)
+        }
+        $result = @($runner.EndInvoke($operation))
+        if ($runner.HadErrors) { throw $runner.Streams.Error[0].Exception }
+        if ($result.Count -ne 1 -or $result[0] -isnot [int]) {
+            throw "The $Label installer did not return a usable exit code."
+        }
+        Write-Host ("{0} installer exited after {1:hh\:mm\:ss}; checking its exit code and installed version." -f $Label, $clock.Elapsed)
+        return $result[0]
+    } finally {
+        $clock.Stop()
+        $runner.Dispose()
+    }
+}
+
 function Invoke-VerifiedInstaller {
     param([string]$Path, [hashtable]$Spec)
     $arguments = $Spec.Arguments
@@ -322,11 +357,11 @@ function Invoke-VerifiedInstaller {
         $parameters.Verb = 'RunAs'
         Write-Host 'Windows will ask for administrator approval for this prerequisite only.'
     }
-    $process = Start-Process @parameters
-    if ($process.ExitCode -notin @(0, 1641, 3010)) {
-        throw "Installer failed with exit code $($process.ExitCode). Resolve Windows Installer/UAC or policy issues, then rerun."
+    $exitCode = Invoke-InstallerProcess -Parameters $parameters -Label ([IO.Path]::GetFileName($Path))
+    if ($exitCode -notin @(0, 1641, 3010)) {
+        throw "Installer failed with exit code $exitCode. Resolve Windows Installer/UAC or policy issues, then rerun."
     }
-    return ($process.ExitCode -in @(1641, 3010))
+    return ($exitCode -in @(1641, 3010))
 }
 
 function Invoke-SetupNative {
@@ -634,14 +669,25 @@ function Invoke-PluginSetup {
     return 0
 }
 
+function Get-CopilotSetupHome {
+    $default = [IO.Path]::GetFullPath((Join-Path $env:USERPROFILE '.copilot')).TrimEnd('\', '/')
+    if ($env:COPILOT_HOME) {
+        $configured = [Environment]::ExpandEnvironmentVariables($env:COPILOT_HOME)
+        if ($configured -notmatch '^(?:[a-zA-Z]:[\\/]|\\\\)' -or
+            -not [IO.Path]::GetFullPath($configured).TrimEnd('\', '/').Equals($default, [StringComparison]::OrdinalIgnoreCase)) {
+            throw 'COPILOT_HOME points to a custom location rather than the default user .copilot directory. Review registration/skill installation through that host explicitly; setup will not guess another location.'
+        }
+    }
+    return $default
+}
+
 function Get-CopilotStudioConfigPath {
     param([string]$HostName)
     if ($HostName -eq 'ClaudeCode') {
         if ($env:CLAUDE_CONFIG_DIR) { throw 'Custom CLAUDE_CONFIG_DIR is set. Register the server through that host explicitly; setup will not guess its user config location.' }
         return Join-Path $env:USERPROFILE '.claude.json'
     }
-    if ($env:COPILOT_HOME) { throw 'Custom COPILOT_HOME is set. Register the server through that host explicitly; setup will not guess its user config location.' }
-    return Join-Path $env:USERPROFILE '.copilot\mcp-config.json'
+    return Join-Path (Get-CopilotSetupHome) 'mcp-config.json'
 }
 
 function Read-McpUserConfig {
@@ -861,8 +907,7 @@ function Get-ConnectionSkillDirectory {
         if ($env:CLAUDE_CONFIG_DIR) { throw 'Custom CLAUDE_CONFIG_DIR is set. Install the connection skill through that host explicitly; setup will not guess its personal skill directory.' }
         return Join-Path $env:USERPROFILE '.claude\skills\power-platform-connect'
     }
-    if ($env:COPILOT_HOME) { throw 'Custom COPILOT_HOME is set. Install the connection skill through that host explicitly; setup will not guess its personal skill directory.' }
-    return Join-Path $env:USERPROFILE '.copilot\skills\power-platform-connect'
+    return Join-Path (Get-CopilotSetupHome) 'skills\power-platform-connect'
 }
 
 function Assert-SkillDirectoryChain {
