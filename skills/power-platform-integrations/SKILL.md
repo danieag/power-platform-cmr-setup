@@ -16,6 +16,15 @@ This is **stage two**, not a second prerequisite installer. Read the current
 <https://github.com/danieag/power-platform-setup> first. Do not execute anything
 when the user only asks for an explanation or readiness check.
 
+This stage belongs in the **same guided installation chat** as prerequisite
+setup. Use `power-platform-setup`'s combined invocation when those stages are
+already approved, or run a scoped follow-up here. Do not send the user to a new
+chat to paste a second, broad plugin installer. A new host process/chat is for
+loading installed capabilities and separately approved connection onboarding
+after installation, not an extra plugin-install requirement. Actual failures,
+reboot requirements or a required closure of the current host can interrupt
+the flow; explain them rather than silently continuing.
+
 ## 1. Inspect, explain, approve
 
 - Run the repository's `.\Setup.cmd -CheckOnly` first. Do not treat its exit 1
@@ -34,6 +43,10 @@ when the user only asks for an explanation or readiness check.
   Claude Code. Do not silently configure both hosts if both are found. Do not
   install Copilot CLI, start a different agent host, search private app internals
   for undocumented binaries, or modify PATH to make one appear.
+  `Get-Command` is discovery only: a command can be a first-run install launcher.
+  If it offers to install the CLI, do not answer for the user or call it ready.
+  Follow the setup skill's optional user-installed-CLI/desktop-link decision
+  before running a CLI installation stage.
 - Inspect only the relevant existing plugin/server definitions. Do not print,
   upload, commit, or log full user configuration: other entries can hold tokens.
   Preserve unrelated definitions and organization policies. Do not start a
@@ -49,6 +62,17 @@ separately before calling the integration ready.
 The official marketplace is
 <https://github.com/microsoft/power-platform-skills>.
 
+**Copilot in VS Code is not Copilot CLI.** Its agent mode can use compatible
+skills/plugins without a `copilot` terminal program. When VS Code is the user's
+intended host, use its native, separately approved marketplace flow rather than
+the script's Copilot desktop links or an invented `-PluginHost VSCode`:
+**Chat: Manage Plugin Marketplaces > Add Marketplace...**, enter
+`microsoft/power-platform-skills`, then **Customize > Browse > Install** for the
+selected plugins. Use supported UI tools if available; otherwise guide the user.
+See [GitHub's VS Code instructions](https://docs.github.com/en/copilot/how-tos/copilot-in-your-ide/customize-copilot/extend-copilot-with-tools-and-context/using-plugins).
+Do not install another agent host just to drive that marketplace. Plugin
+components/policies can differ by surface, so verify the actual IDE capabilities.
+
 Setup.cmd now offers the reviewed plugin set after prerequisites are ready.
 For that set, prefer its shared implementation after approval, choosing **one**
 host rather than duplicating the installation logic in an agent:
@@ -61,6 +85,11 @@ host rather than duplicating the installation logic in an agent:
 
 Add `-IncludeDataverse` only when approved. `-Accept` and `-AcceptPlugins` are
 separate decisions. If prerequisites are already ready, they are skipped.
+If optional MCP and connection-skill installation were also approved, append
+`-CopilotStudioHost <host> -AcceptCopilotStudio` and
+`-ConnectionSkillHost <host> -AcceptConnectionSkill` to the same invocation.
+Ask before selecting a different host for a stage; no host is inferred from
+the presence of another installed CLI.
 `CopilotApp` prints official marketplace/plugin links; exit `4` requires the
 user to open/confirm them in the desktop app. It is not a failed prerequisite
 install or proof that any plugin was installed. Do not automatically launch
@@ -97,14 +126,11 @@ success. Do not uninstall, overwrite a different source, or force-update a
 working plugin without approval. Do not enable auto-approval or auto-update as
 an unrequested side effect.
 
-The user's often-seen command:
+The official quick installer (`node install.js --include-dataverse`, or the
+remote download piped into `node - --include-dataverse`) is an **alternative**
+for supported CLI hosts, not something to run after Setup.cmd's plugin stage.
 
-```powershell
-iwr https://raw.githubusercontent.com/microsoft/power-platform-skills/main/scripts/install.js -OutFile install.js
-node install.js --include-dataverse
-```
-
-is a **different, broad installer**: it detects Copilot CLI/Claude Code, can
+It is a **different, broad installer**: it detects Copilot CLI/Claude Code, can
 configure both if present, installs the marketplace's selected plugin set, may
 install/update PAC, attempts Azure CLI installation when absent, and enables
 auto-update. It is not a desktop-only installer.
@@ -113,6 +139,11 @@ commands above so the approved host, plugins, and settings are explicit.
 If the user specifically requests that broad installer, explain its current
 effects, inspect the downloaded code in a new temporary directory, and get
 approval for those effects; do not silently substitute it for this plan.
+On Windows use `curl.exe` rather than the ambiguous `curl` alias, or
+`Invoke-WebRequest -UseBasicParsing`, to download for review. Do not overwrite
+or delete a pre-existing file, pipe unseen code into Node, or assume successful
+execution proves plugin/runtime readiness. `--include-dataverse` adds the
+plugin, not a guaranteed global installation of the separate Dataverse CLI.
 
 If no supported plugin-management executable is available, **do not install
 another host as a workaround**. Use documented desktop controls, or guide the

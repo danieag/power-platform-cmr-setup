@@ -52,6 +52,14 @@ Copilot desktop app. It does not install an agent host or provision cloud resour
    destinations. If skipped, relay the printed next-chat prompt/public skill URL.
    File installation is not proof of host discovery or sign-in.
 
+Keep approved prerequisite, plugin, MCP-registration and skill-copy work in the
+same guided installation conversation where possible. Combine only explicitly
+approved stage flags, or use scoped follow-up invocations. Do not require a
+second chat or broad remote installer just to install plugins. Restart/new chat
+is the handoff for capability discovery and separately approved sign-in.
+Actual reboot/host-close requirements still need a clear interruption/handoff;
+do not close the app hosting the current agent conversation without explaining it.
+
 Do not install Copilot CLI/another host, blindly invoke the marketplace's broad
 `scripts/install.js`, claim unverified desktop registration, persistently relax
 execution policy, enable agent auto-approval, disable Windows protections, log

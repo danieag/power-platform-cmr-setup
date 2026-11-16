@@ -50,6 +50,13 @@ same setup script and approval rules. Keep all extracted files together.
 > Ask for approval separately for each stage.
 > Do not sign in, select a tenant, or change cloud resources.
 
+**Keep installation in this same chat.** Your agent can run the approved
+prerequisite, plugin, MCP-registration, and skill-copy stages for you; you do not
+need another chat or a second quick-install command for Power Platform Skills.
+After installation, **restart the app and use a fresh chat for sign-in** with
+the connection skill. If Windows needs a reboot, or setup requires closing the
+app hosting the current chat, the agent should explain the pause/handoff first.
+
 `AGENTS.md` is an instruction file for the agent, **not a program you run**.
 The agent checks first, explains the plan, and runs the same installer after
 your approval. It can use the script's noninteractive flags after that approval,
@@ -111,6 +118,50 @@ read [the connection skill](skills/power-platform-connect/SKILL.md) instead.
 The agent can guide the commands; you still complete sign-in/MFA yourself.
 Separate tools can require separate initial sign-ins. One universal login is
 not guaranteed.
+
+<details>
+<summary>Do I also run the official curl / Node Power Platform Skills installer?</summary>
+
+**No extra command is needed when you use this setup's plugin stage.**
+Our script uses the selected host's supported plugin commands: `claude` for
+Claude Code or `copilot` for Copilot CLI. Copilot desktop-only users still
+confirm the official installation links in the app.
+
+The desktop app and CLI are separate installations. A terminal command that
+asks **"Install GitHub Copilot CLI? [y/N]"** can be just an install launcher,
+not proof that the full CLI is already installed. An agent should not silently
+accept that prompt. You can use the desktop links without the CLI, or
+independently install it using [GitHub's instructions](https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli)
+and ask the agent to recheck afterward. Declining that extra installation
+does not prevent the desktop plugin-link route.
+
+Installing the CLI or running plugin-management commands does not itself send
+AI prompts. AI conversations/tasks, including the agent guiding this setup,
+use the relevant plan's allowance. CLI AI use also needs the required access
+and organization policy; installing a program does not buy or grant AI credits.
+See [current GitHub billing guidance](https://docs.github.com/en/copilot/concepts/billing-and-usage/individuals/billing).
+
+Microsoft's quick installer is a valid **alternative for existing CLI hosts**.
+It can configure both detected CLIs, install/update prerequisites, and enable
+auto-updates, so it is not silently added to this narrower setup. It also does
+not replace the later connection/sign-in skill.
+
+**That CLI requirement belongs to `install.js`, not to Power Platform skills.**
+Copilot desktop users can install plugins normally through **Customize**.
+VS Code agent-mode users can use **Chat: Manage Plugin Marketplaces > Add
+Marketplace...**, enter `microsoft/power-platform-skills`, then install the
+plugins from **Customize**. Neither native app route requires Copilot CLI.
+See [GitHub's VS Code plugin instructions](https://docs.github.com/en/copilot/how-tos/copilot-in-your-ide/customize-copilot/extend-copilot-with-tools-and-context/using-plugins).
+The script's `CopilotApp` links target the desktop app, not VS Code; there is
+currently no `VSCode` host flag. Respect each host/plugin's support and policies.
+
+If following that alternative on Windows, **`curl.exe`** names the actual curl
+program; plain `curl` may mean PowerShell's `Invoke-WebRequest` alias. A download
+alone does not install plugins, and piping a remote script into Node executes
+it immediately. Have your agent review the source and explain its changes before
+you approve execution. Do not run both installation routes unnecessarily.
+
+</details>
 
 <details>
 <summary>What will the connection skill ask me? Wasn't Dataverse already installed?</summary>

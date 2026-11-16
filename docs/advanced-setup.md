@@ -136,6 +136,56 @@ authorization to change plugin settings, sign in, or access an environment.
 An unattended process without a usable UAC session will fail rather than bypass
 Windows security. Agents must not add `-Accept` without user approval.
 
+### One guided installation session
+
+The setup and integration skills should **execute the approved stages in the
+same installation chat**, not stop at prerequisites and send the user elsewhere
+to paste a plugin-installer one-liner. Only the chosen host is configured:
+`ClaudeCode` uses an existing `claude` command, `CopilotCli` uses an existing
+`copilot` command, and `CopilotApp` prints official app confirmation links.
+Ordinary Claude chat/Cowork is not Claude Code, and the presence of a CLI does
+not mean the user chose that host.
+
+`Get-Command copilot` alone is not proof of a usable CLI: some systems have an
+install launcher that displays `Install GitHub Copilot CLI? [y/N]`. The setup
+skill must not accept that prompt, call it a ready CLI, or start a model session.
+Use approved local installation metadata to assess readiness; an ambiguous or
+failed command is not permission to install another host. A desktop user can
+choose app links immediately or independently install the optional CLI from
+[GitHub's official instructions](https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli)
+before readiness is checked again. If they decline the optional CLI, the skill
+can continue with separately approved desktop links instead. This is agent
+guidance, not a new automatic CLI installer inside Setup.ps1.
+
+CLI binaries and plugin-management commands do not themselves submit AI prompts.
+AI agent use, including a chat guiding setup, can consume the user's allowance
+and requires the applicable plan/authentication/policy. Do not promise unlimited
+AI usage, buy credits, or open a model session as an installation check.
+
+After each relevant approval, flags can be combined in one invocation. For
+example, when the user has approved all four installation stages for the
+Copilot desktop app:
+
+```powershell
+.\Setup.cmd -Install -Accept -NonInteractive `
+    -PluginHost CopilotApp -AcceptPlugins `
+    -CopilotStudioHost CopilotApp -AcceptCopilotStudio `
+    -ConnectionSkillHost CopilotApp -AcceptConnectionSkill
+```
+
+Use `ClaudeCode` or `CopilotCli` consistently instead for that selected host.
+Add `-IncludeDataverse` only when requested. An omitted optional stage is skipped
+in noninteractive mode; if approved later, a scoped rerun in the same chat is
+fine. No flag grants sign-in/tenant access. Exit `4` still means desktop plugin
+confirmations are pending even if MCP/skill files were saved.
+
+This is not a promise that Windows can never interrupt the session. Stop on
+installer errors/restart requirements, and explain if the selected host must
+be closed for a configuration change. Do not close the app hosting the active
+agent conversation without a handoff; an approved external-terminal step may
+be necessary. After installation, reopen/restart the host and use a fresh chat
+to discover installed capabilities and request the connection skill separately.
+
 **Azure CLI is included by default, after PAC CLI.** The full plugin set includes
 Azure-dependent workflows (Power Automate, Process Intelligence, and PCF
 verification/inventory), so no extra Azure flag is needed. It still requires
@@ -335,6 +385,32 @@ desktop-only installer. Setup does **not** download/execute `install.js` or pipe
 remote JavaScript into Node. It uses scoped host commands instead, without
 changing auto-update settings, updating PAC, or installing unselected prerequisites.
 Existing host-managed update behavior is left unchanged.
+
+Those official quick-install commands are **alternatives to** this script's
+plugin stage, not additional required steps. The setup skill can run scoped
+host commands directly; a separate terminal or chat is not needed just to
+install Power Platform plugins. If the broad installer is explicitly chosen,
+review/approve its wider effects and verify results instead of also repeating
+the narrower plugin stage.
+
+On Windows, use **`curl.exe`** for native curl syntax such as `-fsSL`; plain
+`curl` can be a Windows PowerShell alias for `Invoke-WebRequest`. For reviewed
+PowerShell downloads use `Invoke-WebRequest -UseBasicParsing` to avoid its
+HTML-parsing confirmation. Downloading is distinct from execution, and a
+remote pipeline to Node executes before manual review. Neither spelling makes
+the broad installer applicable to a desktop-only host without a supported CLI.
+
+The restriction is in that quick installer's **host-detection code**, not in
+PowerShell/curl or the skill/plugin format. Copilot desktop has normal
+marketplace controls; VS Code Copilot agent mode also supports native plugin
+installation without Copilot CLI. In VS Code use **Chat: Manage Plugin
+Marketplaces > Add Marketplace...**, add `microsoft/power-platform-skills`,
+then **Customize > Browse > Install**. See
+[GitHub's VS Code plugin documentation](https://docs.github.com/en/copilot/how-tos/copilot-in-your-ide/customize-copilot/extend-copilot-with-tools-and-context/using-plugins).
+The current script does not implement a VS Code host selector. Do not equate
+that IDE with `CopilotCli` or send desktop-only confirmation links expecting
+them to target VS Code. Installation and component support must be verified
+in the intended host.
 
 ## Step 3: optional Copilot Studio MCP registration
 
