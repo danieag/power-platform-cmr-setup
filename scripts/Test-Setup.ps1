@@ -233,7 +233,7 @@ Test-Case 'inventory rejects unsupported Node majors, absent npm, and runtime-on
     Assert-Equal ($state | Where-Object Id -eq 'dotnet').Ready $false
 }
 
-Test-Case 'Node compatibility preserves 22.18+, 24 and 26 while enforcing npm and rejecting other majors' {
+Test-Case 'Node compatibility enforces approved majors and bundled npm' {
     function Find-SetupExecutable { param($Name, $Candidates) "C:\fixture\$Name" }
     function Get-ExecutableArchitecture { 'x64' }
     function Get-BinaryVersion { $script:nodeUnderTest }
@@ -249,7 +249,7 @@ Test-Case 'Node compatibility preserves 22.18+, 24 and 26 while enforcing npm an
         @{ Version = '26.1.0'; Npm = '11.0.0'; Ready = $true },
         @{ Version = '26.13.0'; Npm = '11.20.0'; Ready = $true },
         @{ Version = '26.1.0'; Npm = '9.9.4'; Ready = $false },
-        @{ Version = '27.0.0'; Npm = '11.0.0'; Ready = $false })) {
+        @{ Version = '99.0.0'; Npm = '11.0.0'; Ready = $false })) {
         $script:nodeUnderTest = [version]$case.Version
         $script:npmUnderTest = $case.Npm
         $node = Get-SetupState | Where-Object Id -eq 'node'
@@ -1381,6 +1381,137 @@ Test-Case 'step 5 Azure scope example restores the inherited directory on succes
         }
         Assert-Equal $script:azureExampleCalls 4
     } finally { $env:AZURE_CONFIG_DIR = $previous }
+}
+
+Test-Case 'Node maintenance proposes only published, active stable LTS majors and flags existing EOL versions' {
+    . (Join-Path $root 'scripts\Update-NodeSupport.ps1')
+    $releases = @(
+        [pscustomobject]@{ version = 'v28.10.0'; date = '2028-11-01'; lts = 'Fixture' },
+        [pscustomobject]@{ version = 'v28.11.0'; date = '2028-11-02'; lts = 'Fixture' },
+        [pscustomobject]@{ version = 'v30.0.0-rc.1'; date = '2028-11-01'; lts = 'Fixture' },
+        [pscustomobject]@{ version = 'v29.0.0'; date = '2028-11-01'; lts = $false },
+        [pscustomobject]@{ version = 'v32.0.0'; date = '2028-11-01'; lts = 'Fixture' },
+        [pscustomobject]@{ version = 'v34.0.0'; date = '2028-11-01'; lts = 'Fixture' },
+        [pscustomobject]@{ version = 'v36.0.0'; date = '2028-12-01'; lts = 'Fixture' })
+    $schedule = @'
+{
+  "v22": {"start":"2024-04-24","lts":"2024-10-29","end":"2027-04-30"},
+  "v24": {"start":"2025-05-06","lts":"2025-10-28","end":"2028-04-30"},
+  "v26": {"start":"2026-05-05","lts":"2026-10-28","end":"2029-04-30"},
+  "v28": {"start":"2028-05-01","lts":"2028-10-28","end":"2031-04-30"},
+  "v32": {"start":"2028-05-01","lts":"2028-12-01","end":"2031-04-30"},
+  "v34": {"start":"2026-05-01","lts":"2026-10-28","end":"2028-11-17"}
+}
+'@ | ConvertFrom-Json
+    $proposal = Get-NodeSupportProposal -CurrentMajors @(22,24,26) -Releases $releases -Schedule $schedule -AsOf ([datetime]'2028-11-17')
+    Assert-Equal ($proposal.AddedMajors -join ',') '28'
+    Assert-Equal ($proposal.ProposedMajors -join ',') '22,24,26,28'
+    Assert-Equal ($proposal.EndOfLifeMajors -join ',') '22,24'
+    Assert-Equal $proposal.Changed $true
+}
+
+Test-Case 'Node maintenance fails closed on empty, missing or malformed support metadata' {
+    . (Join-Path $root 'scripts\Update-NodeSupport.ps1')
+    $releases = @([pscustomobject]@{ version = 'v28.10.0'; date = '2028-11-01'; lts = 'Fixture' })
+    $schedule = '{"v28":{"start":"2028-05-01","lts":"2028-10-28","end":"2031-04-30"}}' | ConvertFrom-Json
+    Assert-Throws { Get-NodeSupportProposal -CurrentMajors @(28) -Releases @() -Schedule $schedule } 'empty'
+    Assert-Throws { Get-NodeSupportProposal -CurrentMajors @(28) -Releases $releases -Schedule ([pscustomobject]@{}) } 'no LTS entry'
+    $schedule.v28.lts = 'not-a-date'
+    Assert-Throws { Get-NodeSupportProposal -CurrentMajors @(28) -Releases $releases -Schedule $schedule } 'invalid release/support date'
+    $schedule.v28.lts = '2032-01-01'
+    Assert-Throws { Get-NodeSupportProposal -CurrentMajors @(28) -Releases $releases -Schedule $schedule } 'date ordering'
+    Assert-Throws { Get-NodeSupportMajors 'unexpected source structure' } 'Expected one literal'
+}
+
+Test-Case 'Node maintenance preview uses fixed metadata sources without writing or installing' {
+    . (Join-Path $root 'scripts\Update-NodeSupport.ps1')
+    $majors = @(Get-NodeSupportMajors ([IO.File]::ReadAllText((Join-Path $root 'Setup.ps1'))))
+    $script:maintenanceSchedule = [pscustomobject]@{}
+    $script:maintenanceReleases = @()
+    foreach ($major in $majors) {
+        $script:maintenanceSchedule | Add-Member -NotePropertyName "v$major" -NotePropertyValue ([pscustomobject]@{
+            start = [datetime]::UtcNow.AddYears(-2).ToString('yyyy-MM-dd')
+            lts = [datetime]::UtcNow.AddYears(-1).ToString('yyyy-MM-dd')
+            end = [datetime]::UtcNow.AddYears(2).ToString('yyyy-MM-dd')
+        })
+        $script:maintenanceReleases += [pscustomobject]@{
+            version = "v$major.0.0"; date = [datetime]::UtcNow.AddDays(-1).ToString('yyyy-MM-dd'); lts = 'Fixture'
+        }
+    }
+    $script:metadataCalls = @()
+    function Invoke-RestMethod {
+        param($Uri, $TimeoutSec)
+        $script:metadataCalls += $Uri
+        switch ($Uri) {
+            'https://nodejs.org/dist/index.json' { return $script:maintenanceReleases }
+            'https://raw.githubusercontent.com/nodejs/Release/main/schedule.json' { return $script:maintenanceSchedule }
+            default { throw 'UNEXPECTED NETWORK DESTINATION' }
+        }
+    }
+    function Update-NodeSupportFiles { throw 'WRITE FORBIDDEN' }
+    function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
+    function Start-Process { throw 'PROCESS FORBIDDEN' }
+    $proposal = Invoke-NodeSupportMaintenance -Root $root
+    Assert-Equal $proposal.Changed $false
+    Assert-Equal $script:metadataCalls.Count 2
+}
+
+Test-Case 'Node maintenance updates only guarded source, docs and cases and the proposed runtime accepts new majors' {
+    . (Join-Path $root 'scripts\Update-NodeSupport.ps1')
+    $temporary = Join-Path ([IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString('N'))
+    $files = @('Setup.ps1', 'README.md', 'docs\advanced-setup.md',
+        'skills\power-platform-integrations\SKILL.md', 'scripts\Test-Setup.ps1')
+    try {
+        foreach ($file in $files) {
+            $path = Join-Path $temporary $file
+            New-Item -ItemType Directory -Path (Split-Path -Parent $path) -Force | Out-Null
+            Copy-Item -LiteralPath (Join-Path $root $file) -Destination $path
+        }
+        $current = @(Get-NodeSupportMajors ([IO.File]::ReadAllText((Join-Path $temporary 'Setup.ps1'))))
+        $next = ($current | Measure-Object -Maximum).Maximum + 2
+        $proposal = [pscustomobject]@{
+            Changed = $true; CurrentMajors = [int[]]$current
+            AddedMajors = [int[]]@($next, ($next + 2)); ProposedMajors = [int[]]@($current + $next + ($next + 2))
+        }
+        $original = [IO.File]::ReadAllText((Join-Path $temporary 'Setup.ps1'))
+        $readmePath = Join-Path $temporary 'README.md'
+        $readme = [IO.File]::ReadAllText($readmePath)
+        [IO.File]::WriteAllText($readmePath, 'unexpected documentation structure')
+        Assert-Throws { Update-NodeSupportFiles -Root $temporary -Proposal $proposal } 'Expected one compatibility marker'
+        Assert-Equal ([IO.File]::ReadAllText((Join-Path $temporary 'Setup.ps1'))) $original
+        [IO.File]::WriteAllText($readmePath, $readme)
+        Update-NodeSupportFiles -Root $temporary -Proposal $proposal
+        $updated = [IO.File]::ReadAllText((Join-Path $temporary 'Setup.ps1'))
+        Assert-Equal ((Get-NodeSupportMajors $updated) -join ',') ($proposal.ProposedMajors -join ',')
+        foreach ($file in $files) {
+            $text = [IO.File]::ReadAllText((Join-Path $temporary $file))
+            if ($file -ne 'scripts\Test-Setup.ps1') {
+                Assert-Equal ($text.Contains((Format-NodeSupportLabel $proposal.ProposedMajors))) $true
+            } else {
+                foreach ($major in $proposal.AddedMajors) {
+                    Assert-Equal ($text.Contains("Version = '${major}.0.0'; Npm = '11.20.0'; Ready = " + '$true')) $true
+                }
+            }
+            if ($file.EndsWith('.ps1')) {
+                $tokens = $null; $errors = $null
+                [Management.Automation.Language.Parser]::ParseFile((Join-Path $temporary $file), [ref]$tokens, [ref]$errors) | Out-Null
+                Assert-Equal $errors.Count 0
+            }
+        }
+        Update-NodeSupportFiles -Root $temporary -Proposal ([pscustomobject]@{ Changed = $false })
+        Assert-Equal ([IO.File]::ReadAllText((Join-Path $temporary 'Setup.ps1'))) $updated
+        . (Join-Path $temporary 'Setup.ps1')
+        function Get-SetupArchitecture { 'x64' }
+        function Find-SetupExecutable { param($Name, $Candidates) "C:\fixture\$Name" }
+        function Get-ExecutableArchitecture { 'x64' }
+        function Get-BinaryVersion { [version]"$next.0.0" }
+        function Test-Path { $true }
+        function Get-Content { '{"version":"11.20.0"}' }
+        function Get-ChildItem {}
+        Assert-Equal (Get-SetupState | Where-Object Id -eq 'node').Ready $true
+    } finally {
+        Remove-Item -LiteralPath $temporary -Recurse -Force
+    }
 }
 
 Test-Case 'public documentation resolves all local links and screenshot files' {

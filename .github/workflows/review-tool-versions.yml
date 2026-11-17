@@ -1,0 +1,97 @@
+name: Review tool versions
+
+on:
+  schedule:
+    - cron: '23 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: review-tool-versions
+  cancel-in-progress: false
+
+jobs:
+  review-node-lts:
+    if: github.ref_name == github.event.repository.default_branch
+    runs-on: windows-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Propose newly released Node LTS majors
+        id: proposal
+        shell: pwsh
+        run: |
+          $report = .\scripts\Update-NodeSupport.ps1 -Apply | ConvertFrom-Json
+          $report | ConvertTo-Json -Depth 4 | Set-Content "$env:RUNNER_TEMP\node-support.json" -Encoding utf8
+          "changed=$($report.Changed.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          "## Node compatibility review ($($report.AsOf))" >> $env:GITHUB_STEP_SUMMARY
+          "Accepted majors: $($report.CurrentMajors -join ', ')" >> $env:GITHUB_STEP_SUMMARY
+          "Proposed additions: $($report.AddedMajors -join ', ')" >> $env:GITHUB_STEP_SUMMARY
+          if ($report.EndOfLifeMajors.Count) {
+            Write-Warning "Accepted Node majors need end-of-life review: $($report.EndOfLifeMajors -join ', '). They were not removed automatically."
+            "End-of-life review needed: $($report.EndOfLifeMajors -join ', '); no automatic removals." >> $env:GITHUB_STEP_SUMMARY
+          }
+          "New-install defaults and other tools' major-version policies are unchanged." >> $env:GITHUB_STEP_SUMMARY
+      - name: Test proposed files with Windows PowerShell 5.1
+        if: steps.proposal.outputs.changed == 'true'
+        shell: powershell
+        run: .\scripts\Test-Setup.ps1
+      - name: Test proposed files with PowerShell 7
+        if: steps.proposal.outputs.changed == 'true'
+        shell: pwsh
+        run: .\scripts\Test-Setup.ps1
+      - name: Package proposed public files
+        if: steps.proposal.outputs.changed == 'true'
+        shell: pwsh
+        run: .\scripts\New-Release.ps1
+      - name: Open a review PR without approving or merging
+        if: steps.proposal.outputs.changed == 'true'
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          $report = Get-Content "$env:RUNNER_TEMP\node-support.json" -Raw | ConvertFrom-Json
+          $branch = 'automation/node-lts-' + ($report.AddedMajors -join '-')
+          $existing = @(gh pr list --state all --head $branch --limit 1 --json url,state | ConvertFrom-Json)
+          if ($existing.Count) {
+            "Existing proposal ($($existing[0].state)): $($existing[0].url). It was not overwritten or recreated." >> $env:GITHUB_STEP_SUMMARY
+            exit 0
+          }
+          $remote = git ls-remote --heads origin "refs/heads/$branch"
+          if ($remote) { throw "Branch $branch already exists without a recorded PR; review it manually. No branch was overwritten." }
+          git switch -c $branch
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- Setup.ps1 README.md docs/advanced-setup.md skills/power-platform-integrations/SKILL.md scripts/Test-Setup.ps1
+          git commit -m "Propose Node LTS support: $($report.AddedMajors -join ', ')"
+          git push origin "HEAD:refs/heads/$branch"
+          $body = @"
+          ## Proposed compatibility update
+          Node LTS majors **$($report.AddedMajors -join ', ')** have stable releases in both the official release index and active support schedule as of $($report.AsOf).
+
+          This proposes preserving compatible existing installations, with the existing npm and architecture checks. It does not change the new-install default, download sources, integrity checks, approval gates, or other tools' required major versions.
+
+          - [ ] Review the selected Power Platform plugins' and MCP packages' documented runtime requirements. LTS status alone does not establish plugin compatibility.
+          - [ ] Review the added mocked regression cases and any required disposable-machine acceptance. These tests do not execute vendor installers or prove every plugin works.
+          - [ ] Review accepted end-of-life majors: $($report.EndOfLifeMajors -join ', '). None were removed automatically.
+
+          Windows PowerShell 5.1 and PowerShell 7 regression tests and release packaging passed in the maintenance run before this PR was created. A separate validation run is dispatched for this branch because GitHub-token-created PRs do not trigger the usual pull_request workflow.
+
+          Sources: [Node release index](https://nodejs.org/dist/index.json), [Node support schedule](https://github.com/nodejs/Release/blob/main/schedule.json), [Power Platform plugins](https://github.com/microsoft/power-platform-skills).
+
+          **This workflow never approves or merges pull requests.**
+          "@
+          $bodyPath = "$env:RUNNER_TEMP\node-support-pr.md"
+          $body | Set-Content $bodyPath -Encoding utf8
+          $url = gh pr create --base $env:DEFAULT_BRANCH --head $branch --title "Review Node LTS support: $($report.AddedMajors -join ', ')" --body-file $bodyPath
+          "Review PR: $url" >> $env:GITHUB_STEP_SUMMARY
+          gh workflow run validate.yml --ref $branch

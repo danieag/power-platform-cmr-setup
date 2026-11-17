@@ -26,7 +26,7 @@ same setup script and approval rules. Keep all extracted files together.
    Setup installs missing tools in this order:
    **Git > Node.js/npm > .NET 10 SDK > PAC CLI > Azure CLI**.
    Compatible tools already installed are skipped.
-   Existing Node **22.18+ (22.x), 24, or 26** is preserved when bundled npm is
+   Existing Node **22.18+ (22.x), 24 or 26** is preserved when bundled npm is
    version 10+ and the executable architecture is compatible. New Node installs
    still use **24 LTS**; setup does not downgrade a compatible Node 26 install.
 3. **Wait, then answer the optional prompts** below. Keep this window open.
@@ -268,6 +268,21 @@ does not overwrite different skill content. Ask your agent to read the
 intentionally update your personal copy.
 
 </details>
+
+### Keeping compatibility rules current
+
+A weekly **Review tool versions** GitHub Actions workflow checks official Node
+release and support metadata. Newly released, still-supported LTS majors can
+produce a **review pull request** updating the accepted versions, regression
+cases, and guidance. It never approves or merges the PR, changes your computer,
+or adds online checks to `Setup.cmd -CheckOnly`.
+
+The current automation covers **Node LTS additions**, not automatic upgrades
+of every tool's major version. New-install defaults stay unchanged; maintainers
+review plugin compatibility and end-of-life warnings. See
+[version maintenance](docs/advanced-setup.md#automatic-version-maintenance).
+Download/extract a newer repository version after an approved update is merged;
+an existing downloaded ZIP does not update itself.
 
 ## Walkthrough with screenshots
 

@@ -229,9 +229,9 @@ order; Azure CLI is included by default and comes after PAC:
 | 5 | Azure CLI | Recognized MSI installation 2.60+, launcher, and compatible bundled Python present | Official x64 Azure CLI MSI, machine-wide; uses emulation on ARM64 |
 
 These are this bootstrap's compatibility baselines, not a guarantee that every
-Power Platform plugin supports every accepted version. Existing Node 22.18+
-(within 22.x), 24 and 26 are accepted; a compatible Node 26 installation is left
-unchanged rather than replaced with Node 24. New installs still select Node 24
+Power Platform plugin supports every accepted version. Only the reviewed Node
+majors listed above are accepted; compatible existing installations are left
+unchanged rather than replaced. New installs still select Node 24
 LTS. Check the selected plugins' current runtime requirements separately; this
 setup deliberately does not treat an arbitrary newer Node major as compatible.
 The .NET runtime alone is insufficient. Newer .NET SDK
@@ -723,6 +723,64 @@ It is safe to rerun: completed compatible tools are skipped; a failure stops
 the chain and does not roll back earlier successful vendor installations.
 Remove software through Windows Installed apps or its own package manager;
 there is no broad cleanup/uninstall command.
+
+## Automatic version maintenance
+
+The **Review tool versions** workflow runs on Mondays at **07:23 UTC**, or
+manually through **Actions > Review tool versions > Run workflow** on the
+default branch. GitHub schedules can be delayed; this is a maintenance aid,
+not a guarantee that every new release is accepted immediately.
+GitHub can also disable public-repository schedules after inactivity; owners
+must re-enable a disabled schedule when notified.
+
+The bounded first automation covers **Node LTS compatibility additions**:
+
+1. Read the fixed official Node release index and support schedule, without
+   installing or executing downloaded packages.
+2. Propose only majors with a published stable LTS release whose LTS period
+   has started and whose support end date has not passed. Scheduled future LTS,
+   Current-only releases, prereleases, and already end-of-life majors are not
+   newly accepted. Existing end-of-life majors are flagged, not silently removed.
+3. Guardedly update the policy in `Setup.ps1`, its displayed requirement,
+   directly related documentation, and explicit Node regression cases. Missing
+   metadata or unexpected file structure fails the run rather than guessing.
+4. Run the existing isolated tests in both PowerShell versions and package the
+   allowlisted public files before creating a PR.
+5. Open a review PR on a dedicated branch. Never approve, auto-merge, force-push,
+   or overwrite an existing proposal. A closed proposal is not recreated
+   automatically; maintainers can reopen or review it themselves.
+
+**LTS status is a proposal signal, not proof of Power Platform compatibility.**
+The maintainer must review the selected plugins' current runtime requirements
+and any required real acceptance before merging. Existing downloaded source
+and runtime ZIPs retain their checked-in policy until replaced by a newer
+download. User check-only remains offline, read-only and CLI-free.
+
+The Node 22 minimum, npm minimum, architecture gates, new-install Node 24 LTS
+default, integrity checks, and all other tools' major-version requirements are
+not automatically changed. Git, PAC and Azure already resolve current packages;
+Node and .NET resolve current releases within their configured channels.
+New .NET majors cannot simply replace the PAC-required SDK channel. Changes to
+other tools' compatibility baselines remain an explicit maintenance decision.
+
+Repository prerequisite: **Settings > Actions > General > Workflow permissions >
+Allow GitHub Actions to create and approve pull requests** must be enabled and
+permitted by organization policy. The workflow never exercises approval or merge
+capabilities. Its write permissions are job-scoped: contents for its proposal
+branch, pull requests for creation, and actions to dispatch `validate.yml`.
+That explicit dispatch is needed because PRs created using `GITHUB_TOKEN` do
+not trigger the normal `pull_request` workflow. No personal token is required.
+
+From the full contributor source, preview public metadata without editing files:
+
+```powershell
+.\scripts\Update-NodeSupport.ps1
+```
+
+Use `-Apply` only in a clean maintainer checkout when you intend to write the
+proposed source changes. The script does not install tools, authenticate,
+create a PR, or change user configuration itself. It is not part of the
+packaged runtime ZIP; the GitHub workflow owns the separate PR operation.
 
 ## Validate and create a shareable ZIP
 

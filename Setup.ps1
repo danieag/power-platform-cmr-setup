@@ -129,8 +129,9 @@ function Get-SetupState {
             $npmVersion = ConvertTo-ToolVersion ((Get-Content -LiteralPath $npmManifest -Raw | ConvertFrom-Json).version)
         }
     }
-    $nodeSupported = $null -ne $version -and
-        (($version.Major -eq 22 -and $version -ge [version]'22.18.0') -or $version.Major -in @(24, 26))
+    $supportedNodeMajors = @(22, 24, 26)
+    $nodeSupported = $null -ne $version -and $version.Major -in $supportedNodeMajors -and
+        ($version.Major -ne 22 -or $version -ge [version]'22.18.0')
     $binaryArchitecture = Get-ExecutableArchitecture $node
     $ready = $nodeSupported -and (Test-ExecutableArchitecture $binaryArchitecture $Architecture) -and
         $null -ne $npmVersion -and $npmVersion -ge [version]'10.0.0'
