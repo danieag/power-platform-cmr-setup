@@ -628,6 +628,43 @@ function Get-CopilotAppPluginLink {
     return 'https://github.com/copilot/app/launch?open=' + [uri]::EscapeDataString($route)
 }
 
+function Get-SetupAgentHosts {
+    foreach ($definition in @(
+        @{ Id = 'ClaudeCode'; Name = 'Claude Code CLI'; Command = 'claude' },
+        @{ Id = 'CopilotCli'; Name = 'GitHub Copilot CLI'; Command = 'copilot' })) {
+        $path = Find-SetupExecutable $definition.Command
+        [pscustomobject]@{
+            Id = $definition.Id; Name = $definition.Name
+            Detected = -not [string]::IsNullOrWhiteSpace($path); Path = $path
+        }
+    }
+    $registered = $false
+    $protocol = 'Registry::HKEY_CLASSES_ROOT\ghapp'
+    if (Test-Path -LiteralPath $protocol -ErrorAction Stop) {
+        $registration = Get-ItemProperty -LiteralPath $protocol -ErrorAction Stop
+        $registered = $null -ne $registration.PSObject.Properties['URL Protocol']
+    }
+    [pscustomobject]@{
+        Id = 'CopilotApp'; Name = 'GitHub Copilot desktop app'
+        Detected = $registered; Path = $null
+    }
+}
+
+function Show-AgentHostInstallHandoff {
+    param([ValidateSet('ClaudeCode', 'CopilotCli', 'CopilotApp')][string]$HostName)
+    $url = switch ($HostName) {
+        'ClaudeCode' { 'https://code.claude.com/docs/en/setup' }
+        'CopilotCli' { 'https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli' }
+        'CopilotApp' { 'https://github.com/features/ai/github-app' }
+    }
+    Write-Host "`nACTION REQUIRED: install or confirm the selected host yourself using its official instructions:"
+    Write-Host $url
+    Write-Host 'If already installed, reopen the terminal/host and check its PATH or app-link registration before retrying.'
+    Write-Host 'This setup does not download, install, launch or sign in to an agent host. No alternative host was configured.'
+    Write-Host 'Complete the chosen host setup independently, then rerun .\Setup.cmd or resume the guided setup skill.'
+    Write-Host 'Any completed prerequisite installations are preserved. Host installation may have its own requirements and approvals.'
+}
+
 function Invoke-PluginSetup {
     [CmdletBinding()]
     param(
@@ -646,6 +683,17 @@ function Invoke-PluginSetup {
             return 0
         }
         Write-Host "`nOptional next stage: Power Platform plugins (separate approval)."
+        $agentHosts = @(Get-SetupAgentHosts)
+        Write-Host 'Passive host discovery only: commands and app-link registrations are not proof that a host works or is signed in.'
+        foreach ($candidate in $agentHosts) {
+            $status = if (-not $candidate.Detected) { 'not detected' }
+                elseif ($candidate.Id -eq 'CopilotApp') { 'ghapp URL handler registered; app not runtime-verified' }
+                else { 'command found; may be a first-run launcher, not a verified CLI' }
+            Write-Host ("  {0}: {1}" -f $candidate.Name, $status)
+        }
+        if (-not @($agentHosts | Where-Object Detected).Count) {
+            Write-Host 'No host candidate was detected. Select a host for official installation guidance, or confirm an already installed app.'
+        }
         Write-Host '1 = Claude Code (claude command); 2 = Copilot CLI; 3 = Copilot desktop app links; Enter = skip.'
         $choice = Read-Host 'Choose the host you already use; no new host will be installed'
         switch ($choice) {
@@ -655,11 +703,28 @@ function Invoke-PluginSetup {
             '3' { $PluginHost = 'CopilotApp' }
             default { Write-Host 'Unrecognized host selection. Plugin stage cancelled.'; return 2 }
         }
+        if ($PluginHost -eq 'CopilotApp' -and -not @($agentHosts | Where-Object { $_.Id -eq 'CopilotApp' -and $_.Detected }).Count) {
+            Write-Host 'The Copilot desktop app link handler was not detected. This does not prove the app is absent.'
+            if ((Read-Host 'If you already installed the Copilot desktop app, type APP to use its confirmation links; Enter = official install guidance') -cne 'APP') {
+                Show-AgentHostInstallHandoff 'CopilotApp'
+                return 2
+            }
+        }
     }
     if ($PluginHost -eq 'Skip') { Write-Host 'Plugin stage skipped explicitly.'; return 0 }
     if ($NonInteractive -and -not $AcceptPlugins) {
         Write-Host 'Plugin approval missing. Use -AcceptPlugins only after the user approves this separate plan.'
         return 2
+    }
+    $path = $null
+    if ($PluginHost -ne 'CopilotApp') {
+        $command = if ($PluginHost -eq 'ClaudeCode') { 'claude' } else { 'copilot' }
+        $path = Find-SetupExecutable $command
+        if (-not $path) {
+            Write-Host "The selected host command '$command' was not found on PATH; no other CLI will be substituted."
+            Show-AgentHostInstallHandoff $PluginHost
+            return 2
+        }
     }
     if (-not $NonInteractive -and -not $AcceptPlugins -and -not $IncludeDataverse -and $Plugins -eq 'All' -and -not $MarketplaceOnly) {
         $IncludeDataverse = (Read-Host 'Also include Dataverse? Type YES to opt in; Enter = no') -ceq 'YES'
@@ -674,13 +739,7 @@ function Invoke-PluginSetup {
     Write-Host 'Source: microsoft/power-platform-skills (Dataverse, if selected, comes from Microsoft/Dataverse-skills).'
     Write-Host 'Plugins may include executable hooks, agents and MCP servers. Review their permissions in your host.'
     Write-Host 'Setup will not enable auto-update, install another host, update prerequisites, or sign in.'
-    $path = $null
     if ($PluginHost -ne 'CopilotApp') {
-        $command = if ($PluginHost -eq 'ClaudeCode') { 'claude' } else { 'copilot' }
-        $path = Find-SetupExecutable $command
-        if (-not $path) {
-            throw "The selected host command '$command' is not available on PATH. No host was installed. For Copilot desktop only, choose -PluginHost CopilotApp."
-        }
         Write-Host "Using existing command: $path"
         Write-Host 'Only this host will be configured, at user scope. Existing plugins/disabled settings will be preserved.'
     } else {

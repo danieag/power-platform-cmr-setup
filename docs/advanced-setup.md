@@ -353,6 +353,28 @@ an installer failure or restart requirement. An interactive launch, including a
 rerun on an already prepared PC, offers a host chooser. No selection is guessed
 from the presence of a different application.
 
+Before that interactive chooser, passive discovery looks for the selected
+products' `claude`/`copilot` application commands and the `ghapp` URL-protocol
+registration under the merged Windows classes registry. It does not execute
+either CLI, inspect private app directories, start the app, or verify sign-in.
+Commands can be first-run install launchers; protocol registrations can be
+stale. Status is therefore **candidate detected**, not installed/working proof.
+Registry access failures are reported, not silently turned into "not installed."
+
+Selecting a missing CLI prints its fixed official installation guide and
+returns exit `2` before plugin prompts/changes or later MCP/skill stages.
+No other host is installed or substituted. Finish the chosen host's official
+setup independently, reopen the terminal/host, then rerun or resume onboarding.
+For an undetected desktop app, the interactive chooser asks for `APP` to confirm
+it is already installed; otherwise it prints the official app page and stops.
+That confirmation never replaces `PLUGINS` approval, and desktop links still
+return `4` until their in-app confirmations/verification are completed.
+
+An explicit noninteractive host does not inventory/configure the other hosts.
+Its CLI command is still checked; a missing command receives the same handoff.
+An explicitly selected desktop-link route remains a user-confirmed handoff,
+not a claim based on registry detection. Check-only skips host discovery.
+
 **Installed binaries do not mean plugins or authentication are configured.**
 The prerequisite summary deliberately does not claim plugin readiness.
 
@@ -755,7 +777,7 @@ Use **`npm.cmd`** in PowerShell to avoid the unrelated `npm.ps1` policy issue.
 |---|---|
 | `0` | Selected prerequisites ready; optional plugin/MCP/skill stages skipped or their registrations/files verified. Actual host discovery, runtime/auth readiness is still separate. |
 | `1` | Check-only found missing or unsupported prerequisites. This is an expected readiness result. |
-| `2` | Cancelled, invalid options, or missing explicit opt-in. A cancelled plugin stage retains any prerequisites already installed. |
+| `2` | Cancelled, invalid options, missing explicit opt-in, or a selected-host installation handoff. Completed prerequisite installs remain; follow the official host guide yourself, reopen and rerun. |
 | `3` | Unsupported host/CLI output, detection, download, trust, installer, or prerequisite/plugin/MCP/skill verification failure. Stop and fix the reported cause. |
 | `4` | Copilot desktop plugin links printed. App confirmations and plugin verification are still required. Prerequisites are ready. |
 | `3010` | Installer requested/reported a restart. Chain stopped; restart Windows yourself, then rerun. |

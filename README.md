@@ -2,7 +2,8 @@
 
 **Download, extract, then choose Setup or your coding agent.** This helps you prepare a Windows PC to use
 Microsoft's Power Platform plugins with **GitHub Copilot or Claude Code**.
-You must already have your chosen app installed.
+Use an already installed agent app. If one is missing, setup can show its
+official installation instructions; it does not install an agent host for you.
 
 Use the **same Setup.cmd** on Intel/AMD x64 PCs and ARM64 Windows 11 PCs.
 It checks your computer, shows a plan, and asks before installing anything.
@@ -135,6 +136,7 @@ guides the same stages and requests the corresponding approval in chat.
 
 | Setup asks about... | What to do |
 |---|---|
+| Existing agent hosts | Setup passively checks for `claude`/`copilot` commands and the Copilot app's `ghapp` link registration before the chooser. A command may be an install launcher; registration does not prove the app works. These checks do not start a host or sign in. |
 | Power Platform plugins | For individual CLI plugin choices, press **Enter** and continue to **Step 2's doctor**. The existing full-set route is still available: **1** = Claude Code, **2** = Copilot CLI, **3** = Copilot desktop links; type **PLUGINS** to approve that plan. Dataverse is optional: type **YES** when asked if you need it. |
 | Copilot desktop links (option 3) | Open the **marketplace link first**, then each desired plugin link. Confirm each installation in the app. **Printing links does not install the plugins.** |
 | Copilot Studio MCP | This gives your agent access to Copilot Studio tools. Choose your app, close that app as instructed, then type **MCP** to approve saving the connection setup. It does not sign you in. |
@@ -143,6 +145,20 @@ guides the same stages and requests the corresponding approval in chat.
 Press **Enter** at an optional host chooser to skip that stage. Other text at an
 approval prompt cancels that stage; earlier successful installs stay installed.
 Setup never installs another agent app just to make a host command available.
+
+If your selected CLI is not found, setup shows that host's official instructions
+and stops with exit **2**, preserving completed prerequisites. Install/confirm
+the host yourself, reopen the terminal, then rerun Setup or resume the guided
+flow. It does not silently select the other CLI or start a remote installer.
+If the desktop app was not detected, type **APP** only if you already installed
+it to continue with its confirmation links; otherwise press Enter for the
+[official Copilot app page](https://github.com/features/ai/github-app).
+This availability confirmation is **not** plugin-installation approval.
+
+Official CLI installation guides: [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli)
+and [Claude Code](https://code.claude.com/docs/en/setup).
+Host sign-in, plan requirements and organizational policy are separate from
+Power Platform setup; do not disable protections to install a host.
 
 ## Step 2: choose and install Power Platform plugins
 

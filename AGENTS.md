@@ -30,6 +30,11 @@ Copilot desktop app. It does not install an agent host or provision cloud resour
    with separately approved `-MarketplaceOnly -AcceptPlugins`, then asks which
    plugins the user wants and reuses `Setup.cmd -Plugins "id,id"`.
    Marketplace-only approval does not authorize later plugin installation.
+   The interactive chooser uses passive command/`ghapp` registration evidence,
+   not proof of working hosts. Missing selected CLIs get fixed official install
+   instructions and exit `2`; never install/substitute another host or approve
+   a first-run launcher. An undetected desktop app needs the user's `APP`
+   availability confirmation or an official-installation handoff.
    Always pass the approved selection explicitly for the doctor; never turn
    no selection into the default full set. Dataverse is opt-in through an
    explicit `dataverse` ID or `-IncludeDataverse`. Do not install another host.

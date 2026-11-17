@@ -57,6 +57,9 @@ the flow; explain them rather than silently continuing.
   If it offers to install the CLI, do not answer for the user or call it ready.
   Follow the setup skill's optional user-installed-CLI/desktop-link decision
   before running a CLI installation stage.
+  The interactive script also reports passive host candidates and can provide
+  official host-installation instructions with exit `2`. Do not turn that
+  handoff into a host installation or an automatic switch to the other CLI.
 - Inspect only the relevant existing plugin/server definitions. Do not print,
   upload, commit, or log full user configuration: other entries can hold tokens.
   Preserve unrelated definitions and organization policies. Do not start a

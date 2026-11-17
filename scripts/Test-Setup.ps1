@@ -53,6 +53,13 @@ function New-TestState {
     }
 }
 
+function New-TestAgentHosts {
+    param([string[]]$Detected = @('ClaudeCode', 'CopilotCli', 'CopilotApp'))
+    foreach ($id in @('ClaudeCode', 'CopilotCli', 'CopilotApp')) {
+        [pscustomobject]@{ Id = $id; Name = $id; Detected = $id -in $Detected; Path = $null }
+    }
+}
+
 function Reset-TestPluginCli {
     $script:pluginHost = 'CopilotCli'
     $script:pluginRows = @()
@@ -887,6 +894,7 @@ Test-Case 'check-only with a plugin plan stays offline, CLI-free and prompt-free
     function Get-SetupState { New-TestState -Ready @('git','node','dotnet','pac') }
     function Invoke-PluginSetup { throw 'PLUGIN STAGE FORBIDDEN' }
     function Find-SetupExecutable { throw 'HOST DISCOVERY FORBIDDEN' }
+    function Get-SetupAgentHosts { throw 'HOST INVENTORY FORBIDDEN' }
     function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
     function Invoke-WebRequest { throw 'NETWORK FORBIDDEN' }
     function Update-SetupPath { throw 'PATH CHANGE FORBIDDEN' }
@@ -908,6 +916,7 @@ Test-Case 'plugin opt-in is separate from prerequisite approval and rejected ear
 
 Test-Case 'plain noninteractive runs and explicit skip do not touch hosts or prompt' {
     function Find-SetupExecutable { throw 'DISCOVERY FORBIDDEN' }
+    function Get-SetupAgentHosts { throw 'HOST INVENTORY FORBIDDEN' }
     function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
     function Read-Host { throw 'PROMPT FORBIDDEN' }
     Assert-Equal (Invoke-PluginSetup -NonInteractive) 0
@@ -915,6 +924,7 @@ Test-Case 'plain noninteractive runs and explicit skip do not touch hosts or pro
 }
 
 Test-Case 'interactive host chooser offers skip without running another host' {
+    function Get-SetupAgentHosts { New-TestAgentHosts }
     function Find-SetupExecutable { throw 'DISCOVERY FORBIDDEN' }
     function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
     function Read-Host { '' }
@@ -930,10 +940,106 @@ Test-Case 'interactive plugin approval cannot be replaced by prerequisite accept
     Assert-Equal (Invoke-PluginSetup -PluginHost ClaudeCode) 2
 }
 
-Test-Case 'absent host fails explicitly rather than installing a host or using the other CLI' {
+Test-Case 'absent chosen CLI returns its official handoff without installing a host or using the other CLI' {
+    function Find-SetupExecutable {
+        param($Name)
+        Assert-Equal $Name 'claude'
+        $null
+    }
+    function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
+    function Start-Process { throw 'PROCESS FORBIDDEN' }
+    function Read-Host { throw 'PROMPT FORBIDDEN' }
+    $information = @()
+    $result = Invoke-PluginSetup -PluginHost ClaudeCode -AcceptPlugins -NonInteractive -InformationVariable information
+    Assert-Equal $result 2
+    Assert-Equal (($information -join "`n").Contains('https://code.claude.com/docs/en/setup')) $true
+}
+
+Test-Case 'host discovery reads only command candidates and ghapp URL registration without invoking a CLI' {
+    function Find-SetupExecutable {
+        param($Name)
+        if ($Name -eq 'copilot') { return 'C:\fixture\copilot-launcher.exe' }
+        Assert-Equal $Name 'claude'
+        return $null
+    }
+    function Test-Path {
+        param($LiteralPath)
+        Assert-Equal $LiteralPath 'Registry::HKEY_CLASSES_ROOT\ghapp'
+        return $true
+    }
+    function Get-ItemProperty {
+        param($LiteralPath)
+        Assert-Equal $LiteralPath 'Registry::HKEY_CLASSES_ROOT\ghapp'
+        [pscustomobject]@{ 'URL Protocol' = '' }
+    }
+    function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
+    function Start-Process { throw 'PROCESS FORBIDDEN' }
+    function Invoke-WebRequest { throw 'NETWORK FORBIDDEN' }
+    function Invoke-RestMethod { throw 'NETWORK FORBIDDEN' }
+    function New-Item { throw 'WRITE FORBIDDEN' }
+    function Read-Host { throw 'PROMPT FORBIDDEN' }
+    $hosts = @(Get-SetupAgentHosts)
+    Assert-Equal ($hosts | Where-Object Id -eq 'CopilotCli').Detected $true
+    Assert-Equal ($hosts | Where-Object Id -eq 'ClaudeCode').Detected $false
+    Assert-Equal ($hosts | Where-Object Id -eq 'CopilotApp').Detected $true
+    function Get-ItemProperty { [pscustomobject]@{ 'Not a URL protocol' = '' } }
+    Assert-Equal (Get-SetupAgentHosts | Where-Object Id -eq 'CopilotApp').Detected $false
+    function Get-ItemProperty { throw 'Registry access denied' }
+    Assert-Throws { Get-SetupAgentHosts } 'Registry access denied'
+}
+
+Test-Case 'no detected hosts gives the chosen official installation handoff before plugin questions' {
+    function Get-SetupAgentHosts { New-TestAgentHosts -Detected @() }
     function Find-SetupExecutable { $null }
     function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
-    Assert-Throws { Invoke-PluginSetup -PluginHost ClaudeCode -AcceptPlugins -NonInteractive } "command 'claude'.*not available"
+    function Update-SetupPath { throw 'PATH CHANGE FORBIDDEN' }
+    function Start-Process { throw 'PROCESS FORBIDDEN' }
+    $script:answers = [Collections.Generic.Queue[string]]::new()
+    $script:answers.Enqueue('2')
+    function Read-Host { $script:answers.Dequeue() }
+    $information = @()
+    $result = Invoke-PluginSetup -InformationVariable information
+    Assert-Equal $result 2
+    Assert-Equal $script:answers.Count 0
+    Assert-Equal (($information -join "`n").Contains('https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli')) $true
+}
+
+Test-Case 'missing-host handoff stops later MCP and personal skill writes while keeping prerequisites' {
+    function Get-SetupArchitecture { 'x64' }
+    function Get-SetupState {
+        param([switch]$Azure)
+        New-TestState -Ready @('git','node','dotnet','pac','azure') -Azure:$Azure
+    }
+    function Find-SetupExecutable {
+        param($Name)
+        Assert-Equal $Name 'copilot'
+        $null
+    }
+    function Install-SetupTool { throw 'INSTALL FORBIDDEN' }
+    function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
+    function Invoke-CopilotStudioSetup { throw 'MCP WRITE FORBIDDEN' }
+    function Invoke-ConnectionSkillSetup { throw 'SKILL WRITE FORBIDDEN' }
+    Assert-Equal (Invoke-Setup -NonInteractive -PluginHost CopilotCli -MarketplaceOnly -AcceptPlugins) 2
+}
+
+Test-Case 'an undetected desktop app needs user confirmation or gets its official install handoff' {
+    function Get-SetupAgentHosts { New-TestAgentHosts -Detected @() }
+    function Find-SetupExecutable { throw 'CLI DISCOVERY FORBIDDEN' }
+    function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
+    function Start-Process { throw 'APP/BROWSER LAUNCH FORBIDDEN' }
+    $script:answers = [Collections.Generic.Queue[string]]::new()
+    foreach ($answer in @('3', '')) { $script:answers.Enqueue($answer) }
+    function Read-Host { $script:answers.Dequeue() }
+    $information = @()
+    $result = Invoke-PluginSetup -InformationVariable information
+    Assert-Equal $result 2
+    Assert-Equal (($information -join "`n").Contains('https://github.com/features/ai/github-app')) $true
+    foreach ($answer in @('3', 'APP', 'YES', 'PLUGINS')) { $script:answers.Enqueue($answer) }
+    $information = @()
+    $result = Invoke-PluginSetup -InformationVariable information
+    Assert-Equal $result 4
+    Assert-Equal $script:answers.Count 0
+    Assert-Equal (($information -join "`n").Contains((Get-CopilotAppPluginLink))) $true
 }
 
 Test-Case 'Copilot CLI plugin install is scoped, fully verified, and skips existing plugins on rerun' {
@@ -1063,6 +1169,7 @@ Test-Case 'desktop route hands off official links, excludes Dataverse by default
 }
 
 Test-Case 'interactive app selection requires separate approval and Dataverse opt-in' {
+    function Get-SetupAgentHosts { New-TestAgentHosts }
     $script:answers = [System.Collections.Generic.Queue[string]]::new()
     foreach ($answer in @('3', 'YES', 'PLUGINS')) { $script:answers.Enqueue($answer) }
     function Read-Host { $script:answers.Dequeue() }

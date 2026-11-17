@@ -136,6 +136,10 @@ readiness from `Get-Command` alone. Inspect supported local installation
 metadata first; if readiness is uncertain, explain that before invoking the
 script's CLI plugin route. A listing/verification failure must not be reported
 as a successful installation.
+The script's interactive host summary is passive: CLI commands and the `ghapp`
+URL registration are candidates, not runtime proof. If the selected command is
+missing, exit `2` prints the official host-installation handoff. Let the user
+complete that separate step, reopen, and resume; do not install another host.
 
 If the user has only Copilot desktop, explain the two choices before plugin
 setup: proceed with **CopilotApp** confirmation links (no additional host

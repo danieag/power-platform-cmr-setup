@@ -53,6 +53,11 @@ Discover only the selected application command with
 launcher rather than the full CLI. If it asks to install/sign in to a host,
 stop and explain; do not accept that prompt, start an AI conversation, or
 substitute the other host.
+For a missing command, give that host's official installation guide from the
+README/`Show-AgentHostInstallHandoff` in `Setup.ps1`. The user completes host
+installation independently, reopens the terminal, then resumes this stage.
+Do not install the host under any prerequisite, marketplace or plugin approval.
+The script's missing-host exit `2` is this handoff, not plugin success.
 
 For **VS Code Copilot without Copilot CLI**, or **Copilot desktop without
 Copilot CLI**, use the README's native marketplace/manual route instead.
