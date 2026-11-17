@@ -44,7 +44,9 @@ $files = @(
     'docs\images\25-connect-mcp-registration.png',
     'docs\images\26-connect-restart.png',
     'docs\images\27-connect-before-restart.png',
-    'docs\images\28-connect-after-restart.png'
+    'docs\images\28-connect-after-restart.png',
+    'docs\images\29-agent-guided-prompt.png',
+    'docs\images\30-agent-host-selection.png'
 )
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
 $temporary = Join-Path $destination ([guid]::NewGuid().ToString('N') + '.zip')

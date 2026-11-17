@@ -111,19 +111,30 @@ a child-process-only policy exception; do not change persistent execution policy
 Enterprise restrictions can still block it and should be handled by your IT team.
 
 <details>
-<summary>Screenshots: add the local folder, then send the prompt</summary>
+<summary>Screenshots: attach the folder, paste the prompt, and choose a host</summary>
 
 Choose **Add local folder or repository** (unrelated recent projects have been
 cropped out):
 
 ![Copilot menu option to add a local folder or repository](docs/images/09-add-local-folder.png)
 
-The extracted folder is attached to the session before the prompt is sent:
+Attach/open the complete setup folder or repository, then paste the full
+starting prompt above. This screenshot shows the prompt **in the composer,
+before sending**; scroll within the composer to review the whole message.
+Use the copyable text above rather than transcribing the image:
 
-![Coding-agent setup prompt with the power-platform-setup-main folder attached](docs/images/10-agent-setup-prompt.png)
+![Full guided-onboarding prompt drafted in Copilot with the setup repository attached](docs/images/29-agent-guided-prompt.png)
 
-This screenshot shows an earlier installation-only prompt. Use the current
-one above to request the full guided flow through connection onboarding.
+After the readiness check, the agent confirms the intended existing host.
+Choose your own host; the highlighted desktop row is not a recommendation to
+choose it instead of your CLI:
+
+![Agent asking which existing host to use, separately from installation approval](docs/images/30-agent-host-selection.png)
+
+**Host selection is not installation/configuration approval.** Any prerequisite
+installation plan and later marketplace/plugin changes have separate decisions.
+The images illustrate the interface, not proof of completed setup or sign-in.
+Appearance and question wording can vary by agent/version.
 
 </details>
 
