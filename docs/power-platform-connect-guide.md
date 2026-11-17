@@ -19,6 +19,12 @@ Finish the [Windows prerequisite setup](../README.md) and install the
 Dataverse plugin in your chosen app. Confirm that **power-platform-connect**
 appears in the app's skills list, then start a fresh agent chat.
 
+Using the README's full guided setup prompt instead? Its entry skill reads the
+bundled connection instructions for you and continues the same flow when the
+required capabilities are available. The fresh-chat start below illustrates
+the standalone route; PATH changes or MCP discovery still require a real
+restart/reload when applicable.
+
 **Start with power-platform-connect, not a separate dv-connect run.**
 Microsoft's `dv-connect` is an end-to-end onboarding workflow, not just a
 Dataverse CLI installer; it can proceed to authentication and configuration.

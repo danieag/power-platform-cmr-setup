@@ -1,6 +1,6 @@
 ---
 name: power-platform-doctor
-description: "Step 2 after Windows prerequisites: ask which Power Platform plugins the user wants, check an existing GitHub Copilot CLI or Claude Code host, and after approval add the official marketplace and install only the selected plugins through Setup.cmd. No authentication or tenant operations."
+description: "Step 2 after Windows prerequisites: check an existing GitHub Copilot CLI or Claude Code host, prepare the official marketplace with approval, then ask which Power Platform plugins the user wants and install only the approved selection through Setup.cmd. No authentication or tenant operations."
 ---
 
 # Power Platform doctor: choose and install plugins
@@ -59,7 +59,30 @@ Copilot CLI**, use the README's native marketplace/manual route instead.
 Neither requires installing an extra CLI. Ordinary Claude chat/Cowork is not
 Claude Code. Do not equate any of these surfaces or guess their configuration.
 
-## 3. Ask which Power Platform plugins to install
+## 3. Prepare the marketplace before asking for plugins
+
+Explain and inspect the chosen CLI's supported
+`plugin marketplace list --json` listing. Verify that an existing
+`power-platform-skills` source is the official
+`microsoft/power-platform-skills` repository; stop on conflicts or unsupported
+output. Never overwrite another source.
+
+If it is missing, show the host/source and ask permission to add **only the
+marketplace**. Then run one approved example:
+
+```powershell
+.\Setup.cmd -NonInteractive -PluginHost CopilotCli -MarketplaceOnly -AcceptPlugins
+.\Setup.cmd -NonInteractive -PluginHost ClaudeCode -MarketplaceOnly -AcceptPlugins
+```
+
+Use the chosen host only. The script rechecks prerequisites, adds/verifies the
+official marketplace, and installs **no plugins**. `-AcceptPlugins` here
+approves only this marketplace-only plan, not future plugin installation.
+Do not add `-Install -Accept`, `-Plugins`, or `-IncludeDataverse` to this stage.
+If the marketplace is already verified, retain it without an unnecessary write.
+On refusal/failure, stop this plugin flow rather than silently continuing.
+
+## 4. Ask which Power Platform plugins to install
 
 Ask explicitly; do **not** preselect every plugin. Explain that "Power
 Platform Skills" are distributed as plugins, which may contain skills, agents,
@@ -87,13 +110,13 @@ names. For example, "Dataverse and Model Apps" means exactly
 `dataverse,model-apps`. Confirm an ambiguous workload rather than guessing.
 Offer "None / skip" and an explicit all-reviewed-plugins choice. Dataverse
 requires explicit selection even when the user chooses the standard all set.
-If the user selects none, stop without adding a marketplace or installing
-anything. Never turn an empty selection into `All`.
+If the user selects none, install no plugins and leave the earlier approved
+marketplace intact. Never turn an empty selection into `All`.
 
 Do not pass arbitrary URLs, marketplace suffixes, or names outside the reviewed
 catalog. New/renamed upstream plugins need a reviewed setup release.
 
-## 4. Inspect the selected host and approve the delta
+## 5. Inspect the selected plugins and approve the delta
 
 Explain the local CLI listing checks before running them. Use the selected
 host's supported structured listings, as implemented by `Read-PluginJson`,
@@ -128,7 +151,7 @@ that plugin installation can download executable content and add bundled
 definitions, but this step does not authorize sign-in, a live MCP call,
 tenant selection, or cloud changes.
 
-## 5. Execute the exact approved selection
+## 6. Execute the exact approved selection
 
 Reuse `Setup.cmd -Plugins`, not the broad marketplace `scripts/install.js`
 or a second implementation of plugin installation. For an approved example
@@ -158,7 +181,7 @@ Do not run npm/npx to install Dataverse CLI here. Installing the Dataverse
 plugin is not installing that CLI; connection onboarding handles it later
 only if selected, missing and separately approved.
 
-## 6. Report what is ready and what remains
+## 7. Report what is ready and what remains
 
 Give a short readiness card in chat:
 
@@ -179,5 +202,9 @@ Do not write identity/configuration reports into a public repository.
 For separately requested sign-in, hand off to
 [power-platform-connect](https://github.com/danieag/power-platform-setup/blob/main/skills/power-platform-connect/SKILL.md)
 as **Step 3**, confirming account, tenant, environment and approvals there.
+When the starting request is the complete guided flow, the setup entry skill
+continues with that file in this conversation. Do not require the user to
+discover/paste another skill prompt; pause only for a required restart or
+capability reload and give the entry skill's resume handoff.
 Copilot Studio MCP registration remains a separate optional stage described by
 [power-platform-integrations](https://github.com/danieag/power-platform-setup/blob/main/skills/power-platform-integrations/SKILL.md).

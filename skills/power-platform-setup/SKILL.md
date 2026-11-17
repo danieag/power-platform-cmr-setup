@@ -1,6 +1,6 @@
 ---
 name: power-platform-setup
-description: Guide one approval-gated Windows installation session for prerequisites, Power Platform plugins, optional Copilot Studio MCP and the connection skill on an existing Claude Code or Copilot host; hand off sign-in to a fresh chat afterward.
+description: Guide one Windows onboarding conversation through prerequisites, the official marketplace, selected Power Platform plugins and separately approved connection onboarding. Coordinate the repo's script, doctor and connection skills; pause with a resume prompt only when a restart or capability reload is needed.
 ---
 
 # Power Platform setup
@@ -10,13 +10,105 @@ Use the reviewed public repository
 This skill is an instruction wrapper, not another installer. A repository URL
 does not automatically register this skill in the desktop app.
 
-## One guided installation, then a connection chat
+## One entry point for the guided flow
 
-Stay in the **same installation conversation** for approved prerequisites,
-Power Platform plugins, optional Copilot Studio MCP registration, and the
-connection-skill file. Do not finish after prerequisites by telling the user
-to open another session and run a separate plugin installer. Execute supported
-setup commands with the agent's terminal tools after approval.
+Read this file when the user provides the complete repo/extracted folder and
+asks to be guided from setup through connection. It is the front door:
+**prerequisites > marketplace > plugin choices > connection onboarding**.
+Read the other repo skills when their stage is reached; do not make the user
+find and invoke each one separately.
+
+Stay in the same conversation where possible and execute approved work with
+terminal tools. **One starting prompt is not blanket approval.** Installation,
+marketplace registration, selected plugins, optional personal skill/MCP writes,
+sign-in and live identity checks retain their separate approval boundaries.
+Do not execute the flow for a documentation-only or explanation request.
+
+### Step 1: prerequisites
+
+Read `AGENTS.md`, `README.md`, and `Setup.ps1` from the reviewed full source.
+Run `.\Setup.cmd -CheckOnly`. Explain the missing/unsupported-tool plan and
+obtain explicit approval before running
+`.\Setup.cmd -Install -Accept -NonInteractive`. Omit optional host flags in
+this first invocation; plugins, MCP registration and skill-copy stages then
+skip rather than interrupt the guided sequence with a full-set install.
+Compatible prerequisites need no reinstall.
+
+If Windows reports a reboot requirement or an installer fails, stop; no later
+stage may run. If PATH changed, arrange the required host/terminal restart
+before connection work. Approved marketplace/plugin commands can be completed
+first when no Windows restart is required: their script process refreshes its
+own PATH without replacing the parent host's environment.
+
+### Step 2: marketplace first, then plugin choices
+
+For the already confirmed Copilot CLI or Claude Code host, read and follow
+`skills/power-platform-doctor/SKILL.md` in this same conversation. It checks
+the chosen CLI, requests approval to add/reuse the official marketplace, and
+**only then asks which plugins the user wants**. Marketplace-only preparation
+uses `-MarketplaceOnly -AcceptPlugins`; that approval does not authorize later
+plugin installation. Reuse an existing matching marketplace without replacing
+its source.
+
+The doctor then shows the chosen plugin delta, asks for its own approval, and
+runs `-Plugins "id,id" -AcceptPlugins`. Do not choose every plugin by default,
+install into the other CLI, add another host, or run the broad remote installer.
+If the user chooses none, leave the already approved marketplace in place and
+install no plugins.
+
+For a native VS Code/Copilot desktop route without the CLI, follow the
+integration skill's supported manual route instead; do not pretend CLI flags
+configure those separate hosts.
+
+### Step 3: continue with the connection skill
+
+When the initial request includes connection onboarding, read
+`skills/power-platform-connect/SKILL.md` from this same repo and follow it;
+the user need not paste a second setup prompt. If the user asked only for
+installation, ask whether they want to connect before initiating this stage.
+The skill file can be read directly; a personal copy is optional and still
+requires its own installation approval.
+
+Confirm the actual host, sign-in identity, Tenant ID, Environment URL, nickname
+and selected tools as the connection skill requires. Reuse supplied details
+without asking again, but never infer a tenant from the active profile.
+Ask before additional software, profile changes, private binding records,
+authentication, MCP registration/startup and bounded live identity checks.
+Do not install Dataverse CLI just because its plugin was selected; check first
+and ask only when the selected connection needs it and it is missing.
+
+Read the installed `dv-overview` / `dv-connect` resources through their supported
+locations when needed. If freshly installed plugin resources or callable MCP
+tools are not available in the current host, use the pause/resume procedure
+below. Reading an instruction file is not proof that its MCP tools are loaded.
+Do not duplicate the connection skill's auth implementation or invent tokens,
+OAuth flows, client IDs, server commands or host configuration locations.
+
+### Restart and resume only at a real boundary
+
+Do not require a separate chat merely to move from tools to marketplace to
+plugin selection. However, **do not promise zero restarts**: changed PATH,
+new plugin discovery, new MCP registration, a host-close requirement or a
+Windows reboot can require a pause. A new chat alone may not reload MCP servers;
+use the actual selected host's documented reload/restart mechanism.
+
+Before any required pause, list completed stages, the chosen host, selected
+plugin IDs and the next pending action. Do not close the app for the user.
+Give a copyable, filled-in resume prompt shaped like:
+
+> Continue guided Power Platform onboarding from the same extracted repo.
+> Read `AGENTS.md` and `skills/power-platform-setup/SKILL.md`.
+> My chosen host is Copilot CLI. Prerequisites and the official marketplace
+> are ready; the selected plugins are dataverse and model-apps.
+> I have restarted the host. Verify what is present without reinstalling
+> working components, then continue with power-platform-connect.
+> Confirm the target and ask before sign-in, configuration changes or live checks.
+
+Replace the example host/plugins/stage with the actual situation. Include
+no email, tenant/environment IDs or URLs, local cache paths, tokens or passwords
+in a generic handoff. Do not claim that earlier approvals authorize new actions
+after a resume. Once MCP is loaded, complete the connection skill's approved
+post-restart identity verification rather than stopping at "definition saved."
 
 Ask which existing host the user wants if it is not already clear:
 
@@ -62,24 +154,11 @@ chat can consume the user's AI allowance and requires the appropriate
 plan/authentication and organizational policy. Do not open a CLI AI session
 just to install plugins, promise unlimited/free AI usage, or purchase credits.
 
-Collect the separate approvals below, one decision at a time. Then run the
-script with **only** the approved flags. If all installation stages for one
-host were approved, this is a combined example (set `$selectedHost` to the
-user-confirmed `ClaudeCode`, `CopilotCli`, or `CopilotApp` and `$selectedPlugins`
-to the approved comma-separated IDs first):
-
-```powershell
-.\Setup.cmd -Install -Accept -NonInteractive `
-    -PluginHost $selectedHost -Plugins $selectedPlugins -AcceptPlugins `
-    -CopilotStudioHost $selectedHost -AcceptCopilotStudio `
-    -ConnectionSkillHost $selectedHost -AcceptConnectionSkill
-```
-
-For CLI users, read `skills/power-platform-doctor/SKILL.md` as README **Step 2**
-to ask which plugins they want and plan the selected host's marketplace/plugin
-changes. Do not silently use the full catalog. `All` is only for an explicitly
-approved standard full set; Dataverse requires an explicit `dataverse` ID in
-`-Plugins` or the separately requested `-IncludeDataverse` flag.
+Collect separate approvals one decision at a time, then run only the approved
+flags. The default CLI sequence above prepares the marketplace before asking
+for plugin choices; do not collapse it into a full-set install.
+`All` is only for an explicitly approved standard full set; Dataverse requires
+an explicit `dataverse` ID in `-Plugins` or requested `-IncludeDataverse`.
 For a plugin-only follow-up with ready prerequisites, omit `-Install -Accept`;
 `-NonInteractive -PluginHost <host> -Plugins "id,id" -AcceptPlugins` stops if a
 prerequisite has become missing instead of installing unapproved software.
@@ -96,10 +175,10 @@ explaining that it ends the session. If necessary, give the reviewed approved
 setup command to run in a separate terminal while that app is closed, then
 resume after reopening. Do not promise zero interruptions from Windows/UAC.
 
-When installation is complete, explain pending desktop link confirmations or
-host discovery, then **restart the host/open a fresh chat for
-`power-platform-connect`**. Do not run that authentication workflow under the
-installation approvals.
+When installation is complete, explain pending desktop confirmations and host
+discovery. Continue to Step 3 if requested and the necessary capabilities are
+available; otherwise give the restart/resume handoff. Never run authentication
+under installation approvals.
 
 ## Checks and separate approval gates
 
@@ -121,7 +200,8 @@ installation approvals.
 5. Respect exit codes, stop on failure/restart requirement, and explain any
    terminal/Copilot restart needed. Report binaries, desktop plugins, and
    authentication separately.
-6. For Power Platform plugins, use Step 2's doctor for CLI plugin selection.
+6. For Power Platform plugins, use Step 2's doctor for marketplace preparation
+   followed by CLI plugin selection.
    Obtain separate approval for `ClaudeCode`, `CopilotCli`, or `CopilotApp` and
    the actual selection, then append `-PluginHost <host> -Plugins "id,id"
    -AcceptPlugins`. Dataverse is opt-in by explicit ID or `-IncludeDataverse`.
@@ -138,15 +218,15 @@ installation approvals.
    `skills/power-platform-integrations/SKILL.md` for manual/native routes or
    agent-guided MCP setup. Reuse existing registrations.
    Stop on configuration conflicts; keep any local backup private.
-9. If the user explicitly requests sign-in or persistent connections afterward,
-   use `skills/power-platform-connect/SKILL.md` as a separate approval-gated
-   workflow. Installation approval never authorizes authenticating, selecting a
+9. For connection onboarding requested in the starting prompt or afterward,
+   continue with `skills/power-platform-connect/SKILL.md` as a separately
+   approval-gated stage. Installation approval never authorizes authenticating, selecting a
    tenant, or inspecting that tenant's data.
    To make that skill available locally first, obtain approval for
    `-ConnectionSkillHost <host> -AcceptConnectionSkill` in the final setup stage.
-   This copies instructions only; relay the final chat prompt and do not start
-   onboarding under skill-installation approval. If installation is skipped or
-   host discovery is pending, the user can ask the agent to read the public link.
+   This copies instructions only. It is not required to read the bundled file
+   and does not authorize onboarding; use the independently requested Step 3
+   flow and its target/approval checks.
 
 ## The official quick-install command is an alternative, not another stage
 
@@ -166,7 +246,8 @@ follow the integration skill's review/approval rules before execution.
 
 Never install Copilot CLI/another agent host, enable auto-approval, change
 persistent execution policy, blindly run the broad marketplace installer, sign
-in, choose an environment, or create cloud resources. The integration skill can
+in or select a profile without the confirmed target and separate approval,
+or create cloud resources. The integration skill can
 use supported commands on an already available CLI or documented shared MCP
 configuration; it must not install another host. Never infer plugin or auth
 readiness from the presence of executables.

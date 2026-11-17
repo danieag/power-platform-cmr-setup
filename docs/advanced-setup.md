@@ -136,7 +136,15 @@ authorization to change plugin settings, sign in, or access an environment.
 An unattended process without a usable UAC session will fail rather than bypass
 Windows security. Agents must not add `-Accept` without user approval.
 
-### One guided installation session
+### One starting prompt for guided onboarding
+
+The [README Alternative B prompt](../README.md#alternative-b-use-your-coding-agent)
+loads the bundled [setup entry skill](../skills/power-platform-setup/SKILL.md).
+It coordinates the existing script, doctor and connection skill:
+**prerequisites > approved marketplace registration > plugin choices and
+approval > separately approved connection onboarding**. Do not require the
+user to manually find/invoke each skill. One starting prompt is not one
+approval, and no new agent host is installed.
 
 The setup and integration skills should **execute the approved stages in the
 same installation chat**, not stop at prerequisites and send the user elsewhere
@@ -183,8 +191,13 @@ This is not a promise that Windows can never interrupt the session. Stop on
 installer errors/restart requirements, and explain if the selected host must
 be closed for a configuration change. Do not close the app hosting the active
 agent conversation without a handoff; an approved external-terminal step may
-be necessary. After installation, reopen/restart the host and use a fresh chat
-to discover installed capabilities and request the connection skill separately.
+be necessary. After PATH changes, reopen the host before connection work.
+Otherwise continue the requested flow in the same conversation when its
+required capabilities are available. If newly installed plugins/MCP tools need
+a reload, give a filled-in resume prompt with completed stages and selected
+host/plugin IDs, not emails, tenant/environment IDs, URLs or token/cache data.
+A new chat alone may not restart MCP processes. Do not claim runtime discovery
+or reuse across a restart until actually verified in the intended host.
 
 **Azure CLI is included by default, after PAC CLI.** The full plugin set includes
 Azure-dependent workflows (Power Automate, Process Intelligence, and PCF
@@ -292,6 +305,9 @@ entire setup with a different administrator account.
 The script refreshes **only its process PATH**, retaining inherited entries,
 and does not rewrite your persistent PATH itself (vendor installers do their
 normal registration). Existing Copilot/terminal processes must be restarted.
+Approved CLI marketplace/plugin stages also refresh their script process PATH
+before spawning the CLI, so they can use newly installed Git/Node without
+rewriting the parent agent's environment.
 
 ### PowerShell and downloaded-file security
 
@@ -318,8 +334,9 @@ not a machine-wide policy relaxation. No automatic reboot is requested.
 For **existing Copilot CLI or Claude Code CLI** users, the beginner README's
 Step 2 starts with the bundled
 [power-platform-doctor skill](../skills/power-platform-doctor/SKILL.md).
-Ask the agent in the extracted setup folder to read that file. It asks for one
-host and the desired plugins, checks existing registrations, presents the
+Ask the agent in the extracted setup folder to read that file. It confirms one
+host, prepares the official marketplace with approval, then asks for the desired
+plugins, checks existing registrations, presents the
 delta, and executes the approved selection through `Setup.cmd -Plugins`.
 The skill is included in source/runtime downloads, not automatically installed
 into a personal skill directory. It does not authenticate or install an agent
@@ -372,6 +389,18 @@ The app must be installed locally and handle its confirmation links. No browser
 is opened automatically and no account or browser profile is selected.
 
 ### Agent/noninteractive usage
+
+To prepare **only the official marketplace**, before plugin selection:
+
+```powershell
+.\Setup.cmd -NonInteractive -PluginHost CopilotCli -MarketplaceOnly -AcceptPlugins
+```
+
+Use `ClaudeCode` instead when selected. This mode requires an explicit CLI host
+and cannot be combined with a plugin selection or Dataverse opt-in. It verifies
+or adds the marketplace without listing/installing plugins, configuring another
+host, or signing in. `-AcceptPlugins` approves only this marketplace-only plan;
+request separate approval after the user subsequently chooses plugins.
 
 For an approved **individual selection**, after prerequisites are ready:
 
@@ -602,8 +631,10 @@ desktop plugin links still return exit `4` even if skill installation succeeds.
 
 Whether you install or skip the skill, successful setup prints a ready-to-copy
 chat request for connection onboarding, with the public skill URL as a fallback.
-Restart the chosen host or open a fresh chat, check that it discovers the skill,
-then make that request yourself. Installing the instructions does **not** run them.
+In the full guided flow the entry skill can read the bundled file directly and
+continue with its own approvals. Reopen after PATH changes or when capability
+discovery requires it, then resume; do not make a new prompt a mandatory extra
+stage when no restart is needed. Installing the instructions does **not** run them.
 
 ## Step 5: connect and remember sign-in (optional skill)
 

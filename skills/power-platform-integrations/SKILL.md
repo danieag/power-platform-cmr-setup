@@ -18,7 +18,8 @@ when the user only asks for an explanation or readiness check.
 
 For an existing **Copilot CLI or Claude Code CLI**, README Step 2's
 `skills/power-platform-doctor/SKILL.md` is the front door for asking which
-plugins the user wants, inspecting that host, and approving the exact selection.
+plugins the user wants after preparing the chosen host's official marketplace,
+then inspecting and approving the exact selection.
 Reuse this skill for native app/IDE routes and separately approved MCP setup.
 
 This stage belongs in the **same guided installation chat** as prerequisite
@@ -26,7 +27,9 @@ setup. Use `power-platform-setup`'s combined invocation when those stages are
 already approved, or run a scoped follow-up here. Do not send the user to a new
 chat to paste a second, broad plugin installer. A new host process/chat is for
 loading installed capabilities and separately approved connection onboarding
-after installation, not an extra plugin-install requirement. Actual failures,
+after installation when required, not an extra plugin-install requirement. For
+a full onboarding request, the setup entry skill reads the connection skill
+next in the same conversation when capabilities permit. Actual failures,
 reboot requirements or a required closure of the current host can interrupt
 the flow; explain them rather than silently continuing.
 
@@ -92,6 +95,11 @@ Do not delete/reinstall working Git or change installation directories as a
 substitute for refreshing the app's environment.
 
 Setup.cmd now offers the reviewed plugin set after prerequisites are ready.
+For CLI onboarding, the doctor first obtains marketplace-only approval and
+runs `.\Setup.cmd -NonInteractive -PluginHost CopilotCli -MarketplaceOnly
+-AcceptPlugins` (or `ClaudeCode`). This installs no plugins; selection and its
+approval follow. Do not mix `-MarketplaceOnly` with `-Plugins` or
+`-IncludeDataverse`, or pass prerequisite approval just for this stage.
 For that set, prefer its shared implementation after approval, choosing **one**
 host rather than duplicating the installation logic in an agent:
 

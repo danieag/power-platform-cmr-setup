@@ -26,8 +26,10 @@ Copilot desktop app. It does not install an agent host or provision cloud resour
    terminals and the desktop app after PATH changes. Do not automatically reboot.
 6. Plugin setup is separately approval-gated. Interactive setup offers
    `ClaudeCode`, `CopilotCli`, `CopilotApp` links, or skip after prerequisites.
-   README Step 2's `skills/power-platform-doctor/SKILL.md` asks existing CLI
-   users which plugins they want and reuses `Setup.cmd -Plugins "id,id"`.
+   README Step 2's doctor first prepares the chosen CLI's official marketplace
+   with separately approved `-MarketplaceOnly -AcceptPlugins`, then asks which
+   plugins the user wants and reuses `Setup.cmd -Plugins "id,id"`.
+   Marketplace-only approval does not authorize later plugin installation.
    Always pass the approved selection explicitly for the doctor; never turn
    no selection into the default full set. Dataverse is opt-in through an
    explicit `dataverse` ID or `-IncludeDataverse`. Do not install another host.
@@ -55,14 +57,21 @@ Copilot desktop app. It does not install an agent host or provision cloud resour
    Use `-ConnectionSkillHost <host> -AcceptConnectionSkill` only after approval
    for that host's personal skill directory. It never runs authentication.
    Preserve existing skills; do not overwrite different content or follow linked
-   destinations. If skipped, relay the printed next-chat prompt/public skill URL.
+   destinations. If skipped, relay the printed connection prompt/public skill URL.
    File installation is not proof of host discovery or sign-in.
 
+For a complete guided-onboarding request, use the bundled
+`skills/power-platform-setup/SKILL.md` as the entry point. It reads the doctor
+after prerequisites and continues with the connection skill when requested;
+the user need not invoke every file or paste another starting prompt.
 Keep approved prerequisite, plugin, MCP-registration and skill-copy work in the
-same guided installation conversation where possible. Combine only explicitly
+same conversation where possible. Combine only explicitly
 approved stage flags, or use scoped follow-up invocations. Do not require a
-second chat or broad remote installer just to install plugins. Restart/new chat
-is the handoff for capability discovery and separately approved sign-in.
+second chat or broad remote installer just to install plugins. After PATH
+changes reopen the host. A restart/new chat is a handoff when required for
+capability discovery, not a way to carry installation approval into sign-in.
+Give completed stages, the chosen host/plugins, and a copyable resume prompt
+without identities, tokens, private paths or environment URLs.
 Actual reboot/host-close requirements still need a clear interruption/handoff;
 do not close the app hosting the current agent conversation without explaining it.
 

@@ -8,6 +8,8 @@ Checks and, only with approval, installs local Power Platform prerequisites and 
 .\Setup.ps1 -Install -Accept -NonInteractive
 .EXAMPLE
 .\Setup.cmd -NonInteractive -PluginHost CopilotCli -Plugins "dataverse,model-apps" -AcceptPlugins
+.EXAMPLE
+.\Setup.cmd -NonInteractive -PluginHost CopilotCli -MarketplaceOnly -AcceptPlugins
 #>
 [CmdletBinding()]
 param(
@@ -19,6 +21,7 @@ param(
     [switch]$SkipAzureCli,
     [ValidateSet('', 'Skip', 'ClaudeCode', 'CopilotCli', 'CopilotApp')][string]$PluginHost,
     [AllowEmptyString()][string]$Plugins = 'All',
+    [switch]$MarketplaceOnly,
     [switch]$IncludeDataverse,
     [switch]$AcceptPlugins,
     [ValidateSet('', 'Skip', 'ClaudeCode', 'CopilotCli', 'CopilotApp')][string]$CopilotStudioHost,
@@ -568,10 +571,14 @@ function Assert-SetupPlugin {
 }
 
 function Install-SetupPlugins {
-    param([string]$Path, [string]$PluginHost, [string[]]$Names)
+    param([string]$Path, [string]$PluginHost, [string[]]$Names = @(), [switch]$MarketplaceOnly)
+    if (($MarketplaceOnly -and $Names.Count) -or (-not $MarketplaceOnly -and -not $Names.Count)) {
+        throw [ArgumentException]::new('Choose marketplace-only preparation or a nonempty plugin selection, not both.')
+    }
     $marketplaces = @(Read-PluginJson $Path @('plugin', 'marketplace', 'list', '--json'))
     $registered = Assert-OfficialMarketplace $marketplaces
-    $inventory = @(Get-PluginInventory $Path $PluginHost)
+    $inventory = @()
+    if (-not $MarketplaceOnly) { $inventory = @(Get-PluginInventory $Path $PluginHost) }
     $pending = @()
     foreach ($name in $Names) {
         $existing = @($inventory | Where-Object Name -eq $name)
@@ -585,10 +592,14 @@ function Install-SetupPlugins {
             Write-Host "Keeping installed plugin: $name"
         } else { $pending += $name }
     }
-    if (-not $registered -and $Names.Count) {
+    if (-not $registered) {
         Invoke-SetupNative $Path @('plugin', 'marketplace', 'add', 'microsoft/power-platform-skills') | Out-Null
         if (-not (Assert-OfficialMarketplace @(Read-PluginJson $Path @('plugin', 'marketplace', 'list', '--json')))) {
             throw 'Marketplace registration returned success but the official source could not be verified.'
+        }
+        if ($MarketplaceOnly) {
+            Write-Host 'Official marketplace registration verified. No plugins were installed; choose them next with the doctor.'
+            return
         }
     }
     foreach ($name in $pending) {
@@ -622,8 +633,13 @@ function Invoke-PluginSetup {
     param(
         [ValidateSet('', 'Skip', 'ClaudeCode', 'CopilotCli', 'CopilotApp')][string]$PluginHost,
         [AllowEmptyString()][string]$Plugins = 'All',
+        [switch]$MarketplaceOnly,
         [switch]$IncludeDataverse, [switch]$AcceptPlugins, [switch]$NonInteractive
     )
+    if ($MarketplaceOnly -and ($PluginHost -notin @('CopilotCli', 'ClaudeCode') -or $Plugins -ne 'All' -or $IncludeDataverse)) {
+        Write-Host 'Marketplace-only preparation requires one CLI host and cannot include a plugin selection or Dataverse opt-in.'
+        return 2
+    }
     if (-not $PluginHost) {
         if ($NonInteractive) {
             Write-Host 'Plugin stage skipped. Request it explicitly with -PluginHost and -AcceptPlugins.'
@@ -645,11 +661,16 @@ function Invoke-PluginSetup {
         Write-Host 'Plugin approval missing. Use -AcceptPlugins only after the user approves this separate plan.'
         return 2
     }
-    if (-not $NonInteractive -and -not $AcceptPlugins -and -not $IncludeDataverse -and $Plugins -eq 'All') {
+    if (-not $NonInteractive -and -not $AcceptPlugins -and -not $IncludeDataverse -and $Plugins -eq 'All' -and -not $MarketplaceOnly) {
         $IncludeDataverse = (Read-Host 'Also include Dataverse? Type YES to opt in; Enter = no') -ceq 'YES'
     }
-    $names = @(Get-SetupPluginNames -IncludeDataverse:$IncludeDataverse -Plugins $Plugins)
-    Write-Host "`nPlugin plan for ${PluginHost}: $($names -join ', ')"
+    $names = @()
+    if ($MarketplaceOnly) {
+        Write-Host "`nMarketplace-only plan for ${PluginHost}. No plugins will be installed in this stage."
+    } else {
+        $names = @(Get-SetupPluginNames -IncludeDataverse:$IncludeDataverse -Plugins $Plugins)
+        Write-Host "`nPlugin plan for ${PluginHost}: $($names -join ', ')"
+    }
     Write-Host 'Source: microsoft/power-platform-skills (Dataverse, if selected, comes from Microsoft/Dataverse-skills).'
     Write-Host 'Plugins may include executable hooks, agents and MCP servers. Review their permissions in your host.'
     Write-Host 'Setup will not enable auto-update, install another host, update prerequisites, or sign in.'
@@ -667,7 +688,8 @@ function Invoke-PluginSetup {
         Write-Host 'Printing a link does not install a plugin. No browser/app is opened automatically.'
     }
     if (-not $AcceptPlugins) {
-        if ((Read-Host 'Type PLUGINS to approve this stage (anything else cancels)') -cne 'PLUGINS') {
+        $approval = if ($MarketplaceOnly) { 'MARKETPLACE' } else { 'PLUGINS' }
+        if ((Read-Host "Type $approval to approve this stage (anything else cancels)") -cne $approval) {
             Write-Host 'Plugin stage cancelled. Any completed prerequisite installs are retained.'
             return 2
         }
@@ -683,7 +705,8 @@ function Invoke-PluginSetup {
         Write-Host 'Plugin installation is pending, not verified. Copilot Studio MCP/authentication remain separate.'
         return 4
     }
-    Install-SetupPlugins $path $PluginHost $names
+    Update-SetupPath
+    Install-SetupPlugins -Path $path -PluginHost $PluginHost -Names $names -MarketplaceOnly:$MarketplaceOnly
     return 0
 }
 
@@ -906,11 +929,12 @@ function Invoke-CopilotStudioSetup {
 
 function Invoke-SetupIntegrations {
     param(
-        [string]$PluginHost, [string]$Plugins = 'All', [switch]$IncludeDataverse, [switch]$AcceptPlugins, [switch]$NonInteractive,
+        [string]$PluginHost, [string]$Plugins = 'All', [switch]$MarketplaceOnly,
+        [switch]$IncludeDataverse, [switch]$AcceptPlugins, [switch]$NonInteractive,
         [string]$CopilotStudioHost, [switch]$AcceptCopilotStudio,
         [string]$ConnectionSkillHost, [switch]$AcceptConnectionSkill
     )
-    $pluginResult = Invoke-PluginSetup -PluginHost $PluginHost -Plugins $Plugins -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -NonInteractive:$NonInteractive
+    $pluginResult = Invoke-PluginSetup -PluginHost $PluginHost -Plugins $Plugins -MarketplaceOnly:$MarketplaceOnly -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -NonInteractive:$NonInteractive
     if ($pluginResult -notin @(0, 4)) { return $pluginResult }
     $mcp = Invoke-CopilotStudioSetup -CopilotStudioHost $CopilotStudioHost -AcceptCopilotStudio:$AcceptCopilotStudio -NonInteractive:$NonInteractive
     if ($mcp -ne 0) { return $mcp }
@@ -986,12 +1010,15 @@ function Install-ConnectionSkill {
 }
 
 function Show-ConnectionNextStep {
-    Write-Host "`nNEXT STEP: restart your chosen host or open a fresh chat, then ask:"
+    Write-Host "`nNEXT STEP: continue the power-platform-setup entry skill; finish marketplace/plugin choices before connection onboarding."
+    Write-Host 'When ready for the separately approved connection stage, ask:'
     Write-Host '"Use the power-platform-connect skill to connect my selected Dataverse/PAC/Azure CLIs and MCP.'
     Write-Host 'Check existing profiles first, confirm my account/tenant/environment, and ask before sign-in or configuration changes."'
     Write-Host 'If the skill is not installed/visible, ask the agent to read:'
     Write-Host 'https://github.com/danieag/power-platform-setup/blob/main/skills/power-platform-connect/SKILL.md'
     Write-Host 'Remove unneeded surfaces from the request. Skill installation does not sign you in or grant tenant access.'
+    Write-Host 'After PATH changes, reopen the host. If new plugins/MCP tools need a reload, pause, reopen and resume the same guided flow.'
+    Write-Host 'Connection onboarding needs its own confirmed target and approvals; do not authenticate under installation approval.'
 }
 
 function Invoke-ConnectionSkillSetup {
@@ -1041,6 +1068,7 @@ function Invoke-Setup {
         [switch]$CheckOnly, [switch]$Install, [switch]$Accept, [switch]$NonInteractive, [switch]$IncludeAzureCli, [switch]$SkipAzureCli,
         [ValidateSet('', 'Skip', 'ClaudeCode', 'CopilotCli', 'CopilotApp')][string]$PluginHost,
         [AllowEmptyString()][string]$Plugins = 'All',
+        [switch]$MarketplaceOnly,
         [switch]$IncludeDataverse, [switch]$AcceptPlugins,
         [ValidateSet('', 'Skip', 'ClaudeCode', 'CopilotCli', 'CopilotApp')][string]$CopilotStudioHost,
         [switch]$AcceptCopilotStudio,
@@ -1056,6 +1084,10 @@ function Invoke-Setup {
         return 2
     }
     $includeAzure = -not $SkipAzureCli
+    if ($MarketplaceOnly -and ($PluginHost -notin @('CopilotCli', 'ClaudeCode') -or $Plugins -ne 'All' -or $IncludeDataverse)) {
+        Write-Host 'Marketplace-only preparation requires one CLI host and cannot include a plugin selection or Dataverse opt-in.'
+        return 2
+    }
     try { $null = @(Get-SetupPluginNames -Plugins $Plugins -IncludeDataverse:$IncludeDataverse) }
     catch [ArgumentException] {
         Write-Host $_.Exception.Message
@@ -1104,7 +1136,8 @@ function Invoke-Setup {
             }
             if ($PluginHost -and $PluginHost -ne 'Skip') {
                 Write-Host "Requested later plugin stage: $PluginHost. Host/plugin readiness is NOT checked in offline check-only mode."
-                Write-Host (@(Get-SetupPluginNames -IncludeDataverse:$IncludeDataverse -Plugins $Plugins) -join ', ')
+                if ($MarketplaceOnly) { Write-Host 'Marketplace registration only; no plugins selected.' }
+                else { Write-Host (@(Get-SetupPluginNames -IncludeDataverse:$IncludeDataverse -Plugins $Plugins) -join ', ') }
             }
             if ($pending.Count) {
                 Write-Host "`nPlanned order: $($pending.Name -join ' -> ')"
@@ -1114,7 +1147,7 @@ function Invoke-Setup {
         }
         if ($pending.Count -eq 0) {
             Write-Host "`nAll selected prerequisites are ready. Plugins and authentication still need separate verification."
-            return (Invoke-SetupIntegrations -PluginHost $PluginHost -Plugins $Plugins -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -NonInteractive:$NonInteractive -CopilotStudioHost $CopilotStudioHost -AcceptCopilotStudio:$AcceptCopilotStudio -ConnectionSkillHost $ConnectionSkillHost -AcceptConnectionSkill:$AcceptConnectionSkill)
+            return (Invoke-SetupIntegrations -PluginHost $PluginHost -Plugins $Plugins -MarketplaceOnly:$MarketplaceOnly -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -NonInteractive:$NonInteractive -CopilotStudioHost $CopilotStudioHost -AcceptCopilotStudio:$AcceptCopilotStudio -ConnectionSkillHost $ConnectionSkillHost -AcceptConnectionSkill:$AcceptConnectionSkill)
         }
         Write-Host "`nPlanned order: $($pending.Name -join ' -> ')"
         if ($NonInteractive -and -not ($Install -and $Accept)) {
@@ -1146,7 +1179,7 @@ function Invoke-Setup {
         Write-Host "`nPrerequisites ready. Keep this window open for the optional plugin stage."
         Write-Host 'After setup finishes, restart terminals and your chosen host so they inherit the new PATH.'
         Write-Host 'No tenant has been accessed. Optional MCP registration needs its own approval; intentional sign-in remains separate.'
-        return (Invoke-SetupIntegrations -PluginHost $PluginHost -Plugins $Plugins -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -NonInteractive:$NonInteractive -CopilotStudioHost $CopilotStudioHost -AcceptCopilotStudio:$AcceptCopilotStudio -ConnectionSkillHost $ConnectionSkillHost -AcceptConnectionSkill:$AcceptConnectionSkill)
+        return (Invoke-SetupIntegrations -PluginHost $PluginHost -Plugins $Plugins -MarketplaceOnly:$MarketplaceOnly -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -NonInteractive:$NonInteractive -CopilotStudioHost $CopilotStudioHost -AcceptCopilotStudio:$AcceptCopilotStudio -ConnectionSkillHost $ConnectionSkillHost -AcceptConnectionSkill:$AcceptConnectionSkill)
     } catch {
         Write-Host "`nSetup failed: $($_.Exception.Message)" -ForegroundColor Red
         Write-Host 'No later setup steps were run. Resolve the cause and rerun -CheckOnly; completed prerequisite/plugin installations are preserved.'
@@ -1155,5 +1188,5 @@ function Invoke-Setup {
 }
 
 if ($MyInvocation.InvocationName -ne '.') {
-    exit (Invoke-Setup -CheckOnly:$CheckOnly -Install:$Install -Accept:$Accept -NonInteractive:$NonInteractive -IncludeAzureCli:$IncludeAzureCli -SkipAzureCli:$SkipAzureCli -PluginHost $PluginHost -Plugins $Plugins -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -CopilotStudioHost $CopilotStudioHost -AcceptCopilotStudio:$AcceptCopilotStudio -ConnectionSkillHost $ConnectionSkillHost -AcceptConnectionSkill:$AcceptConnectionSkill)
+    exit (Invoke-Setup -CheckOnly:$CheckOnly -Install:$Install -Accept:$Accept -NonInteractive:$NonInteractive -IncludeAzureCli:$IncludeAzureCli -SkipAzureCli:$SkipAzureCli -PluginHost $PluginHost -Plugins $Plugins -MarketplaceOnly:$MarketplaceOnly -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -CopilotStudioHost $CopilotStudioHost -AcceptCopilotStudio:$AcceptCopilotStudio -ConnectionSkillHost $ConnectionSkillHost -AcceptConnectionSkill:$AcceptConnectionSkill)
 }

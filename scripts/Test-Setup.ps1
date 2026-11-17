@@ -24,6 +24,7 @@ function Assert-Throws {
 
 function Test-Case {
     param([string]$Name, [scriptblock]$Action)
+    $casePath = $env:PATH
     try {
         # Isolate all function mocks in a child scope. No installed tools are executed.
         & {
@@ -35,6 +36,8 @@ function Test-Case {
     } catch {
         $script:failures++
         Write-Host "FAIL $Name - $($_.Exception.Message)" -ForegroundColor Red
+    } finally {
+        $env:PATH = $casePath
     }
 }
 
@@ -765,6 +768,72 @@ Test-Case 'doctor plugin-only approval never installs a newly missing prerequisi
     function Invoke-PluginSetup { throw 'PLUGINS FORBIDDEN' }
     function Read-Host { throw 'PROMPT FORBIDDEN' }
     Assert-Equal (Invoke-Setup -NonInteractive -PluginHost CopilotCli -Plugins 'dataverse,model-apps' -AcceptPlugins) 2
+    Assert-Equal (Invoke-Setup -NonInteractive -PluginHost CopilotCli -MarketplaceOnly -AcceptPlugins) 2
+}
+
+Test-Case 'marketplace-only preparation installs no plugins before a separately approved selection in either CLI' {
+    function Get-SetupArchitecture { 'x64' }
+    function Get-SetupState {
+        param([switch]$Azure)
+        New-TestState -Ready @('git','node','dotnet','pac','azure') -Azure:$Azure
+    }
+    function Install-SetupTool { throw 'INSTALL FORBIDDEN' }
+    function Read-Host { throw 'PROMPT FORBIDDEN' }
+    function Update-SetupPath { $script:pathRefreshed = $true }
+    function Find-SetupExecutable {
+        param($Name)
+        $expected = if ($script:pluginHost -eq 'ClaudeCode') { 'claude' } else { 'copilot' }
+        Assert-Equal $Name $expected
+        "C:\fixture\$expected.exe"
+    }
+    function Invoke-SetupNative {
+        param($Path, $Arguments)
+        Assert-Equal $script:pathRefreshed $true
+        Invoke-TestPluginCli $Path $Arguments
+    }
+    foreach ($hostName in @('CopilotCli', 'ClaudeCode')) {
+        Reset-TestPluginCli
+        $script:pluginHost = $hostName
+        $script:pathRefreshed = $false
+        Assert-Equal (Invoke-Setup -NonInteractive -PluginHost $hostName -MarketplaceOnly -AcceptPlugins) 0
+        Assert-Equal $script:pluginRows.Count 0
+        Assert-Equal $script:pluginCalls.Count 3
+        Assert-Equal (@($script:pluginCalls | Where-Object { $_.Arguments[1] -ne 'marketplace' }).Count) 0
+        $script:pluginCalls = @()
+        Assert-Equal (Invoke-Setup -NonInteractive -PluginHost $hostName -MarketplaceOnly -AcceptPlugins) 0
+        Assert-Equal $script:pluginCalls.Count 1
+        $script:pluginCalls = @()
+        Assert-Equal (Invoke-Setup -NonInteractive -PluginHost $hostName -Plugins 'dataverse,model-apps' -AcceptPlugins) 0
+        $installs = @($script:pluginCalls | Where-Object { $_.Arguments[1] -eq 'install' })
+        Assert-Equal (($installs | ForEach-Object { $_.Arguments[2] }) -join ',') 'dataverse@power-platform-skills,model-apps@power-platform-skills'
+        Assert-Equal (@($script:pluginCalls | Where-Object { $_.Arguments -contains 'add' }).Count) 0
+    }
+}
+
+Test-Case 'marketplace-only rejects missing consent, mixed selections and non-CLI hosts before inventory' {
+    function Get-SetupArchitecture { throw 'INVENTORY FORBIDDEN' }
+    function Update-SetupPath { throw 'PATH CHANGE FORBIDDEN' }
+    function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
+    Assert-Equal (Invoke-Setup -NonInteractive -PluginHost CopilotCli -MarketplaceOnly) 2
+    Assert-Equal (Invoke-Setup -NonInteractive -MarketplaceOnly -AcceptPlugins) 2
+    Assert-Equal (Invoke-Setup -PluginHost CopilotApp -MarketplaceOnly -AcceptPlugins) 2
+    Assert-Equal (Invoke-Setup -PluginHost Skip -MarketplaceOnly) 2
+    Assert-Equal (Invoke-Setup -PluginHost CopilotCli -MarketplaceOnly -Plugins 'dataverse' -AcceptPlugins) 2
+    Assert-Equal (Invoke-Setup -PluginHost ClaudeCode -MarketplaceOnly -IncludeDataverse -AcceptPlugins) 2
+}
+
+Test-Case 'interactive marketplace-only approval cannot be replaced by plugin approval' {
+    Reset-TestPluginCli
+    function Find-SetupExecutable { 'C:\fixture\copilot.exe' }
+    function Read-Host { 'PLUGINS' }
+    function Update-SetupPath { throw 'PATH CHANGE FORBIDDEN' }
+    function Invoke-SetupNative { param($Path, $Arguments) Invoke-TestPluginCli $Path $Arguments }
+    Assert-Equal (Invoke-PluginSetup -PluginHost CopilotCli -MarketplaceOnly) 2
+    Assert-Equal $script:pluginCalls.Count 0
+    function Read-Host { 'MARKETPLACE' }
+    function Update-SetupPath {}
+    Assert-Equal (Invoke-PluginSetup -PluginHost CopilotCli -MarketplaceOnly) 0
+    Assert-Equal $script:pluginRows.Count 0
 }
 
 Test-Case 'doctor installs only approved plugins in either selected CLI and safely reuses them' {
@@ -774,7 +843,7 @@ Test-Case 'doctor installs only approved plugins in either selected CLI and safe
         New-TestState -Ready @('git','node','dotnet','pac','azure') -Azure:$Azure
     }
     function Install-SetupTool { throw 'INSTALL FORBIDDEN' }
-    function Update-SetupPath { throw 'PATH CHANGE FORBIDDEN' }
+    function Update-SetupPath {}
     function Start-Process { throw 'PROCESS FORBIDDEN' }
     function Read-Host { throw 'PROMPT FORBIDDEN' }
     function Find-SetupExecutable {
@@ -820,9 +889,11 @@ Test-Case 'check-only with a plugin plan stays offline, CLI-free and prompt-free
     function Find-SetupExecutable { throw 'HOST DISCOVERY FORBIDDEN' }
     function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
     function Invoke-WebRequest { throw 'NETWORK FORBIDDEN' }
+    function Update-SetupPath { throw 'PATH CHANGE FORBIDDEN' }
     function Read-Host { throw 'PROMPT FORBIDDEN' }
     Assert-Equal (Invoke-Setup -CheckOnly -PluginHost CopilotCli -IncludeDataverse) 0
     Assert-Equal (Invoke-Setup -CheckOnly -PluginHost CopilotCli -Plugins 'dataverse,model-apps') 0
+    Assert-Equal (Invoke-Setup -CheckOnly -PluginHost ClaudeCode -MarketplaceOnly) 0
 }
 
 Test-Case 'plugin opt-in is separate from prerequisite approval and rejected early when inconsistent' {

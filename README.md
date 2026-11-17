@@ -6,13 +6,14 @@ You must already have your chosen app installed.
 
 Use the **same Setup.cmd** on Intel/AMD x64 PCs and ARM64 Windows 11 PCs.
 It checks your computer, shows a plan, and asks before installing anything.
-It does not sign you in or create anything in your Microsoft environment.
+The installer does not sign you in or create anything in your Microsoft
+environment. Optional agent-guided connection onboarding has separate approvals.
 
 Follow these three steps:
 
 1. [Install the Windows tools](#step-1-install-the-windows-tools).
 2. [Choose and install Power Platform plugins](#step-2-choose-and-install-power-platform-plugins).
-3. [Connect to your environment](#step-3-connect-in-a-fresh-chat), only when ready.
+3. [Connect to your environment](#step-3-connect-to-your-environment), only when ready.
 
 ## Step 1: install the Windows tools
 
@@ -53,25 +54,45 @@ their own approvals; no sign-in happens here.
 2. Use an agent session that can run local terminal commands, with normal
    interactive approvals. If the app asks you to trust the folder, review it
    and make that decision yourself; do not enable blanket auto-approval.
-3. Paste this prompt:
+3. Paste this **one starting prompt**. The bundled
+   [power-platform-setup entry skill](skills/power-platform-setup/SKILL.md)
+   coordinates the script, doctor and connection skill for you:
 
-> Read `AGENTS.md`, `README.md`, and `Setup.ps1` in this folder.
-> Run `.\Setup.cmd -CheckOnly`, explain which prerequisites are missing,
-> and ask for approval before installing anything.
+> Read `AGENTS.md`, `README.md`, `Setup.ps1`, and
+> `skills/power-platform-setup/SKILL.md` from this extracted setup folder.
+> Follow that entry skill as one guided onboarding flow using my existing
+> Copilot CLI or Claude Code CLI. Confirm the intended host if unclear.
 >
-> After prerequisites are ready, use Step 2's power-platform-doctor skill
-> for an existing Copilot CLI or Claude Code host and ask which plugins I want.
-> For VS Code or Copilot desktop without a CLI, guide the native plugin route.
-> Offer Copilot Studio MCP registration and connection-skill installation separately.
-> Ask for approval separately for each stage.
-> Do not sign in, select a tenant, or change cloud resources.
+> First run `.\Setup.cmd -CheckOnly`, explain the prerequisite plan, and ask
+> before installing anything. Once tools are ready, follow
+> `skills/power-platform-doctor/SKILL.md`: ask before adding Microsoft's
+> official marketplace, then ask which Power Platform plugins I want.
+> Show the selected-plugin plan and install only what I approve.
+>
+> Finally continue with `skills/power-platform-connect/SKILL.md`.
+> Confirm my account, Tenant ID, Environment URL and selected tools, and ask
+> separately before additional software, sign-in, profile/configuration
+> changes, MCP registration/startup or live identity checks.
+>
+> Keep guiding me in this conversation where possible. If PATH changes,
+> new plugins/MCP tools, or Windows require a restart, explain why and give
+> me a short resume prompt showing what is complete and what comes next.
+> Do not close the host for me or repeat working installations.
+> Do not install another agent host, enable blanket auto-approval, change
+> tenant permissions, or create cloud resources. For a native app/IDE
+> without a CLI, explain the supported manual route instead.
 
-**Keep installation in this same chat.** Your agent can run the approved
-prerequisite, plugin, MCP-registration, and skill-copy stages for you; you do not
-need another chat or a second quick-install command for Power Platform Skills.
-After installation, **restart the app and use a fresh chat for sign-in** with
-the connection skill. If Windows needs a reboot, or setup requires closing the
-app hosting the current chat, the agent should explain the pause/handoff first.
+**One starting prompt, separate approvals.** You do not need to discover and
+paste each skill's prompt yourself. Keep the **complete extracted folder**
+available; attaching only a README or launcher is insufficient.
+
+**A restart may still be necessary.** A running host keeps its old PATH, and
+some versions load plugins/MCP tools only after a reload or restart. Reopen
+after PATH changes; otherwise pause only when the required capability is not
+available. Your agent should finish approved local stages where possible,
+give the resume prompt, and continue the guided flow after you return.
+There is no promise that one conversation can remain uninterrupted through
+Windows reboots, host-close requirements, or new MCP discovery.
 
 `AGENTS.md` is an instruction file for the agent, **not a program you run**.
 The agent checks first, explains the plan, and runs the same installer after
@@ -96,6 +117,9 @@ cropped out):
 The extracted folder is attached to the session before the prompt is sent:
 
 ![Coding-agent setup prompt with the power-platform-setup-main folder attached](docs/images/10-agent-setup-prompt.png)
+
+This screenshot shows an earlier installation-only prompt. Use the current
+one above to request the full guided flow through connection onboarding.
 
 </details>
 
@@ -125,19 +149,22 @@ Setup never installs another agent app just to make a host command available.
 ### Copilot CLI or Claude Code: use the doctor skill
 
 The bundled [power-platform-doctor skill](skills/power-platform-doctor/SKILL.md)
-asks **which plugins you want**, checks the selected CLI's existing marketplace
-and plugins, shows a plan, then adds Microsoft's marketplace and installs
+first prepares Microsoft's marketplace with your approval, then asks
+**which plugins you want**, checks what is installed, shows a plan, and installs
 **only your approved selection**. For example, you can choose just **Dataverse
 and Model Apps**, rather than installing every plugin.
 
 Use your **already installed GitHub Copilot CLI or Claude Code CLI**. Open it
 in the extracted setup folder, or continue the guided installation chat that
-already has access to that folder, and paste:
+already has access to that folder. If you started with Alternative B's single
+prompt, the agent continues here automatically; you need not paste this again.
+For Step 2 on its own, paste:
 
 > Read `skills/power-platform-doctor/SKILL.md` in this extracted setup folder
-> and follow it as Step 2. Ask which existing CLI host I want to configure
-> and which Power Platform plugins I want. Check what is already installed,
-> show the marketplace/plugin plan, and ask before making changes.
+> and follow it as Step 2. Confirm my existing CLI host, ask before adding
+> Microsoft's marketplace, then ask which Power Platform plugins I want.
+> Check what is already installed, show the selected-plugin plan, and ask
+> before making changes.
 > Install only my approved selection. Do not install another agent host,
 > sign in, invoke tenant tools, or change cloud resources.
 
@@ -147,8 +174,8 @@ claiming a `/power-platform-doctor` command is already registered.
 
 The doctor keeps matching existing plugins, leaves unselected plugins alone,
 and does not change the other CLI.
-After installation, restart the selected host or start a new chat and confirm its
-skills/tools appear. A plugin registration is not proof of authentication or
+After installation, confirm its skills/tools appear, using the host's supported
+reload/restart when required. Reopen after PATH changes. A plugin registration is not proof of authentication or
 that every bundled MCP server is connected. Dataverse **CLI** installation
 and sign-in are later connection-onboarding decisions, not this plugin step.
 
@@ -210,10 +237,17 @@ it immediately**. A running app or its parent may still have the old PATH.
 See [Git/PATH troubleshooting](docs/advanced-setup.md#exit-codes-and-troubleshooting)
 before retrying the marketplace.
 
-## Step 3: connect in a fresh chat
+<a id="step-3-connect-in-a-fresh-chat"></a>
 
-**Next: sign in through your agent chat.** Reopen your app, start a new chat,
-and paste:
+## Step 3: connect to your environment
+
+With Alternative B's full-flow prompt, the agent now reads the bundled
+connection skill and continues asking for your target and approvals. You do not
+need another starting prompt or a personal skill copy.
+
+If running this step separately, read/use the connection skill in your chosen
+host and paste the request below. Reopen after PATH changes and follow any
+required plugin/MCP reload first:
 
 > Use the power-platform-connect skill to help me connect my Dataverse CLI,
 > PAC CLI, Azure CLI, and Dataverse MCP. Check existing profiles first.
@@ -413,7 +447,7 @@ Check **Customize > Installed** afterward.
 </details>
 
 Keep following the window for optional **MCP** and **SKILL** setup, then use
-the [sign-in prompt above](#step-3-connect-in-a-fresh-chat) in your app. Sign-in is not started
+the [sign-in prompt above](#step-3-connect-to-your-environment) in your app. Sign-in is not started
 by the installer.
 
 ## If setup shows an error
