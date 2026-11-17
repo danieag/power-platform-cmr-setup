@@ -233,21 +233,58 @@ Test-Case 'inventory rejects unsupported Node majors, absent npm, and runtime-on
     Assert-Equal ($state | Where-Object Id -eq 'dotnet').Ready $false
 }
 
-Test-Case 'Node compatibility includes the Copilot Studio MCP minimum without accepting other majors' {
+Test-Case 'Node compatibility preserves 22.18+, 24 and 26 while enforcing npm and rejecting other majors' {
     function Find-SetupExecutable { param($Name, $Candidates) "C:\fixture\$Name" }
     function Get-ExecutableArchitecture { 'x64' }
     function Get-BinaryVersion { $script:nodeUnderTest }
     function Test-Path { $true }
-    function Get-Content { '{"version":"10.9.0"}' }
+    function Get-Content { '{"version":"' + $script:npmUnderTest + '"}' }
     function Get-ChildItem {}
     foreach ($case in @(
-        @{ Version = '22.17.0'; Ready = $false },
-        @{ Version = '22.18.0'; Ready = $true },
-        @{ Version = '24.0.0'; Ready = $true },
-        @{ Version = '25.0.0'; Ready = $false })) {
+        @{ Version = '22.17.0'; Npm = '10.9.0'; Ready = $false },
+        @{ Version = '22.18.0'; Npm = '10.9.0'; Ready = $true },
+        @{ Version = '24.0.0'; Npm = '11.0.0'; Ready = $true },
+        @{ Version = '25.0.0'; Npm = '11.0.0'; Ready = $false },
+        @{ Version = '26.0.0'; Npm = '11.0.0'; Ready = $true },
+        @{ Version = '26.1.0'; Npm = '11.0.0'; Ready = $true },
+        @{ Version = '26.13.0'; Npm = '11.20.0'; Ready = $true },
+        @{ Version = '26.1.0'; Npm = '9.9.4'; Ready = $false },
+        @{ Version = '27.0.0'; Npm = '11.0.0'; Ready = $false })) {
         $script:nodeUnderTest = [version]$case.Version
+        $script:npmUnderTest = $case.Npm
         $node = Get-SetupState | Where-Object Id -eq 'node'
         Assert-Equal $node.Ready $case.Ready
+    }
+}
+
+Test-Case 'Node 26 is skipped on x64 and ARM64 in offline checks and approved setup' {
+    function Get-SetupArchitecture { $script:windowsUnderTest }
+    function Find-SetupExecutable { param($Name, $Candidates) "C:\fixture\$Name" }
+    function Get-ExecutableArchitecture {
+        param($Path)
+        if ($Path -like '*python.exe') { return 'x64' }
+        return $script:windowsUnderTest
+    }
+    function Get-BinaryVersion {
+        param($Path)
+        if ($Path -like '*git.exe') { return [version]'2.56.0' }
+        if ($Path -like '*node.exe') { return [version]'26.13.0' }
+        if ($Path -like '*pac.exe') { return [version]'2.15.1' }
+    }
+    function Test-Path { $true }
+    function Get-Content { '{"version":"11.20.0"}' }
+    function Get-ChildItem { [pscustomobject]@{ Name = '10.0.404'; FullName = 'C:\fixture\sdk\10.0.404' } }
+    function Get-ItemProperty { [pscustomobject]@{ DisplayName = 'Microsoft Azure CLI (64-bit)'; DisplayVersion = '2.93.0' } }
+    function Install-SetupTool { throw 'INSTALL FORBIDDEN' }
+    function Update-SetupPath { throw 'PATH CHANGE FORBIDDEN' }
+    function Invoke-WebRequest { throw 'DOWNLOAD FORBIDDEN' }
+    function Invoke-RestMethod { throw 'NETWORK FORBIDDEN' }
+    function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
+    function Read-Host { throw 'PROMPT FORBIDDEN' }
+    foreach ($architecture in @('x64', 'arm64')) {
+        $script:windowsUnderTest = $architecture
+        Assert-Equal (Invoke-Setup -CheckOnly) 0
+        Assert-Equal (Invoke-Setup -Install -Accept -NonInteractive) 0
     }
 }
 
@@ -494,7 +531,7 @@ Test-Case 'Git metadata selects only the x64 installer and its SHA256' {
 Test-Case 'Node metadata selects stable 24 LTS and checksums for its exact MSI' {
     function Get-OfficialJson {
         @(
-            [pscustomobject]@{ version = 'v26.1.0'; lts = $false },
+            [pscustomobject]@{ version = 'v26.1.0'; lts = 'Lithium' },
             [pscustomobject]@{ version = 'v24.10.0'; lts = 'Krypton' },
             [pscustomobject]@{ version = 'v22.18.0'; lts = 'Jod' })
     }

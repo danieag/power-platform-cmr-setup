@@ -130,11 +130,11 @@ function Get-SetupState {
         }
     }
     $nodeSupported = $null -ne $version -and
-        (($version.Major -eq 22 -and $version -ge [version]'22.18.0') -or $version.Major -eq 24)
+        (($version.Major -eq 22 -and $version -ge [version]'22.18.0') -or $version.Major -in @(24, 26))
     $binaryArchitecture = Get-ExecutableArchitecture $node
     $ready = $nodeSupported -and (Test-ExecutableArchitecture $binaryArchitecture $Architecture) -and
         $null -ne $npmVersion -and $npmVersion -ge [version]'10.0.0'
-    New-ToolState 'node' "Node.js / npm ($npmVersion)" $version $ready $node 'Node 22.18+ or 24 LTS with bundled npm >= 10' $binaryArchitecture
+    New-ToolState 'node' "Node.js / npm ($npmVersion)" $version $ready $node 'Node 22.18+ (22.x), 24 or 26 with bundled npm >= 10' $binaryArchitecture
 
     $dotnet = Find-SetupExecutable 'dotnet.exe' @(
         "$env:ProgramFiles\dotnet\dotnet.exe", "$env:ProgramFiles\dotnet\x64\dotnet.exe")

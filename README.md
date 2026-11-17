@@ -26,6 +26,9 @@ same setup script and approval rules. Keep all extracted files together.
    Setup installs missing tools in this order:
    **Git > Node.js/npm > .NET 10 SDK > PAC CLI > Azure CLI**.
    Compatible tools already installed are skipped.
+   Existing Node **22.18+ (22.x), 24, or 26** is preserved when bundled npm is
+   version 10+ and the executable architecture is compatible. New Node installs
+   still use **24 LTS**; setup does not downgrade a compatible Node 26 install.
 3. **Wait, then answer the optional prompts** below. Keep this window open.
    When finished, restart your chosen app and terminals.
 

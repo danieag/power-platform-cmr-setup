@@ -30,9 +30,11 @@ the flow; explain them rather than silently continuing.
 - Run the repository's `.\Setup.cmd -CheckOnly` first. Do not treat its exit 1
   (missing/unsupported tools) as permission to install them; use the prerequisite
   skill only after approval. Keep this check offline and read-only.
-- Copilot Studio MCP currently requires **Node 22.18+ or 24 LTS**. Read the
+- Setup preserves compatible **Node 22.18+ (22.x), 24 or 26** with npm 10+;
+  new installations still use **Node 24 LTS**. Read the
   [current package instructions](https://www.npmjs.com/package/@microsoft/copilot-studio-mcp)
-  before configuring it; a future release can change requirements.
+  before configuring Copilot Studio MCP; bootstrap compatibility does not
+  guarantee that every package version supports every accepted Node version.
 - Confirm which integrations the user wants: selected Power Platform plugins,
   Dataverse (explicit opt-in), Copilot Studio MCP, or the combination.
   Explain downloads, user configuration changes, and later app reload/sign-in.

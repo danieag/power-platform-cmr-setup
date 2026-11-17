@@ -223,16 +223,18 @@ order; Azure CLI is included by default and comes after PAC:
 | Order | Tool | Preserved when | If setup is needed |
 |---|---|---|---|
 | 1 | Git for Windows | Version 2.40+ with a compatible executable architecture | Current stable native x64/ARM64 Git installer, current-user program directory |
-| 2 | Node.js and npm | Node **22.18+ or 24 LTS**, bundled npm 10+, compatible executable architecture | Current **24 LTS** native x64/ARM64 MSI, machine-wide |
+| 2 | Node.js and npm | Node **22.18+ (22.x), 24 or 26**, bundled npm 10+, compatible executable architecture | Current **24 LTS** native x64/ARM64 MSI, machine-wide |
 | 3 | .NET **SDK** | Stable **10.0** SDK files and a compatible SDK host present | Current stable .NET 10 native x64/ARM64 SDK installer, machine-wide |
 | 4 | Power Platform CLI (PAC) | Recognized PAC executable version 1.0+ with a shim matching the selected SDK host architecture | Current stable `Microsoft.PowerApps.CLI.Tool`, global .NET tool for the current user |
 | 5 | Azure CLI | Recognized MSI installation 2.60+, launcher, and compatible bundled Python present | Official x64 Azure CLI MSI, machine-wide; uses emulation on ARM64 |
 
 These are this bootstrap's compatibility baselines, not a guarantee that every
-Power Platform plugin supports every accepted version. Node 22.18+ and 24 cover
-the current Copilot Studio MCP package's requirements as well as the marketplace's
-LTS requirements; this setup deliberately does not treat an arbitrary newer Node
-major as compatible. The .NET runtime alone is insufficient. Newer .NET SDK
+Power Platform plugin supports every accepted version. Existing Node 22.18+
+(within 22.x), 24 and 26 are accepted; a compatible Node 26 installation is left
+unchanged rather than replaced with Node 24. New installs still select Node 24
+LTS. Check the selected plugins' current runtime requirements separately; this
+setup deliberately does not treat an arbitrary newer Node major as compatible.
+The .NET runtime alone is insufficient. Newer .NET SDK
 majors do not replace the required 10.0 SDK. Compatible tools are not automatically
 updated to the latest patch; keep them patched using your normal maintenance
 process.
@@ -241,8 +243,10 @@ Nonstandard/portable installations, version-manager shims, stale PATH entries,
 unknown file versions, and non-MSI Azure CLI installs may need manual repair.
 The first executable on PATH is authoritative; setup does not delete or
 reorder competing installations or overwrite version-manager configuration.
-Installing Node 24 over a newer MSI may require manually removing that
-unsupported major first. Setup stops if it cannot verify the result.
+For a different unsupported newer Node major, Windows can reject installing
+the older Node 24 MSI. Review the vendor/version-manager options before changing
+that installation; do not uninstall a working runtime blindly. Setup stops if
+it cannot verify the result.
 For upgrades of older machine-wide Git, use the vendor installer manually if
 the new per-user copy is shadowed by the old PATH entry.
 On ARM64, Microsoft installs native .NET under `%ProgramFiles%\dotnet` and
