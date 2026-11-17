@@ -26,9 +26,15 @@ Copilot desktop app. It does not install an agent host or provision cloud resour
    terminals and the desktop app after PATH changes. Do not automatically reboot.
 6. Plugin setup is separately approval-gated. Interactive setup offers
    `ClaudeCode`, `CopilotCli`, `CopilotApp` links, or skip after prerequisites.
+   README Step 2's `skills/power-platform-doctor/SKILL.md` asks existing CLI
+   users which plugins they want and reuses `Setup.cmd -Plugins "id,id"`.
+   Always pass the approved selection explicitly for the doctor; never turn
+   no selection into the default full set. Dataverse is opt-in through an
+   explicit `dataverse` ID or `-IncludeDataverse`. Do not install another host.
    For an agent invocation, obtain approval for the specific host/plugin plan
-   before adding `-PluginHost <host> -AcceptPlugins`; add `-IncludeDataverse`
-   only when requested. Noninteractive runs without a host skip plugins.
+   before adding `-PluginHost <host> -AcceptPlugins`. A plugin-only rerun can
+   omit `-Install -Accept` so missing prerequisites stop rather than install.
+   Noninteractive runs without a host skip plugins.
    `-Accept` alone is not plugin approval. Do not run plugin setup from
    check-only or after prerequisite failure/restart.
 7. Copilot Studio MCP registration is another separately approved stage. Use
@@ -102,7 +108,7 @@ than trying to bypass them.
 ## Maintaining this repository
 
 - Keep all install policy and sequencing in `Setup.ps1`. `Setup.cmd` and the
-  optional `skills/power-platform-setup/SKILL.md` must remain thin wrappers.
+  optional setup/doctor skills must remain thin wrappers.
 - Preserve compatible installs and inherited process PATH entries. Fail
   explicitly on unverified downloads, installer failures, and version mismatch.
 - Keep x64 and ARM64 support in the same installer. Detect native Windows

@@ -16,6 +16,11 @@ This is **stage two**, not a second prerequisite installer. Read the current
 <https://github.com/danieag/power-platform-setup> first. Do not execute anything
 when the user only asks for an explanation or readiness check.
 
+For an existing **Copilot CLI or Claude Code CLI**, README Step 2's
+`skills/power-platform-doctor/SKILL.md` is the front door for asking which
+plugins the user wants, inspecting that host, and approving the exact selection.
+Reuse this skill for native app/IDE routes and separately approved MCP setup.
+
 This stage belongs in the **same guided installation chat** as prerequisite
 setup. Use `power-platform-setup`'s combined invocation when those stages are
 already approved, or run a scoped follow-up here. Do not send the user to a new
@@ -96,7 +101,9 @@ host rather than duplicating the installation logic in an agent:
 .\Setup.cmd -Install -Accept -NonInteractive -PluginHost CopilotApp -AcceptPlugins
 ```
 
-Add `-IncludeDataverse` only when approved. `-Accept` and `-AcceptPlugins` are
+These examples select the standard full set. For the doctor's individual
+choices use `-Plugins "id,id"` instead, as below. Dataverse requires an explicit
+`dataverse` ID or `-IncludeDataverse`, only when approved. `-Accept` and `-AcceptPlugins` are
 separate decisions. If prerequisites are already ready, they are skipped.
 If optional MCP and connection-skill installation were also approved, append
 `-CopilotStudioHost <host> -AcceptCopilotStudio` and
@@ -108,29 +115,21 @@ user to open/confirm them in the desktop app. It is not a failed prerequisite
 install or proof that any plugin was installed. Do not automatically launch
 browser sign-in or claim app availability from a link.
 
-For **custom subsets**, use the chosen existing host's supported commands after
-approval. These are terminal subcommands, not `/plugin` text pasted into a shell.
-For Copilot CLI:
+For **custom subsets**, prefer the same script implementation after approval.
+When prerequisites are ready, choose **one** plugin-only example and replace
+its IDs with the actual approved choices:
 
 ```powershell
-copilot plugin list
-copilot plugin marketplace add microsoft/power-platform-skills
-copilot plugin install canvas-apps@power-platform-skills
-copilot plugin list
+.\Setup.cmd -NonInteractive -PluginHost CopilotCli -Plugins "dataverse,model-apps" -AcceptPlugins
+.\Setup.cmd -NonInteractive -PluginHost ClaudeCode -Plugins "dataverse,model-apps" -AcceptPlugins
 ```
 
-For Claude Code, use `claude plugin marketplace add
-microsoft/power-platform-skills` and `claude plugin install
-canvas-apps@power-platform-skills --scope user`, followed by
-`claude plugin list`. Do not launch an agent conversation just to run its plugin
-management subcommands. Verify structured status/scope when available.
-
-`canvas-apps` is an example, **not** an instruction to install it for everyone.
-Use the current official marketplace manifest to resolve only approved plugin
-names. Other examples include `code-apps-preview`, `model-apps`, and
-`power-automate`. Add `dataverse@power-platform-skills` only when approved;
-check whether Dataverse is already installed from the external
-`microsoft/Dataverse-skills` marketplace to avoid duplicate capabilities.
+Omitting `-Install -Accept` prevents a missing prerequisite from being installed
+under plugin-only approval. Empty/unknown selections fail rather than falling
+back to all plugins. Do not run both host commands or a second broad installer.
+`Setup.ps1` verifies the official marketplace and plugin identities, preserves
+an existing enabled external Dataverse installation, and uses Claude's explicit
+user scope. Do not launch an agent conversation just for management commands.
 
 Read command help when the installed version differs from the documented
 interface. Check every exit code. Skip an existing matching marketplace/plugin

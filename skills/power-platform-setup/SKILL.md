@@ -65,16 +65,26 @@ just to install plugins, promise unlimited/free AI usage, or purchase credits.
 Collect the separate approvals below, one decision at a time. Then run the
 script with **only** the approved flags. If all installation stages for one
 host were approved, this is a combined example (set `$selectedHost` to the
-user-confirmed `ClaudeCode`, `CopilotCli`, or `CopilotApp` first):
+user-confirmed `ClaudeCode`, `CopilotCli`, or `CopilotApp` and `$selectedPlugins`
+to the approved comma-separated IDs first):
 
 ```powershell
 .\Setup.cmd -Install -Accept -NonInteractive `
-    -PluginHost $selectedHost -AcceptPlugins `
+    -PluginHost $selectedHost -Plugins $selectedPlugins -AcceptPlugins `
     -CopilotStudioHost $selectedHost -AcceptCopilotStudio `
     -ConnectionSkillHost $selectedHost -AcceptConnectionSkill
 ```
 
-Add `-IncludeDataverse` only when approved. Omit an optional stage's host and
+For CLI users, read `skills/power-platform-doctor/SKILL.md` as README **Step 2**
+to ask which plugins they want and plan the selected host's marketplace/plugin
+changes. Do not silently use the full catalog. `All` is only for an explicitly
+approved standard full set; Dataverse requires an explicit `dataverse` ID in
+`-Plugins` or the separately requested `-IncludeDataverse` flag.
+For a plugin-only follow-up with ready prerequisites, omit `-Install -Accept`;
+`-NonInteractive -PluginHost <host> -Plugins "id,id" -AcceptPlugins` stops if a
+prerequisite has become missing instead of installing unapproved software.
+
+Omit an optional stage's host and
 acceptance flags when not requested; noninteractive setup skips it. If the
 user approves stages later, run another scoped invocation **in this same chat**;
 the script rechecks/skips compatible existing tools. Never invent consent just
@@ -111,10 +121,11 @@ installation approvals.
 5. Respect exit codes, stop on failure/restart requirement, and explain any
    terminal/Copilot restart needed. Report binaries, desktop plugins, and
    authentication separately.
-6. If the user wants the reviewed Power Platform plugin set, obtain separate
-   approval for `ClaudeCode`, `CopilotCli`, or `CopilotApp`, then append
-   `-PluginHost <host> -AcceptPlugins`. Dataverse also requires
-   `-IncludeDataverse`. CLI hosts must already be on PATH; no new host is
+6. For Power Platform plugins, use Step 2's doctor for CLI plugin selection.
+   Obtain separate approval for `ClaudeCode`, `CopilotCli`, or `CopilotApp` and
+   the actual selection, then append `-PluginHost <host> -Plugins "id,id"
+   -AcceptPlugins`. Dataverse is opt-in by explicit ID or `-IncludeDataverse`.
+   CLI hosts must already be on PATH; no new host is
    installed. The app route prints official confirmation links and returns
    `4`, meaning pending user action, not verified installation. Do not retry
    installations solely because the app handoff returns that code.
@@ -123,8 +134,9 @@ installation approvals.
    launch command but does not start the server; the package downloads/caches
    at the host's first launch. Do not run `npx` standalone or claim runtime/auth
    readiness from a saved JSON entry.
-8. For custom plugin selections or agent-guided MCP setup, read
-   `skills/power-platform-integrations/SKILL.md`. Reuse existing registrations.
+8. Use `skills/power-platform-doctor/SKILL.md` for CLI plugin choices and
+   `skills/power-platform-integrations/SKILL.md` for manual/native routes or
+   agent-guided MCP setup. Reuse existing registrations.
    Stop on configuration conflicts; keep any local backup private.
 9. If the user explicitly requests sign-in or persistent connections afterward,
    use `skills/power-platform-connect/SKILL.md` as a separate approval-gated

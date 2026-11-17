@@ -734,6 +734,85 @@ Test-Case 'plugin stage runs only after prerequisites finish and never after fai
     Assert-Equal $script:mcpStages 1
 }
 
+Test-Case 'explicit plugin selections are normalized and never expand into the standard set' {
+    Assert-Equal ((Get-SetupPluginNames -Plugins ' Dataverse,Model-Apps,dataverse ' ) -join ',') 'dataverse,model-apps'
+    Assert-Equal ((Get-SetupPluginNames -Plugins 'model-apps' -IncludeDataverse) -join ',') 'model-apps,dataverse'
+    Assert-Equal ((Get-SetupPluginNames -Plugins 'dataverse' -IncludeDataverse) -join ',') 'dataverse'
+    Assert-Equal ((Get-SetupPluginNames -Plugins 'model-apps') -join ',') 'model-apps'
+}
+
+Test-Case 'invalid or unscoped selections fail before inventory, installations or host access' {
+    function Get-SetupArchitecture { throw 'INVENTORY FORBIDDEN' }
+    function Install-SetupTool { throw 'INSTALL FORBIDDEN' }
+    function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
+    foreach ($selection in @('', ' ', 'model-apps,', ',dataverse', 'unknown',
+        'All,dataverse', 'dataverse@other', 'https://example.com/plugin', 'model-apps;whoami')) {
+        Assert-Equal (Invoke-Setup -NonInteractive -PluginHost CopilotCli -Plugins $selection -AcceptPlugins) 2
+    }
+    Assert-Equal (Invoke-Setup -NonInteractive -Plugins 'model-apps' -AcceptPlugins) 2
+    Assert-Equal (Invoke-Setup -PluginHost Skip -Plugins 'model-apps') 2
+    Assert-Equal (Invoke-Setup -NonInteractive -PluginHost ClaudeCode -Plugins 'dataverse') 2
+}
+
+Test-Case 'doctor plugin-only approval never installs a newly missing prerequisite' {
+    function Get-SetupArchitecture { 'x64' }
+    function Get-SetupState {
+        param([switch]$Azure)
+        New-TestState -Ready @('git','dotnet','pac','azure') -Azure:$Azure
+    }
+    function Install-SetupTool { throw 'INSTALL FORBIDDEN' }
+    function Update-SetupPath { throw 'PATH CHANGE FORBIDDEN' }
+    function Invoke-PluginSetup { throw 'PLUGINS FORBIDDEN' }
+    function Read-Host { throw 'PROMPT FORBIDDEN' }
+    Assert-Equal (Invoke-Setup -NonInteractive -PluginHost CopilotCli -Plugins 'dataverse,model-apps' -AcceptPlugins) 2
+}
+
+Test-Case 'doctor installs only approved plugins in either selected CLI and safely reuses them' {
+    function Get-SetupArchitecture { 'x64' }
+    function Get-SetupState {
+        param([switch]$Azure)
+        New-TestState -Ready @('git','node','dotnet','pac','azure') -Azure:$Azure
+    }
+    function Install-SetupTool { throw 'INSTALL FORBIDDEN' }
+    function Update-SetupPath { throw 'PATH CHANGE FORBIDDEN' }
+    function Start-Process { throw 'PROCESS FORBIDDEN' }
+    function Read-Host { throw 'PROMPT FORBIDDEN' }
+    function Find-SetupExecutable {
+        param($Name)
+        $expected = if ($script:pluginHost -eq 'ClaudeCode') { 'claude' } else { 'copilot' }
+        Assert-Equal $Name $expected
+        return "C:\fixture\$expected.exe"
+    }
+    function Invoke-SetupNative { param($Path, $Arguments) Invoke-TestPluginCli $Path $Arguments }
+    foreach ($hostName in @('CopilotCli', 'ClaudeCode')) {
+        Reset-TestPluginCli
+        $script:pluginHost = $hostName
+        $script:pluginRows = @(
+            if ($hostName -eq 'ClaudeCode') {
+                [pscustomobject]@{ id = 'power-pages@power-platform-skills'; scope = 'user'; enabled = $false }
+            } else {
+                [pscustomobject]@{ name = 'power-pages'; marketplace = 'power-platform-skills'; enabled = $false }
+            })
+        Assert-Equal (Invoke-Setup -NonInteractive -PluginHost $hostName -Plugins 'dataverse,model-apps' -AcceptPlugins) 0
+        $installs = @($script:pluginCalls | Where-Object { $_.Arguments[1] -eq 'install' })
+        Assert-Equal (($installs | ForEach-Object { $_.Arguments[2] }) -join ',') 'dataverse@power-platform-skills,model-apps@power-platform-skills'
+        Assert-Equal (@($script:pluginCalls | Where-Object { ($_.Arguments -join ' ') -eq 'plugin marketplace add microsoft/power-platform-skills' }).Count) 1
+        Assert-Equal (@($script:pluginCalls | Where-Object { $_.Arguments[0] -ne 'plugin' }).Count) 0
+        if ($hostName -eq 'ClaudeCode') {
+            Assert-Equal (@($installs | Where-Object { ($_.Arguments -join ' ') -notmatch '--scope user$' }).Count) 0
+        }
+        Assert-Equal @($script:pluginRows).Count 3
+        Assert-Equal $script:pluginRows[0].enabled $false
+        $script:pluginCalls = @()
+        Assert-Equal (Invoke-Setup -NonInteractive -PluginHost $hostName -Plugins 'dataverse,model-apps' -AcceptPlugins) 0
+        Assert-Equal $script:pluginCalls.Count 2
+        $script:pluginRows[1].enabled = $false
+        $script:pluginCalls = @()
+        Assert-Equal (Invoke-Setup -NonInteractive -PluginHost $hostName -Plugins 'dataverse,model-apps' -AcceptPlugins) 3
+        Assert-Equal (@($script:pluginCalls | Where-Object { $_.Arguments -notcontains 'list' }).Count) 0
+    }
+}
+
 Test-Case 'check-only with a plugin plan stays offline, CLI-free and prompt-free' {
     function Get-SetupArchitecture { 'x64' }
     function Get-SetupState { New-TestState -Ready @('git','node','dotnet','pac') }
@@ -743,6 +822,7 @@ Test-Case 'check-only with a plugin plan stays offline, CLI-free and prompt-free
     function Invoke-WebRequest { throw 'NETWORK FORBIDDEN' }
     function Read-Host { throw 'PROMPT FORBIDDEN' }
     Assert-Equal (Invoke-Setup -CheckOnly -PluginHost CopilotCli -IncludeDataverse) 0
+    Assert-Equal (Invoke-Setup -CheckOnly -PluginHost CopilotCli -Plugins 'dataverse,model-apps') 0
 }
 
 Test-Case 'plugin opt-in is separate from prerequisite approval and rejected early when inconsistent' {
@@ -820,7 +900,8 @@ Test-Case 'existing external Dataverse is preserved without installing a duplica
     $script:pluginRows = @([pscustomobject]@{ id = 'dataverse@dataverse-skills'; scope = 'user'; enabled = $true })
     function Invoke-SetupNative { param($Path, $Arguments) Invoke-TestPluginCli $Path $Arguments }
     Install-SetupPlugins 'C:\fixture\claude.exe' 'ClaudeCode' @('dataverse')
-    Assert-Equal $script:pluginCalls.Count 2
+    Assert-Equal $script:pluginCalls.Count 4
+    Assert-Equal (@($script:pluginCalls | Where-Object { $_.Arguments[1] -eq 'install' }).Count) 0
 }
 
 Test-Case 'marketplace collisions, disabled plugins and other sources stop before any install' {
@@ -1514,8 +1595,18 @@ Test-Case 'Node maintenance updates only guarded source, docs and cases and the 
     }
 }
 
+Test-Case 'doctor skill command examples parse without executing plugin installation' {
+    $text = Get-Content -LiteralPath (Join-Path $root 'skills\power-platform-doctor\SKILL.md') -Raw
+    foreach ($block in [regex]::Matches($text, '(?s)```powershell\r?\n(.*?)```')) {
+        $tokens = $null; $errors = $null
+        [Management.Automation.Language.Parser]::ParseInput($block.Groups[1].Value, [ref]$tokens, [ref]$errors) | Out-Null
+        Assert-Equal $errors.Count 0
+    }
+}
+
 Test-Case 'public documentation resolves all local links and screenshot files' {
-    foreach ($relative in @('README.md', 'docs\advanced-setup.md', 'docs\power-platform-connect-guide.md')) {
+    foreach ($relative in @('README.md', 'docs\advanced-setup.md', 'docs\power-platform-connect-guide.md',
+        'skills\power-platform-doctor\SKILL.md')) {
         $path = Join-Path $root $relative
         $text = Get-Content -LiteralPath $path -Raw
         foreach ($match in [regex]::Matches($text, '\[[^\]]*\]\(([^)]+)\)')) {

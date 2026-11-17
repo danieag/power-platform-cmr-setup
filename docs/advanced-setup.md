@@ -8,7 +8,7 @@ Run commands below **from the extracted repository root**, not this `docs` folde
 
 - [Supported PCs](#supported-pcs-and-current-limitations)
 - [Tool installation and sources](#what-gets-installed)
-- [Power Platform plugins](#step-2-power-platform-plugins-in-the-same-setup-window)
+- [Power Platform plugins](#step-2-choose-power-platform-plugins)
 - [Copilot Studio MCP](#step-3-optional-copilot-studio-mcp-registration)
 - [Connection skill installation](#step-4-install-the-optional-connection-skill)
 - [Sign-in and persistent connections](#step-5-connect-and-remember-sign-in-optional-skill)
@@ -76,7 +76,7 @@ workflow supports ARM64.
    Microsoft .NET SDK, or Microsoft Azure CLI installer.
    If setup requests a restart, save your work, restart yourself, and run it again.
 5. After prerequisites succeed, the same window offers
-   [step 2: Power Platform plugins](#step-2-power-platform-plugins-in-the-same-setup-window).
+   [step 2: Power Platform plugins](#step-2-choose-power-platform-plugins).
    Choose your existing host, review the separate plan, and type `PLUGINS` to
    approve, or press Enter to skip. Restart your host/terminals afterward.
    The next optional stage offers Copilot Studio MCP registration; it needs
@@ -313,7 +313,23 @@ organization's approved process; do not disable those protections. For example,
 an organization's signed-script requirement needs an approved/signed copy,
 not a machine-wide policy relaxation. No automatic reboot is requested.
 
-## Step 2: Power Platform plugins in the same setup window
+## Step 2: choose Power Platform plugins
+
+For **existing Copilot CLI or Claude Code CLI** users, the beginner README's
+Step 2 starts with the bundled
+[power-platform-doctor skill](../skills/power-platform-doctor/SKILL.md).
+Ask the agent in the extracted setup folder to read that file. It asks for one
+host and the desired plugins, checks existing registrations, presents the
+delta, and executes the approved selection through `Setup.cmd -Plugins`.
+The skill is included in source/runtime downloads, not automatically installed
+into a personal skill directory. It does not authenticate or install an agent
+host, Dataverse CLI, or additional tools.
+
+To use this individual-selection route after a double-click Step 1, press
+Enter to skip its optional full-set plugin host chooser. Continue with the
+doctor in the chosen CLI. In a guided agent setup, keep these stages in the
+same installation chat. The existing console full-set route below remains
+available for users who choose it.
 
 This stage runs **only after all selected prerequisites are ready**, never after
 an installer failure or restart requirement. An interactive launch, including a
@@ -333,6 +349,7 @@ The prerequisite summary deliberately does not claim plugin readiness.
 The reviewed set is Power Pages, model-driven apps, Canvas apps, Code apps,
 mobile apps, Power Apps mobile extensions, Power Automate, Process Intelligence,
 PCF, and MCP Apps. **Dataverse is separate opt-in**, as in the official installer.
+An explicit `dataverse` ID in `-Plugins` also opts that plugin in.
 Future additions to Microsoft's catalog require a reviewed setup release.
 Plugins can contain executable hooks, agents, MCP servers, and dependencies;
 review the displayed plan and the host's permissions before approving.
@@ -356,6 +373,24 @@ is opened automatically and no account or browser profile is selected.
 
 ### Agent/noninteractive usage
 
+For an approved **individual selection**, after prerequisites are ready:
+
+```powershell
+.\Setup.cmd -NonInteractive -PluginHost CopilotCli -Plugins "dataverse,model-apps" -AcceptPlugins
+```
+
+Use `ClaudeCode` instead for that host, not both. `-Plugins` is one
+comma-separated string so it passes safely through the Windows launcher.
+Names are checked against the reviewed catalog, normalized and deduplicated.
+Empty entries, unknown names, URLs and marketplace suffixes fail before
+prerequisite changes. The selected plugins are the entire plan, not additions
+to the full set. The official marketplace is added/verified even when matching
+selected plugins already exist; an external Dataverse plugin is not duplicated.
+
+Do not pass `-Install -Accept` for a plugin-only approval: if a prerequisite is
+missing at rerun time, this command stops without installing it. Omitted
+MCP-registration and connection-skill stages are skipped.
+
 Prerequisite approval and plugin approval are distinct. After the user approves
 both plans, for example:
 
@@ -365,15 +400,19 @@ both plans, for example:
 .\Setup.cmd -Install -Accept -NonInteractive -PluginHost CopilotApp -AcceptPlugins -IncludeDataverse
 ```
 
+These examples use the backward-compatible `-Plugins All` default: the standard
+reviewed set, excluding Dataverse unless explicitly opted in. The doctor always
+passes the user's selected IDs, and never turns "none" into `All`.
 Choose **one** command for the intended host; do not run all three.
 `-Accept` approves prerequisites; `-AcceptPlugins` approves only the chosen plugin
-stage. Neither authorizes sign-in. `-IncludeDataverse` applies only to plugins;
+stage. Neither authorizes sign-in. `-IncludeDataverse` adds Dataverse to either
+the default set or an explicit selection and applies only to plugins;
 Azure CLI is now a default prerequisite. `-SkipAzureCli` is a minimal-setup
 opt-out, not recommended for the full plugin set.
 
 Noninteractive runs without `-PluginHost` skip plugins. `-PluginHost Skip`
 explicitly suppresses the interactive chooser. `-CheckOnly -PluginHost
-CopilotCli` can print the later plugin plan but remains offline, prompt-free and
+CopilotCli -Plugins "dataverse,model-apps"` can print the later plugin plan but remains offline, prompt-free and
 CLI-free; it does **not** verify the host/plugins. If prerequisites are already
 ready, rerun setup with a chosen host to perform just that plugin stage.
 

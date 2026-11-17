@@ -6,6 +6,8 @@ Checks and, only with approval, installs local Power Platform prerequisites and 
 .\Setup.ps1 -CheckOnly
 .EXAMPLE
 .\Setup.ps1 -Install -Accept -NonInteractive
+.EXAMPLE
+.\Setup.cmd -NonInteractive -PluginHost CopilotCli -Plugins "dataverse,model-apps" -AcceptPlugins
 #>
 [CmdletBinding()]
 param(
@@ -16,6 +18,7 @@ param(
     [switch]$IncludeAzureCli,
     [switch]$SkipAzureCli,
     [ValidateSet('', 'Skip', 'ClaudeCode', 'CopilotCli', 'CopilotApp')][string]$PluginHost,
+    [AllowEmptyString()][string]$Plugins = 'All',
     [switch]$IncludeDataverse,
     [switch]$AcceptPlugins,
     [ValidateSet('', 'Skip', 'ClaudeCode', 'CopilotCli', 'CopilotApp')][string]$CopilotStudioHost,
@@ -459,11 +462,24 @@ function Install-SetupTool {
 }
 
 function Get-SetupPluginNames {
-    param([switch]$IncludeDataverse)
+    param([switch]$IncludeDataverse, [AllowEmptyString()][string]$Plugins = 'All')
     # Reviewed official catalog: adding future plugins requires a deliberate release.
-    @('power-pages', 'model-apps', 'canvas-apps', 'code-apps-preview', 'mobile-app',
+    $catalog = @('power-pages', 'model-apps', 'canvas-apps', 'code-apps-preview', 'mobile-app',
       'power-apps-mobile-extension', 'power-automate', 'process-intelligence', 'pcf', 'mcp-apps')
-    if ($IncludeDataverse) { 'dataverse' }
+    if ([string]::IsNullOrWhiteSpace($Plugins)) {
+        throw [ArgumentException]::new('Plugin selection is empty. Choose explicit plugin IDs or All; use -PluginHost Skip to install none.')
+    }
+    if ($Plugins -eq 'All') {
+        $names = $catalog
+    } else {
+        $names = @($Plugins.Split(',') | ForEach-Object { $_.Trim().ToLowerInvariant() })
+        if (@($names | Where-Object { $_ -notin ($catalog + 'dataverse') }).Count) {
+            throw [ArgumentException]::new('Unsupported plugin selection. Use comma-separated reviewed plugin IDs, without marketplace suffixes, URLs or empty entries.')
+        }
+        $names = @($names | Select-Object -Unique)
+    }
+    if ($IncludeDataverse -and 'dataverse' -notin $names) { $names += 'dataverse' }
+    return $names
 }
 
 function Get-PluginProperty {
@@ -569,7 +585,7 @@ function Install-SetupPlugins {
             Write-Host "Keeping installed plugin: $name"
         } else { $pending += $name }
     }
-    if (-not $registered -and $pending.Count) {
+    if (-not $registered -and $Names.Count) {
         Invoke-SetupNative $Path @('plugin', 'marketplace', 'add', 'microsoft/power-platform-skills') | Out-Null
         if (-not (Assert-OfficialMarketplace @(Read-PluginJson $Path @('plugin', 'marketplace', 'list', '--json')))) {
             throw 'Marketplace registration returned success but the official source could not be verified.'
@@ -605,6 +621,7 @@ function Invoke-PluginSetup {
     [CmdletBinding()]
     param(
         [ValidateSet('', 'Skip', 'ClaudeCode', 'CopilotCli', 'CopilotApp')][string]$PluginHost,
+        [AllowEmptyString()][string]$Plugins = 'All',
         [switch]$IncludeDataverse, [switch]$AcceptPlugins, [switch]$NonInteractive
     )
     if (-not $PluginHost) {
@@ -628,10 +645,10 @@ function Invoke-PluginSetup {
         Write-Host 'Plugin approval missing. Use -AcceptPlugins only after the user approves this separate plan.'
         return 2
     }
-    if (-not $NonInteractive -and -not $AcceptPlugins -and -not $IncludeDataverse) {
+    if (-not $NonInteractive -and -not $AcceptPlugins -and -not $IncludeDataverse -and $Plugins -eq 'All') {
         $IncludeDataverse = (Read-Host 'Also include Dataverse? Type YES to opt in; Enter = no') -ceq 'YES'
     }
-    $names = @(Get-SetupPluginNames -IncludeDataverse:$IncludeDataverse)
+    $names = @(Get-SetupPluginNames -IncludeDataverse:$IncludeDataverse -Plugins $Plugins)
     Write-Host "`nPlugin plan for ${PluginHost}: $($names -join ', ')"
     Write-Host 'Source: microsoft/power-platform-skills (Dataverse, if selected, comes from Microsoft/Dataverse-skills).'
     Write-Host 'Plugins may include executable hooks, agents and MCP servers. Review their permissions in your host.'
@@ -889,17 +906,17 @@ function Invoke-CopilotStudioSetup {
 
 function Invoke-SetupIntegrations {
     param(
-        [string]$PluginHost, [switch]$IncludeDataverse, [switch]$AcceptPlugins, [switch]$NonInteractive,
+        [string]$PluginHost, [string]$Plugins = 'All', [switch]$IncludeDataverse, [switch]$AcceptPlugins, [switch]$NonInteractive,
         [string]$CopilotStudioHost, [switch]$AcceptCopilotStudio,
         [string]$ConnectionSkillHost, [switch]$AcceptConnectionSkill
     )
-    $plugins = Invoke-PluginSetup -PluginHost $PluginHost -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -NonInteractive:$NonInteractive
-    if ($plugins -notin @(0, 4)) { return $plugins }
+    $pluginResult = Invoke-PluginSetup -PluginHost $PluginHost -Plugins $Plugins -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -NonInteractive:$NonInteractive
+    if ($pluginResult -notin @(0, 4)) { return $pluginResult }
     $mcp = Invoke-CopilotStudioSetup -CopilotStudioHost $CopilotStudioHost -AcceptCopilotStudio:$AcceptCopilotStudio -NonInteractive:$NonInteractive
     if ($mcp -ne 0) { return $mcp }
     $skill = Invoke-ConnectionSkillSetup -ConnectionSkillHost $ConnectionSkillHost -AcceptConnectionSkill:$AcceptConnectionSkill -NonInteractive:$NonInteractive
     if ($skill -ne 0) { return $skill }
-    return $plugins
+    return $pluginResult
 }
 
 function Get-ConnectionSkillDirectory {
@@ -1023,6 +1040,7 @@ function Invoke-Setup {
     param(
         [switch]$CheckOnly, [switch]$Install, [switch]$Accept, [switch]$NonInteractive, [switch]$IncludeAzureCli, [switch]$SkipAzureCli,
         [ValidateSet('', 'Skip', 'ClaudeCode', 'CopilotCli', 'CopilotApp')][string]$PluginHost,
+        [AllowEmptyString()][string]$Plugins = 'All',
         [switch]$IncludeDataverse, [switch]$AcceptPlugins,
         [ValidateSet('', 'Skip', 'ClaudeCode', 'CopilotCli', 'CopilotApp')][string]$CopilotStudioHost,
         [switch]$AcceptCopilotStudio,
@@ -1038,6 +1056,15 @@ function Invoke-Setup {
         return 2
     }
     $includeAzure = -not $SkipAzureCli
+    try { $null = @(Get-SetupPluginNames -Plugins $Plugins -IncludeDataverse:$IncludeDataverse) }
+    catch [ArgumentException] {
+        Write-Host $_.Exception.Message
+        return 2
+    }
+    if ($Plugins -ne 'All' -and (-not $PluginHost -or $PluginHost -eq 'Skip')) {
+        Write-Host 'An explicit -Plugins selection requires -PluginHost ClaudeCode, CopilotCli or CopilotApp.'
+        return 2
+    }
     if (($AcceptConnectionSkill -and (-not $ConnectionSkillHost -or $ConnectionSkillHost -eq 'Skip')) -or
         ($NonInteractive -and -not $CheckOnly -and $ConnectionSkillHost -and $ConnectionSkillHost -ne 'Skip' -and -not $AcceptConnectionSkill)) {
         Write-Host 'Choose -ConnectionSkillHost ClaudeCode, CopilotCli or CopilotApp and provide separate -AcceptConnectionSkill approval for noninteractive skill installation.'
@@ -1077,7 +1104,7 @@ function Invoke-Setup {
             }
             if ($PluginHost -and $PluginHost -ne 'Skip') {
                 Write-Host "Requested later plugin stage: $PluginHost. Host/plugin readiness is NOT checked in offline check-only mode."
-                Write-Host (@(Get-SetupPluginNames -IncludeDataverse:$IncludeDataverse) -join ', ')
+                Write-Host (@(Get-SetupPluginNames -IncludeDataverse:$IncludeDataverse -Plugins $Plugins) -join ', ')
             }
             if ($pending.Count) {
                 Write-Host "`nPlanned order: $($pending.Name -join ' -> ')"
@@ -1087,7 +1114,7 @@ function Invoke-Setup {
         }
         if ($pending.Count -eq 0) {
             Write-Host "`nAll selected prerequisites are ready. Plugins and authentication still need separate verification."
-            return (Invoke-SetupIntegrations -PluginHost $PluginHost -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -NonInteractive:$NonInteractive -CopilotStudioHost $CopilotStudioHost -AcceptCopilotStudio:$AcceptCopilotStudio -ConnectionSkillHost $ConnectionSkillHost -AcceptConnectionSkill:$AcceptConnectionSkill)
+            return (Invoke-SetupIntegrations -PluginHost $PluginHost -Plugins $Plugins -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -NonInteractive:$NonInteractive -CopilotStudioHost $CopilotStudioHost -AcceptCopilotStudio:$AcceptCopilotStudio -ConnectionSkillHost $ConnectionSkillHost -AcceptConnectionSkill:$AcceptConnectionSkill)
         }
         Write-Host "`nPlanned order: $($pending.Name -join ' -> ')"
         if ($NonInteractive -and -not ($Install -and $Accept)) {
@@ -1119,7 +1146,7 @@ function Invoke-Setup {
         Write-Host "`nPrerequisites ready. Keep this window open for the optional plugin stage."
         Write-Host 'After setup finishes, restart terminals and your chosen host so they inherit the new PATH.'
         Write-Host 'No tenant has been accessed. Optional MCP registration needs its own approval; intentional sign-in remains separate.'
-        return (Invoke-SetupIntegrations -PluginHost $PluginHost -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -NonInteractive:$NonInteractive -CopilotStudioHost $CopilotStudioHost -AcceptCopilotStudio:$AcceptCopilotStudio -ConnectionSkillHost $ConnectionSkillHost -AcceptConnectionSkill:$AcceptConnectionSkill)
+        return (Invoke-SetupIntegrations -PluginHost $PluginHost -Plugins $Plugins -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -NonInteractive:$NonInteractive -CopilotStudioHost $CopilotStudioHost -AcceptCopilotStudio:$AcceptCopilotStudio -ConnectionSkillHost $ConnectionSkillHost -AcceptConnectionSkill:$AcceptConnectionSkill)
     } catch {
         Write-Host "`nSetup failed: $($_.Exception.Message)" -ForegroundColor Red
         Write-Host 'No later setup steps were run. Resolve the cause and rerun -CheckOnly; completed prerequisite/plugin installations are preserved.'
@@ -1128,5 +1155,5 @@ function Invoke-Setup {
 }
 
 if ($MyInvocation.InvocationName -ne '.') {
-    exit (Invoke-Setup -CheckOnly:$CheckOnly -Install:$Install -Accept:$Accept -NonInteractive:$NonInteractive -IncludeAzureCli:$IncludeAzureCli -SkipAzureCli:$SkipAzureCli -PluginHost $PluginHost -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -CopilotStudioHost $CopilotStudioHost -AcceptCopilotStudio:$AcceptCopilotStudio -ConnectionSkillHost $ConnectionSkillHost -AcceptConnectionSkill:$AcceptConnectionSkill)
+    exit (Invoke-Setup -CheckOnly:$CheckOnly -Install:$Install -Accept:$Accept -NonInteractive:$NonInteractive -IncludeAzureCli:$IncludeAzureCli -SkipAzureCli:$SkipAzureCli -PluginHost $PluginHost -Plugins $Plugins -IncludeDataverse:$IncludeDataverse -AcceptPlugins:$AcceptPlugins -CopilotStudioHost $CopilotStudioHost -AcceptCopilotStudio:$AcceptCopilotStudio -ConnectionSkillHost $ConnectionSkillHost -AcceptConnectionSkill:$AcceptConnectionSkill)
 }

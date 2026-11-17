@@ -8,7 +8,13 @@ Use the **same Setup.cmd** on Intel/AMD x64 PCs and ARM64 Windows 11 PCs.
 It checks your computer, shows a plan, and asks before installing anything.
 It does not sign you in or create anything in your Microsoft environment.
 
-## Simple version
+Follow these three steps:
+
+1. [Install the Windows tools](#step-1-install-the-windows-tools).
+2. [Choose and install Power Platform plugins](#step-2-choose-and-install-power-platform-plugins).
+3. [Connect to your environment](#step-3-connect-in-a-fresh-chat), only when ready.
+
+## Step 1: install the Windows tools
 
 1. **Download:** on [this repository](https://github.com/danieag/power-platform-setup),
    click **Code > Download ZIP**.
@@ -32,6 +38,11 @@ same setup script and approval rules. Keep all extracted files together.
 3. **Wait, then answer the optional prompts** below. Keep this window open.
    When finished, restart your chosen app and terminals.
 
+For the CLI doctor in **Step 2**, press **Enter** at the optional Power Platform
+plugin host prompt to skip the built-in full-set route. You will choose your
+individual plugins with the doctor instead. Other optional stages still have
+their own approvals; no sign-in happens here.
+
 ### Alternative B: use your coding agent
 
 1. Open your coding agent and **add the extracted local folder to the session**.
@@ -48,8 +59,10 @@ same setup script and approval rules. Keep all extracted files together.
 > Run `.\Setup.cmd -CheckOnly`, explain which prerequisites are missing,
 > and ask for approval before installing anything.
 >
-> After prerequisites are ready, guide me through Power Platform plugins,
-> Copilot Studio MCP registration, and connection-skill installation.
+> After prerequisites are ready, use Step 2's power-platform-doctor skill
+> for an existing Copilot CLI or Claude Code host and ask which plugins I want.
+> For VS Code or Copilot desktop without a CLI, guide the native plugin route.
+> Offer Copilot Studio MCP registration and connection-skill installation separately.
 > Ask for approval separately for each stage.
 > Do not sign in, select a tenant, or change cloud resources.
 
@@ -98,7 +111,7 @@ guides the same stages and requests the corresponding approval in chat.
 
 | Setup asks about... | What to do |
 |---|---|
-| Power Platform plugins | Choose **1** for an existing Claude Code command, **2** for an existing Copilot CLI command, or **3** for the Copilot desktop app. Type **PLUGINS** to approve the plan. Dataverse is optional: type **YES** when asked if you need it. |
+| Power Platform plugins | For individual CLI plugin choices, press **Enter** and continue to **Step 2's doctor**. The existing full-set route is still available: **1** = Claude Code, **2** = Copilot CLI, **3** = Copilot desktop links; type **PLUGINS** to approve that plan. Dataverse is optional: type **YES** when asked if you need it. |
 | Copilot desktop links (option 3) | Open the **marketplace link first**, then each desired plugin link. Confirm each installation in the app. **Printing links does not install the plugins.** |
 | Copilot Studio MCP | This gives your agent access to Copilot Studio tools. Choose your app, close that app as instructed, then type **MCP** to approve saving the connection setup. It does not sign you in. |
 | Connection skill | Choose your app, then type **SKILL** to copy the instructions for later sign-in. Installing a skill does **not** run it. |
@@ -106,6 +119,43 @@ guides the same stages and requests the corresponding approval in chat.
 Press **Enter** at an optional host chooser to skip that stage. Other text at an
 approval prompt cancels that stage; earlier successful installs stay installed.
 Setup never installs another agent app just to make a host command available.
+
+## Step 2: choose and install Power Platform plugins
+
+### Copilot CLI or Claude Code: use the doctor skill
+
+The bundled [power-platform-doctor skill](skills/power-platform-doctor/SKILL.md)
+asks **which plugins you want**, checks the selected CLI's existing marketplace
+and plugins, shows a plan, then adds Microsoft's marketplace and installs
+**only your approved selection**. For example, you can choose just **Dataverse
+and Model Apps**, rather than installing every plugin.
+
+Use your **already installed GitHub Copilot CLI or Claude Code CLI**. Open it
+in the extracted setup folder, or continue the guided installation chat that
+already has access to that folder, and paste:
+
+> Read `skills/power-platform-doctor/SKILL.md` in this extracted setup folder
+> and follow it as Step 2. Ask which existing CLI host I want to configure
+> and which Power Platform plugins I want. Check what is already installed,
+> show the marketplace/plugin plan, and ask before making changes.
+> Install only my approved selection. Do not install another agent host,
+> sign in, invoke tenant tools, or change cloud resources.
+
+This skill is included in the download; it is **not automatically copied into
+your personal skills directory**. Reading the file as above works without
+claiming a `/power-platform-doctor` command is already registered.
+
+The doctor keeps matching existing plugins, leaves unselected plugins alone,
+and does not change the other CLI.
+After installation, restart the selected host or start a new chat and confirm its
+skills/tools appear. A plugin registration is not proof of authentication or
+that every bundled MCP server is connected. Dataverse **CLI** installation
+and sign-in are later connection-onboarding decisions, not this plugin step.
+
+If you already installed plugins in Step 1, the doctor can check and retain
+them. Do not run a second broad curl/Node installer. Without an existing CLI,
+use the native VS Code route below or Copilot desktop's marketplace/plugin
+confirmation links from the optional setup prompt; no extra CLI is required.
 
 ### Manual option: add the Power Platform plugins in VS Code
 
@@ -160,7 +210,7 @@ it immediately**. A running app or its parent may still have the old PATH.
 See [Git/PATH troubleshooting](docs/advanced-setup.md#exit-codes-and-troubleshooting)
 before retrying the marketplace.
 
-### After installation: connect in a fresh chat
+## Step 3: connect in a fresh chat
 
 **Next: sign in through your agent chat.** Reopen your app, start a new chat,
 and paste:
@@ -363,7 +413,7 @@ Check **Customize > Installed** afterward.
 </details>
 
 Keep following the window for optional **MCP** and **SKILL** setup, then use
-the [sign-in prompt above](#simple-version) in your app. Sign-in is not started
+the [sign-in prompt above](#step-3-connect-in-a-fresh-chat) in your app. Sign-in is not started
 by the installer.
 
 ## If setup shows an error
@@ -417,8 +467,9 @@ and contributor tests. Only install vendor tools on a supported Windows version.
 On ARM64, Azure CLI uses the official x64 package under Windows 11 emulation.
 
 For an agent-led start, ask it to read [AGENTS.md](AGENTS.md), check readiness,
-and explain the plan before installing anything. Custom plugin/MCP setup uses
-the [integration skill](skills/power-platform-integrations/SKILL.md).
+and explain the plan before installing anything. CLI plugin choices use the
+[Step 2 doctor](skills/power-platform-doctor/SKILL.md); native app/IDE routes
+and optional MCP setup use the [integration skill](skills/power-platform-integrations/SKILL.md).
 
 This community bootstrap is not a Microsoft product. It never creates cloud
 resources or enables agent auto-approval. Setup behavior has automated local

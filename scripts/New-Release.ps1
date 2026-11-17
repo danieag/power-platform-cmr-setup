@@ -12,6 +12,7 @@ $archive = Join-Path $destination 'power-platform-setup-windows.zip'
 $files = @(
     'Setup.cmd', 'Setup.ps1', 'README.md', 'AGENTS.md', 'LICENSE',
     'skills\power-platform-setup\SKILL.md',
+    'skills\power-platform-doctor\SKILL.md',
     'skills\power-platform-integrations\SKILL.md',
     'skills\power-platform-connect\SKILL.md',
     'docs\advanced-setup.md',
