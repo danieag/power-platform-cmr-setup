@@ -101,6 +101,14 @@ does not authorize running it against the current user's tenants.
   authentication, profile switching, live reads or connection writes. Obtain
   separate approval for sign-in, private binding records, MCP registration and
   minimal read-only identity verification. Missing tools need install approval.
+- Connection onboarding may use `pac env list` after its exact existing PAC
+  account/tenant/environment context and live discovery are approved. Offer
+  environment names/URLs for one-or-more selection, and always allow another
+  existing URL, including on reruns. If no approved PAC context exists, confirm
+  an initial environment URL before sign-in, then discover. Do not infer access
+  from list presence or block an unlisted target. Process selected targets
+  separately; never create a cloud environment, overwrite another alias, or
+  leave the final iterated profile as an unannounced default.
 - Reuse Microsoft's installed `dv-overview` / `dv-connect` mechanisms for
   Dataverse authentication, only within the approved subset. Their broader
   setup capabilities do not authorize tenant writes or unrelated project files.

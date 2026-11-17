@@ -673,6 +673,11 @@ profile, or call a tenant.
 The connection skill must ask one explained question at a time, not collect a
 technical six-field form followed by speculative installation consent:
 
+- **Environment selection:** default to PAC sign-in/reuse in an approved context,
+  then `pac env list`, then show returned environment names and exact URLs.
+  Let the user choose one or more, reuse saved connections, or enter another
+  existing URL. Manual entry remains available with zero/partial results,
+  errors, or an already configured machine.
 - **Tenant ID / Directory ID:** identifies the Microsoft organization that owns
   the environment. It differs from both an Azure Subscription ID and a Power
   Platform Environment ID. Offer help finding it via
@@ -693,6 +698,46 @@ technical six-field form followed by speculative installation consent:
   the lowercase/hyphen/30-character rules and propose a friendly default.
 - **Tools to connect:** describe each requested CLI/MCP in plain language.
   Checking a tool is not advance approval to install an unchecked dependency.
+
+### Discovery and multiple persistent connections
+
+`pac env list` is an authenticated Global Discovery Service metadata read, not
+an offline check or a guarantee of every environment across all tenants. The
+older `pac org list` alias still works; current Microsoft guidance recommends
+`pac env`. Its list command does not document a `--tenant` or `--json` switch:
+do not invent either. Do not substitute administrator enumeration, create an
+environment, or auto-switch directory when discovery is empty/blocked.
+
+Confirm the actual account, tenant and exact environment URL of the proposed
+PAC discovery profile before selecting it or making live calls. With approval,
+reuse a matching working profile. If none exists, first confirm one existing
+environment URL as the initial PAC sign-in context and approve that sign-in,
+then return to discovery and selection. Do not use bare `pac auth create` to
+silently pick a default environment. The initial context is not automatically
+included in the user's saved target selection.
+
+Discovery approval is separate from target-specific setup. For each selected
+or manually entered target, confirm its account/tenant/URL, nickname and tools.
+Inspect/install shared dependencies once when needed and approved; then process
+targets serially with one existing schema-version-1 private binding per alias,
+matching profiles and a unique named MCP definition. Do not overwrite or migrate
+healthy old bindings into a new combined credential file. An unlisted URL can
+be added, but identity, reachability and permissions must still be verified.
+
+CLI active-profile state is shared and not multi-target isolation. Ask which
+connection should be active afterward, or before restoring the old selection.
+Same-tenant/account environments may reuse the approved Azure cache. Stage
+multiple approved MCP definitions before one reload where supported, then
+verify each target in the intended host and a new process/chat. A partial failure
+remains partial; one working environment does not verify the others.
+
+On every later use, **Add another existing environment** remains available
+through saved connections, approved discovery or manual URL entry. This creates
+local connection bindings, not cloud environments. Persistence means supported
+session/cache reuse, not a promise that MFA or renewal never occurs.
+
+Sources: [PAC environment commands](https://learn.microsoft.com/en-us/power-platform/developer/cli/reference/env)
+and [PAC authentication profiles](https://learn.microsoft.com/en-us/power-platform/developer/cli/reference/auth).
 
 ### Why an additional Dataverse package may be requested
 

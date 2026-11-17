@@ -57,6 +57,35 @@ not the host to choose for VS Code.
 
 ![Starting the connection skill and choosing the actual agent app](images/15-connect-start.png)
 
+### Discover and select environments, or enter a URL
+
+The current skill's default route is **PAC sign-in/reuse > `pac env list` >
+environment names and URLs > choose one or more > set up those connections**.
+The screenshots below show the original single-target **manual URL** branch;
+they are not screenshots of the newer discovery/multi-select prompts.
+
+The agent first confirms the account, tenant and exact existing PAC environment
+context and asks before profile selection, sign-in or the live discovery read.
+If there is no suitable authenticated profile, it asks for one known environment
+URL for that initial PAC sign-in, then returns to discovery. A valid matching
+session does not require signing in again just to populate the list.
+
+Choose one or several returned environments by name and exact URL. You can
+always choose **Enter another existing environment URL**, even when a target
+is missing from discovery or has no saved local connection yet. The initial
+PAC context is not automatically a selected saved target. Discovery results
+do not by themselves prove data permissions or cover every tenant/environment.
+
+The agent confirms the chosen targets and prepares a distinct nickname,
+profile/binding and named MCP entry for each, reusing existing matches and
+approved shared caches. It should not reinstall dependencies or force a fresh
+login per environment unnecessarily. Only one CLI profile is active at a time;
+choose the intended active connection afterward. Reports and post-restart
+verification remain per environment, including any blocked/pending target.
+
+You can re-run the skill later to **add another connection**, without replacing
+working ones. This never means provisioning a new Power Platform environment.
+
 ## 2. Supply the connection details one at a time
 
 ### Environment URL

@@ -1,6 +1,6 @@
 ---
 name: power-platform-connect
-description: After explicit target and sign-in approval, coordinate reusable Dataverse CLI, PAC CLI, and optional Azure CLI profiles plus Dataverse MCP on Windows. Reuse matching cached sessions, isolate tenants, and guide separate Copilot Studio MCP sign-in without copying tokens.
+description: Discover Dataverse environments with approved PAC context, choose one or more saved connections or enter an unlisted environment URL, and coordinate reusable CLI/MCP sessions with separate target and sign-in approvals. Add connections on later runs without replacing working profiles or copying tokens.
 ---
 
 # Power Platform connection onboarding
@@ -27,7 +27,117 @@ It is not one shared token or a guarantee of no future MFA. Azure CLI, PAC,
 Dataverse CLI, and Copilot Studio MCP can have separate authentication clients
 and caches. Front-load only the sign-ins actually required; skip working ones.
 
-## 1. Confirm the target and the approval boundary
+## 1. Choose environments and confirm the approval boundary
+
+The default guided sequence is **reuse/sign in with PAC > `pac env list` >
+show environment names and URLs > choose one or more > set up only those
+connections**. Do not start Dataverse CLI/MCP sign-ins before this choice just
+to discover environments. A healthy existing PAC session needs no new login.
+PAC discovery does not require installing Dataverse CLI, Python/SDK or an MCP
+server, or signing into Azure; defer those choices until targets/tools are selected.
+
+### Always offer discovery, saved connections, and a manual URL
+
+On every run, including an already configured machine, offer:
+
+- **Discover environments** using an approved PAC account/profile context.
+- **Reuse a saved connection**, after permission to inspect the relevant private
+  local binding/profile metadata.
+- **Add another existing environment by URL**, whether or not discovery or a
+  local saved-connection list contains it.
+
+Do not treat "already connected" as a reason to ignore a request to add another
+environment. "Add environment" here means **save a connection to an existing
+environment**, not create/provision a Power Platform environment or register it
+with a tenant. Manual entry remains available with zero results, partial
+results, discovery failures, and previously saved connections.
+
+### Discover with a confirmed PAC context, not an arbitrary active profile
+
+First confirm the actual host, work sign-in account, owning Tenant ID and
+permission to inspect local PAC profile/binding metadata. Complete step 2's
+local prerequisite check before invoking PAC; missing tooling does not grant
+installation consent. Ask one question at
+a time using the help below. Use only supported profile commands, not token
+files or cache decoding:
+
+```powershell
+pac auth list
+pac auth who
+```
+
+These are local profile checks, not proof of live access. Profile names alone
+are insufficient. Before any profile switch, sign-in or live discovery request,
+show and confirm the account, tenant and **exact environment URL bound to the
+proposed existing discovery profile**. Treat that environment as the explicitly
+approved discovery context, not an automatically selected persistent target.
+If metadata cannot establish the match, confirm the candidate with the user
+and obtain approval for a bounded identity check before discovery. Stop on an
+identity/tenant/URL mismatch; never silently use the default profile.
+
+Ask permission for the specific discovery operation: list Dataverse environment
+names/URLs through PAC under that confirmed context. It is an **authenticated
+live metadata read**, not part of offline `Setup.cmd -CheckOnly`. Profile
+selection, a needed sign-in/renewal, and discovery each need the corresponding
+approval; do not make a network request just to populate an initial form.
+Select an existing profile only with the user's approval, using the supported
+`pac auth select` command, and recheck its metadata before listing.
+
+After those approvals, use:
+
+```powershell
+pac env list
+```
+
+Microsoft documents this as Global Discovery Service discovery of **Dataverse
+environments**. `pac org list` is a supported older alias; prefer `pac env list`.
+Do not use `pac admin list`, change an environment, create one, or silently
+fall back to Azure/other tenant-enumeration mechanisms. Do not invent a
+`--tenant` or `--json` option for `pac env list`; check the installed version's
+supported help/output and every exit code.
+
+If there is **no matching authenticated PAC profile**, explain that live
+discovery needs an approved sign-in. Confirm one existing environment URL as
+the initial sign-in context, together with the account and tenant, then approve
+and perform only its PAC setup/sign-in through step 4, using a transient
+confirmed plan rather than saving a binding for an unselected target.
+Return to `pac env list`
+and the environment selection; the initial context is not automatically a
+selected saved connection. Manual URL setup without discovery is also always
+available. Do not run bare
+`pac auth create`, which can choose a default environment, or bootstrap into an
+unknown tenant just to obtain a list. A missing PAC CLI needs separate
+installation approval; discovery does not authorize installing it.
+
+Display a concise selection list with returned environment names and exact
+URLs; include IDs only when the output explicitly identifies what they mean.
+Show "already saved" only for an approved local binding with matching
+account/tenant/URL. Do not treat cached profile presence, a discovery row, an
+Organization ID or a friendly display name as full access verification.
+Avoid publishing raw discovery/profile output or writing it into the repo.
+
+Describe results as **environments returned by discovery in this context**,
+not a guaranteed complete list across every tenant or every Power Platform
+environment. Visibility, permissions, environment provisioning and service
+availability can affect the result. Do not assign the confirmed tenant to a
+row whose tenant is unknown; confirm it before onboarding. A different
+directory requires its own context and approvals, not an automatic switch.
+
+Ask which **one or more** environments the user wants saved connections for.
+Use multi-select if supported, otherwise accept a numbered list. Always
+include **Enter another environment URL** and **None / finish**. Resolve
+duplicate display names by their exact URLs, then confirm the selected
+account/tenant/URL mapping and tools before any target-specific changes.
+An empty result or a failed discovery is not permission to invent targets,
+declare that the user has no access, or disable manual entry.
+If no targets are selected, create no further bindings/MCP definitions and
+leave any earlier approved PAC sign-in/profile intact; do not delete it to
+simulate rolling back discovery.
+
+For manual entry, validate the existing environment's HTTPS origin and
+confirm its account/tenant just as for discovered targets. An absent discovery
+row or local registration does not bar setup, but neither proves access.
+Reachability, identity and permissions still need approved verification.
 
 ### Ask in everyday language
 
@@ -41,10 +151,10 @@ Use the following wording/help when a detail is missing:
 
 | Detail | Plain-language question and explanation |
 |---|---|
-| Agent app | "Which app are you using for this connection?" Offer Copilot desktop, Copilot CLI, or Claude Code when it is not already clear. This determines where the connection is saved. |
-| Environment URL | "What is the web address of the Power Apps / Dataverse environment you want to connect to? For example, `https://yourorg.crm4.dynamics.com`." Explain that this is the environment's address, not `make.powerapps.com` or a link to a particular app/page. Help the user find **Environment URL** in their selected environment's details in Power Platform admin center; the fictional example is not a target to use. |
-| Tenant ID | "What is the Tenant ID of the Microsoft organization that owns this environment? Find it in **Microsoft Entra admin center > Entra ID > Overview > Properties > Tenant ID**. Select the directory that owns your environment, then copy and paste that Tenant ID here." Explain that **tenant = Microsoft organization/directory** and Tenant ID (also called Directory ID) is its unique identifier, normally shown as a long value such as `11111111-2222-3333-4444-555555555555`. It is **not** an Azure Subscription ID, PPAC Environment ID, or Dataverse Organization ID. Offer help if the user cannot access it. |
-| Sign-in email | "Which work or school email address do you use to sign in to this environment? For example, `alex@example.com`." Explain **UPN = sign-in username**, usually the work email address, but use the actual Microsoft sign-in name if their mailbox address differs. Never ask for a password. |
+| Agent app | "Which app are you using for this connection?" Offer Copilot desktop, Copilot CLI, GitHub Copilot in VS Code, or Claude Code when it is not already clear. This determines where the connection is saved; VS Code and CLI are not interchangeable hosts. |
+| Environment URL | For manual entry: "What is the web address of the existing Power Apps / Dataverse environment you want to connect to? For example, `https://yourorg.crm4.dynamics.com`." For discovery, let the user select returned URLs instead of typing them again. Explain that this is the environment's address, not `make.powerapps.com` or a link to a particular app/page. Help them find **Environment URL** in Power Platform admin center; the fictional example is not a target to use. |
+| Tenant ID | "What is the Tenant ID of the Microsoft organization you want to discover or connect to environments in? Find it in **Microsoft Entra admin center > Entra ID > Overview > Properties > Tenant ID**. Select the directory that owns those environments, then copy and paste that Tenant ID here." Explain that **tenant = Microsoft organization/directory** and Tenant ID (also called Directory ID) is its unique identifier, normally shown as a long value such as `11111111-2222-3333-4444-555555555555`. It is **not** an Azure Subscription ID, PPAC Environment ID, or Dataverse Organization ID. Offer help if the user cannot access it. |
+| Sign-in email | "Which work or school email address do you use to sign in to that Microsoft organization? For example, `alex@example.com`." Explain **UPN = sign-in username**, usually the work email address, but use the actual Microsoft sign-in name if their mailbox address differs. Never ask for a password. |
 | Connection nickname | "What short name would you like to give this saved connection? For example, `my-demo-environment`." Explain that this **alias** is a local label so the agent can find the right saved setup later; it does **not** create or rename a Power Platform environment. Use lowercase letters, digits and hyphens, start with a letter, and keep it at most 30 characters. Suggest an alias and ask for confirmation rather than making it look like an ID the user must find. |
 | Tools to connect | "Which tools would you like to connect?" Explain the selected choices: **PAC CLI** for Power Platform development/deployment; **Dataverse CLI** for Dataverse commands and its MCP proxy; **Azure CLI** for Azure-dependent plugin workflows; **Dataverse MCP** for Dataverse tools in chat; **Copilot Studio MCP** for Copilot Studio tools in chat. Do not silently select everything or label a choice "install via npm" before checking whether it is missing. |
 
@@ -76,17 +186,20 @@ to fill the form before that access has been approved. Do not guess or swap
 in a subscription ID when the tenant is unknown.
 
 **Do not ask for permission to install software as one of these initial
-questions.** First collect/confirm the target and requested tools, then inspect
+questions.** First collect/confirm the discovery context or connection targets
+and requested tools, then inspect
 the local installation as described in step 2. Ask about an additional package
 only when there is evidence that it is needed and missing, or that a separately
 approved upgrade is required. Configuration/sign-in approvals remain separate.
 
 ### Confirm the technical target before acting
 
-Before any authentication, profile selection, tenant request, installation,
-or configuration write, establish:
+For the discovery step, establish and approve its exact profile context as
+described above. For **each selected or manually entered connection target**,
+before authentication, profile selection, installation or configuration writes,
+establish:
 
-- The local host: Copilot desktop app, Copilot CLI, or Claude Code.
+- The actual local host: Copilot desktop app, Copilot CLI, VS Code or Claude Code.
 - An existing Dataverse environment's exact HTTPS origin URL and tenant GUID.
   Do not default to the active CLI profile, an example, a demo target, or a
   partially matched environment name. Reject credentials, query strings, and
@@ -101,8 +214,9 @@ Collect missing details one question at a time. Show the proposed target,
 account, surfaces, and local changes, then obtain explicit approval to sign in,
 select/create named profiles, save private connection metadata, register the
 requested MCP definition, and perform minimal **read-only identity checks**.
-Installation approval is separate. An existing alias is a candidate, not consent
-to its tenant or proof that cached authentication is valid.
+Installation approval is separate. Discovery approval does not authorize
+persistent setup for every returned environment. An existing alias is a
+candidate, not consent to its tenant or proof that cached authentication is valid.
 
 For "status only" requests, inspect only approved local configuration/profile
 metadata. Do not sign in, switch profiles, acquire tokens, launch servers, or
@@ -212,6 +326,40 @@ approval. Do not install Python just to authenticate these CLIs.
 
 ## 3. Remember bindings, not credentials
 
+### Process the selected environments separately
+
+Show the proposed target list: confirmed account/tenant/URL, one unique nickname
+per environment, selected tools, existing matches and actual missing items.
+Deduplicate repeated selections of the same normalized URL/account/tenant
+across discovery, saved connections and manual entry. Do not merge distinct
+environments merely because display names match, or merge different identities.
+Obtain approval for the specific changes to those targets, separately from
+discovery. A bounded batch approval may name several exact targets, but must
+not include unselected environments or silently add another tenant/account.
+Group only the same action category across that target set; this does not
+combine separate sign-in, binding-write, MCP-registration and live-check gates.
+
+Check/install shared prerequisites once, only when missing and approved.
+Then perform steps 3-7 **for each selected environment**, serializing PAC and
+Dataverse profile changes. Reuse working sessions rather than signing in
+again merely because a second environment or another chat was selected.
+Do not promise one universal login or a distinct new login for every target:
+the official clients decide whether cached sessions can be reused.
+
+Keep one binding and distinct Dataverse MCP entry per selected target. Reuse
+actual matching profile names instead of creating duplicates; an existing alias must not be repointed
+to another environment. Same-tenant/account targets can reuse the approved
+Azure cache directory, while every live check still uses its explicit target.
+Never copy caches to make profiles appear persistent.
+
+Only one PAC/Dataverse profile is active in each CLI at a time; saved
+connections do not make all targets simultaneously active. Explain the effect
+of each approved switch on other sessions, and recheck identity before the
+next target. At the end, ask which saved connection should be active for
+continued work, or whether the previous selection should be restored, before
+making that state change. Never leave the last iterated target as an
+unannounced default.
+
 With approval, keep one **private, user-local connection record** at:
 
 ```text
@@ -221,6 +369,8 @@ With approval, keep one **private, user-local connection record** at:
 This is a binding record, not another token cache. A representative record
 shape is below; placeholders must be replaced with user-confirmed/verified
 values. Never save a placeholder as a working connection.
+This schema remains one record per alias; multiple selected environments do
+not require replacing old records with a combined credential store.
 
 ```json
 {
@@ -393,6 +543,8 @@ Use the installed official `@microsoft/dataverse` package, rather than fetching
 - Register with the chosen host's documented mechanism. Copilot desktop/CLI
   supports user-scope `%USERPROFILE%\.copilot\mcp-config.json`; Claude Code uses
   its supported `claude mcp add --scope user --transport stdio ...` form.
+  For VS Code, use the actual selected harness's documented MCP configuration;
+  do not assume the desktop/CLI file applies to every VS Code session.
   Preserve unrelated definitions, ACLs, tool restrictions and safe backups.
   Stop on malformed config, custom locations, or concurrent edits you cannot
   safely reconcile. A Copilot desktop user does not need another host installed.
@@ -401,6 +553,9 @@ Use the installed official `@microsoft/dataverse` package, rather than fetching
 
 Registration is not proof of connectivity. Tell the user when a host restart
 or new chat is required and leave that step pending until it actually happens.
+For several approved targets, prepare their distinct definitions before one
+host reload where supported, rather than demanding a restart after every
+entry. Verify each named server against its own environment afterward.
 If Dataverse MCP needs tenant consent or an environment client allowlist
 change, report the exact missing prerequisite and approval boundary. Do not
 run `dataverse mcp allow`, create an enterprise app, or change permissions
@@ -412,6 +567,10 @@ Reuse the server already registered by Setup.cmd. For missing registration,
 use the repository's [integration skill](https://github.com/danieag/power-platform-setup/blob/main/skills/power-platform-integrations/SKILL.md)
 and separately approved `-CopilotStudioHost <host> -AcceptCopilotStudio` stage.
 Never duplicate a working registration or run standalone `npx` as a login test.
+For several selected environments, follow this server's actual advertised
+connection model. Do not duplicate a registration or claim that every target
+is simultaneously active; if only one active context is supported, ask which
+approved target it should serve and report that limit.
 
 After explicit approval to launch/connect, use the actual host's supported
 MCP sign-in action. In Copilot desktop, prefer **Customize > Installed > the
@@ -446,13 +605,15 @@ the specialist's supported checks:
 dataverse auth who
 dataverse org who
 pac auth who
-pac org who
+pac env who --environment $connection.environmentUrl --json
 ```
 
 Include the installed Dataverse plugin's required operation context for its
 network call. Compare account, tenant, exact URL, environment and organization
 IDs where each command exposes them; resolve missing identity fields through
 the specialist's documented read-only identity check, never by guessing.
+Use supported command help for older PAC versions (`org` is the documented
+alias for `env`); do not silently drop explicit target verification.
 An account/tenant/environment mismatch stops the workflow, not an automatic
 switch to a different target.
 
@@ -475,7 +636,14 @@ directory, and select/recheck the matching CLI profiles. Skip new login when
 the checks succeed. Record the restart check as **pending** until completed;
 do not equate an existing cache file with proven persistence.
 
-Report a concise per-surface result:
+For multiple targets, verify and report **each alias/environment** separately,
+including fresh-process/chat persistence. One working target does not verify
+the others. Stop the batch on an identity/tenant mismatch; preserve completed
+targets and report a per-target permission/reachability failure honestly,
+asking before continuing with other approved targets. Do not label the whole
+selection verified while any target remains blocked or pending.
+
+Report a concise per-surface result for each target:
 
 | Surface | Report separately |
 |---|---|
@@ -490,6 +658,14 @@ before a public report. Do not claim single sign-on forever: consent, policy,
 MFA, token revocation, different OAuth clients, or a different Windows user
 can legitimately require authentication again.
 
+When finished, keep **Add another existing environment** available: reuse the
+saved-connection choice, repeat approved discovery, or enter another URL.
+On a later invocation, "add another environment" must reach these choices
+even when previous connections are healthy. Do not repeat installations,
+overwrite existing aliases, remove other profiles or require the new target
+to appear in a local registry before it can be added. If the user chooses
+finish/stop, do not keep prompting or initiate another target.
+
 In Windows Sandbox, caches can persist between processes **inside the same
 running guest**, but closing/resetting Sandbox normally discards them. Do not
 export protected caches to the host or enable plaintext caching to survive it.
@@ -498,6 +674,7 @@ export protected caches to the host or enable plaintext caching to survive it.
 
 - [Dataverse connection flow](https://github.com/microsoft/Dataverse-skills/blob/main/.github/plugins/dataverse/skills/dv-connect/SKILL.md)
 - [PAC authentication profiles](https://learn.microsoft.com/en-us/power-platform/developer/cli/reference/auth)
+- [PAC Dataverse environment discovery](https://learn.microsoft.com/en-us/power-platform/developer/cli/reference/env#pac-env-list)
 - [Azure interactive authentication](https://learn.microsoft.com/en-us/cli/azure/authenticate-azure-cli-interactively)
 - [Azure configuration directory](https://learn.microsoft.com/en-us/cli/azure/azure-cli-configuration)
 - [Copilot MCP configuration](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers)

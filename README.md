@@ -71,7 +71,10 @@ their own approvals; no sign-in happens here.
 > Show the selected-plugin plan and install only what I approve.
 >
 > Finally continue with `skills/power-platform-connect/SKILL.md`.
-> Confirm my account, Tenant ID, Environment URL and selected tools, and ask
+> Confirm my account and tenant, reuse/sign in to PAC with my approval,
+> then use `pac env list` to show environment names and URLs. Let me choose
+> one or more environments, or enter another existing environment URL.
+> Confirm the selected targets and tools, and ask
 > separately before additional software, sign-in, profile/configuration
 > changes, MCP registration/startup or live identity checks.
 >
@@ -261,14 +264,31 @@ With Alternative B's full-flow prompt, the agent now reads the bundled
 connection skill and continues asking for your target and approvals. You do not
 need another starting prompt or a personal skill copy.
 
+The guided route is **PAC sign-in/reuse > `pac env list` > environment names
+and URLs > your selection > saved connections**. Choose one or several
+environments. Discovery requires an approved PAC account/tenant/profile context;
+if no suitable profile exists, the skill first asks for one known environment
+URL to establish that initial sign-in context, then lists environments.
+The list contains Dataverse environments returned by discovery, not guaranteed
+coverage of every tenant or every Power Platform environment.
+
+**You can always add another existing environment by URL**, even if it is not
+listed or saved locally. Re-run the connection skill whenever you need another
+connection; working profiles and bindings are retained. This adds a local
+connection, not a new cloud environment. Each target gets its own nickname and
+connection record; only one profile is active in each CLI at a time.
+
 If running this step separately, read/use the connection skill in your chosen
 host and paste the request below. Reopen after PATH changes and follow any
 required plugin/MCP reload first:
 
 > Use the power-platform-connect skill to help me connect my Dataverse CLI,
 > PAC CLI, Azure CLI, and Dataverse MCP. Check existing profiles first.
-> Confirm my account, tenant, and environment, and ask before signing in or
-> changing configuration. Reuse working sessions; do not change tenant permissions.
+> Confirm my account/tenant and ask before PAC sign-in or live discovery.
+> Show the environment names/URLs returned by `pac env list` and let me
+> choose one or more, or enter another existing URL. Confirm each selected
+> target and ask before sign-in or configuration changes. Reuse working
+> sessions; do not change tenant permissions.
 
 Remove anything you do not need; add Copilot Studio MCP if you also want its
 sign-in. If the skill is missing or you skipped installation, ask the agent to
@@ -334,7 +354,7 @@ you approve execution. Do not run both installation routes unnecessarily.
 
 | Question | What it means |
 |---|---|
-| Environment URL | The web address of your Power Apps / Dataverse environment, for example `https://yourorg.crm4.dynamics.com`. It is not the general maker-portal address. |
+| Environment choice / URL | Choose one or more environments from approved PAC discovery, or enter an existing environment's URL such as `https://yourorg.crm4.dynamics.com`. Manual entry is always available, including for an unlisted/unsaved environment. It is not the general maker-portal address. |
 | Tenant ID / Directory ID | The ID of your Microsoft organization. Find it in **Microsoft Entra admin center > Entra ID > Overview > Properties > Tenant ID**, after selecting the directory that owns your environment. It is **not** an Azure Subscription ID, PPAC Environment ID, or Dataverse Organization ID. |
 | Work sign-in email (UPN) | The username you use to sign in, usually your work or school email address. It can differ from your email mailbox address. |
 | Connection nickname (alias) | A friendly local name you choose, such as **`my-demo-environment`**. It helps the agent remember this connection; it does not rename your actual environment. |

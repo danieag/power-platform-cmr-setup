@@ -69,8 +69,13 @@ installation, ask whether they want to connect before initiating this stage.
 The skill file can be read directly; a personal copy is optional and still
 requires its own installation approval.
 
-Confirm the actual host, sign-in identity, Tenant ID, Environment URL, nickname
-and selected tools as the connection skill requires. Reuse supplied details
+Confirm the host, sign-in identity and tenant, then let the connection skill
+reuse/sign in to PAC in an approved exact environment context and run
+`pac env list`. Present returned environment names/URLs and let the user
+choose one or more targets. Keep manual entry of another existing URL available,
+including on later runs. Discovery approval is not approval to configure all
+returned environments. Confirm each selected target, nickname and tools as
+the connection skill requires. Reuse supplied details
 without asking again, but never infer a tenant from the active profile.
 Ask before additional software, profile changes, private binding records,
 authentication, MCP registration/startup and bounded live identity checks.
@@ -93,7 +98,9 @@ Windows reboot can require a pause. A new chat alone may not reload MCP servers;
 use the actual selected host's documented reload/restart mechanism.
 
 Before any required pause, list completed stages, the chosen host, selected
-plugin IDs and the next pending action. Do not close the app for the user.
+plugin IDs and the next pending action. For multiple connection targets,
+include their local nicknames and per-target pending/verified state, not their
+private identity/URL details. Do not close the app for the user.
 Give a copyable, filled-in resume prompt shaped like:
 
 > Continue guided Power Platform onboarding from the same extracted repo.

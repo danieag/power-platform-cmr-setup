@@ -1602,7 +1602,7 @@ Test-Case 'installed connection skill is standalone and all its PowerShell examp
     Assert-Equal ($record.PSObject.Properties.Name -contains 'azureConfigDir') $true
 }
 
-Test-Case 'step 5 Azure scope example restores the inherited directory on success and failure with a mocked CLI' {
+Test-Case 'connection Azure scope is restored across multiple environment records and failures with a mocked CLI' {
     $skill = Get-Content -LiteralPath (Join-Path $root 'skills\power-platform-connect\SKILL.md') -Raw
     $matches = @([regex]::Matches($skill, '(?s)```powershell\s*\r?\n(.*?)\r?\n```') |
         Where-Object { $_.Groups[1].Value -match '\$previousAzureConfigDir' })
@@ -1617,7 +1617,10 @@ Test-Case 'step 5 Azure scope example restores the inherited directory on succes
         }
     }
     $example = $ast.GetScriptBlock()
-    $connection = [pscustomobject]@{ azureConfigDir = 'C:\fixture\approved-azure-cache' }
+    $connections = @(
+        [pscustomobject]@{ alias = 'first-env'; azureConfigDir = 'C:\fixture\shared-tenant-cache' },
+        [pscustomobject]@{ alias = 'second-env'; azureConfigDir = 'C:\fixture\shared-tenant-cache' },
+        [pscustomobject]@{ alias = 'other-tenant-env'; azureConfigDir = 'C:\fixture\other-tenant-cache' })
     $previous = $env:AZURE_CONFIG_DIR
     $script:azureExampleCalls = 0
     function az {
@@ -1628,17 +1631,19 @@ Test-Case 'step 5 Azure scope example restores the inherited directory on succes
         '{"tenant":"fixture-tenant","user":"fixture-user"}'
     }
     try {
-        foreach ($inherited in @($null, 'C:\fixture\previous-azure-cache')) {
-            foreach ($fail in @($false, $true)) {
-                $env:AZURE_CONFIG_DIR = $inherited
-                $script:failAzureExample = $fail
-                if ($fail) {
-                    Assert-Throws { & $example } 'Mock authentication check failed'
-                } else { & $example | Out-Null }
-                Assert-Equal $env:AZURE_CONFIG_DIR $inherited
+        foreach ($connection in $connections) {
+            foreach ($inherited in @($null, 'C:\fixture\previous-azure-cache')) {
+                foreach ($fail in @($false, $true)) {
+                    $env:AZURE_CONFIG_DIR = $inherited
+                    $script:failAzureExample = $fail
+                    if ($fail) {
+                        Assert-Throws { & $example } 'Mock authentication check failed'
+                    } else { & $example | Out-Null }
+                    Assert-Equal $env:AZURE_CONFIG_DIR $inherited
+                }
             }
         }
-        Assert-Equal $script:azureExampleCalls 4
+        Assert-Equal $script:azureExampleCalls ($connections.Count * 4)
     } finally { $env:AZURE_CONFIG_DIR = $previous }
 }
 
