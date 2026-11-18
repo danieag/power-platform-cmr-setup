@@ -238,7 +238,7 @@ order; Azure CLI is included by default and comes after PAC:
 | 1 | Git for Windows | Version 2.40+ with a compatible executable architecture | Current stable native x64/ARM64 Git installer, current-user program directory |
 | 2 | Node.js and npm | Node **22.18+ (22.x), 24 or 26**, bundled npm 10+, compatible executable architecture | Current **24 LTS** native x64/ARM64 MSI, machine-wide |
 | 3 | .NET **SDK** | Stable **10.0** SDK files and a compatible SDK host present | Current stable .NET 10 native x64/ARM64 SDK installer, machine-wide |
-| 4 | Power Platform CLI (PAC) | Recognized PAC executable version 1.0+ with a shim matching the selected SDK host architecture | Current stable `Microsoft.PowerApps.CLI.Tool`, global .NET tool for the current user |
+| 4 | Power Platform CLI (PAC) | Recognized PAC executable version **strictly greater than 2.10.0**, with a shim matching the selected SDK host architecture | Current stable `Microsoft.PowerApps.CLI.Tool`, global .NET tool for the current user |
 | 5 | Azure CLI | Recognized MSI installation 2.60+, launcher, and compatible bundled Python present | Official x64 Azure CLI MSI, machine-wide; uses emulation on ARM64 |
 
 These are this bootstrap's compatibility baselines, not a guarantee that every

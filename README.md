@@ -37,6 +37,8 @@ same setup script and approval rules. Keep all extracted files together.
    Existing Node **22.18+ (22.x), 24 or 26** is preserved when bundled npm is
    version 10+ and the executable architecture is compatible. New Node installs
    still use **24 LTS**; setup does not downgrade a compatible Node 26 install.
+   PAC must be **newer than 2.10.0**; exactly `2.10.0` and older versions need
+   an approved upgrade rather than being marked ready.
 3. **Wait, then answer the optional prompts** below. Keep this window open.
    When finished, restart your chosen app and terminals.
 

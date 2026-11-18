@@ -162,8 +162,8 @@ function Get-SetupState {
     $version = Get-BinaryVersion $pac
     $binaryArchitecture = Get-ExecutableArchitecture $pac
     $ready = $sdkReady -and $binaryArchitecture -eq $dotnetArchitecture -and
-        $null -ne $version -and $version -ge [version]'1.0.0'
-    New-ToolState 'pac' 'Power Platform CLI' $version $ready $pac 'PAC >= 1.0 with a shim matching the selected .NET architecture' $binaryArchitecture
+        $null -ne $version -and $version -gt [version]'2.10.0'
+    New-ToolState 'pac' 'Power Platform CLI' $version $ready $pac 'PAC > 2.10.0 with a shim matching the selected .NET architecture' $binaryArchitecture
 
     if ($Azure) {
         $az = Find-SetupExecutable 'az.cmd' @(

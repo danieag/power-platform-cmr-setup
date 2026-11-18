@@ -243,6 +243,49 @@ Test-Case 'inventory rejects unsupported Node majors, absent npm, and runtime-on
     Assert-Equal ($state | Where-Object Id -eq 'dotnet').Ready $false
 }
 
+Test-Case 'PAC must be strictly newer than 2.10.0 and older versions never upgrade without approval' {
+    function Get-SetupArchitecture { $script:pacWindowsArchitecture }
+    function Find-SetupExecutable { param($Name, $Candidates) "C:\fixture\$Name" }
+    function Get-ExecutableArchitecture {
+        param($Path)
+        if ($Path -like '*python.exe') { return 'x64' }
+        return $script:pacWindowsArchitecture
+    }
+    function Get-BinaryVersion {
+        param($Path)
+        if ($Path -like '*git.exe') { return [version]'2.56.0' }
+        if ($Path -like '*node.exe') { return [version]'24.10.0' }
+        if ($Path -like '*pac.exe') { return $script:pacUnderTest }
+    }
+    function Test-Path { $true }
+    function Get-Content { '{"version":"11.0.0"}' }
+    function Get-ChildItem { [pscustomobject]@{ Name = '10.0.404'; FullName = 'C:\fixture\sdk\10.0.404' } }
+    function Get-ItemProperty { [pscustomobject]@{ DisplayName = 'Microsoft Azure CLI (64-bit)'; DisplayVersion = '2.93.0' } }
+    function Install-SetupTool { throw 'INSTALL FORBIDDEN' }
+    function Update-SetupPath { throw 'PATH CHANGE FORBIDDEN' }
+    function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
+    function Invoke-WebRequest { throw 'DOWNLOAD FORBIDDEN' }
+    function Invoke-RestMethod { throw 'NETWORK FORBIDDEN' }
+    function Read-Host { throw 'PROMPT FORBIDDEN' }
+    foreach ($architecture in @('x64', 'arm64')) {
+        $script:pacWindowsArchitecture = $architecture
+        foreach ($case in @(
+            @{ Version = $null; Ready = $false },
+            @{ Version = '1.0.0'; Ready = $false },
+            @{ Version = '2.9.9'; Ready = $false },
+            @{ Version = '2.10.0'; Ready = $false },
+            @{ Version = '2.10.1'; Ready = $true },
+            @{ Version = '2.11.2'; Ready = $true })) {
+            $script:pacUnderTest = if ($null -eq $case.Version) { $null } else { [version]$case.Version }
+            Assert-Equal (Get-SetupState -Architecture $architecture | Where-Object Id -eq 'pac').Ready $case.Ready
+            $expectedCheck = if ($case.Ready) { 0 } else { 1 }
+            $expectedRun = if ($case.Ready) { 0 } else { 2 }
+            Assert-Equal (Invoke-Setup -CheckOnly) $expectedCheck
+            Assert-Equal (Invoke-Setup -NonInteractive) $expectedRun
+        }
+    }
+}
+
 Test-Case 'Node compatibility enforces approved majors and bundled npm' {
     function Find-SetupExecutable { param($Name, $Candidates) "C:\fixture\$Name" }
     function Get-ExecutableArchitecture { 'x64' }
