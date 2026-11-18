@@ -393,39 +393,32 @@ not require replacing old records with a combined credential store.
   "environmentUrl": "<confirmed-https-environment-origin>",
   "environmentId": "<verified-environment-guid>",
   "organizationId": "<verified-organization-guid>",
-  "defaultSolution": null,
   "pacProfile": "<matching-existing-or-new-profile-name>",
   "dataverseProfile": "<matching-existing-or-new-profile-name>",
   "azureConfigDir": "<approved-existing-or-dedicated-cache-directory>",
-  "dataverseMcpServer": "<host-dataverse-mcp-server-name>",
-  "powerAutomateMcpServer": null,
-  "copilotStudioMcpServer": null,
   "mcpServers": {
-    "dataverse": "<host-dataverse-mcp-server-name>",
-    "powerAutomate": null,
-    "copilotStudio": null
+    "dataverse": "<host-mcp-server-id>"
   }
 }
 ```
 
-Omit optional surface fields or set unused MCP entries to `null`. Always record
-**which exact MCP server ID belongs to which environment** when multiple
-environments are saved:
+Include **only** the surfaces and MCP servers actually connected to `<alias>`—do
+not pad `<alias>.json` with `null` placeholders, and do not rewrite working
+older records just to add optional keys. `mcpServers` is an **open
+`{ "<label>": "<host-mcp-server-id>" }` map** that supports any current or
+future MCP server linked to this environment (for example `"dataverse"`,
+`"flowagent"`, `"copilotStudio"`, `"canvas"`, `"powerPages"`, `"erp"`, or any
+custom MCP server). If the user also wants a preferred unmanaged solution
+remembered for this environment, add `"defaultSolution": "<SolutionUniqueName>"`
+only when chosen.
 
-- **`dataverseMcpServer` / `mcpServers.dataverse`:** always unique per
-  environment (for example `dataverse-<alias>`), because each Dataverse MCP
-  stdio process targets one `environmentUrl`.
-- **`powerAutomateMcpServer` / `mcpServers.powerAutomate`:** when Power Automate's
-  FlowAgent MCP is configured across multiple tenants/accounts, give each
-  tenant/account its own server ID (for example `flowagent-<alias>`) bound to
-  that connection's `AZURE_CONFIG_DIR` so accounts never collide, and record the
-  server ID here so `power-platform-router` selects it and aligns
-  `set_current_env` to `environmentId`.
-- **`copilotStudioMcpServer` / `mcpServers.copilotStudio`:** record the Copilot
-  Studio MCP server ID (for example `copilot-studio`) when used with this
-  environment; because Copilot Studio MCP holds one active environment at a time,
-  `power-platform-router` checks `copilot_studio_status` and switches to
-  `environmentId` before authoring.
+When multiple environments are saved, map each environment's exact MCP server IDs:
+- Give per-environment stdio servers (such as Dataverse MCP `dataverse-<alias>`,
+  or multi-tenant FlowAgent `flowagent-<alias>` bound to `AZURE_CONFIG_DIR`)
+  distinct server IDs per environment.
+- Shared stateful servers (such as `copilot-studio` or a shared same-tenant
+  `flowagent`) can appear in multiple environments' `mcpServers` maps;
+  `power-platform-router` verifies/selects `environmentId` on them at runtime.
 
 Initially save only confirmed bindings if onboarding is incomplete; do not
 invent missing IDs or label that record verified. Save discovered
@@ -642,7 +635,7 @@ disconnect can remove its remembered sign-in.
 Other MCP servers (for example Power Automate's `flowagent`) keep their own
 documented auth contracts. Configure them only when requested, using that
 installed plugin's setup; when configured for a saved environment, record the
-exact server ID in `powerAutomateMcpServer` / `mcpServers.powerAutomate` (using
+exact server ID in `mcpServers` (using
 a distinct `flowagent-<alias>` server with that connection's `AZURE_CONFIG_DIR`
 when spanning multiple tenants/accounts, and verifying `whoami` + `get_current_env`
 against `environmentId`). Do not copy private wrappers, hardcode cache internals,

@@ -1793,12 +1793,10 @@ Test-Case 'installed connection and router skills are standalone and router maps
     $record = [regex]::Match($connectSkill, '(?s)```json\s*\r?\n(.*?)\r?\n```').Groups[1].Value | ConvertFrom-Json
     Assert-Equal $record.schemaVersion 1
     Assert-Equal ($record.PSObject.Properties.Name -contains 'azureConfigDir') $true
-    Assert-Equal ($record.PSObject.Properties.Name -contains 'dataverseMcpServer') $true
-    Assert-Equal ($record.PSObject.Properties.Name -contains 'powerAutomateMcpServer') $true
-    Assert-Equal ($record.PSObject.Properties.Name -contains 'copilotStudioMcpServer') $true
     Assert-Equal ($record.PSObject.Properties.Name -contains 'mcpServers') $true
+    Assert-Equal (@($record.PSObject.Properties | Where-Object { $null -eq $_.Value }).Count) 0
 
-    # Verify router registry snippet maps Env X (3 MCPs) vs Env Y (2 MCPs, no FlowAgent) in isolated LOCALAPPDATA.
+    # Verify router open mcpServers map supports arbitrary future MCPs, zero null placeholders, and legacy records.
     $routerSkill = Get-Content -LiteralPath (Join-Path $root 'skills\power-platform-router\SKILL.md') -Raw
     $readerBlock = ([regex]::Matches($routerSkill, '(?s)```powershell\s*\r?\n(.*?)\r?\n```')[0]).Groups[1].Value
     $tokens = $null; $errors = $null
@@ -1809,20 +1807,22 @@ Test-Case 'installed connection and router skills are standalone and router maps
     try {
         $connDir = Join-Path $tempLocal 'PowerPlatformSetup\connections'
         New-Item -ItemType Directory -Path $connDir -Force | Out-Null
-        [IO.File]::WriteAllText((Join-Path $connDir 'env-x.json'), '{"schemaVersion":1,"alias":"env-x","environmentUrl":"https://envx.crm.dynamics.com","environmentId":"11111111-1111-1111-1111-111111111111","organizationId":"22222222-2222-2222-2222-222222222222","tenantId":"33333333-3333-3333-3333-333333333333","account":"maker@example.com","defaultSolution":"LaunchpadSolution","pacProfile":"env-x","dataverseProfile":"env-x","azureConfigDir":"C:\\fixture\\az-x","dataverseMcpServer":"dataverse-env-x","powerAutomateMcpServer":"flowagent-env-x","copilotStudioMcpServer":"copilot-studio"}')
-        [IO.File]::WriteAllText((Join-Path $connDir 'env-y.json'), '{"schemaVersion":1,"alias":"env-y","environmentUrl":"https://envy.crm.dynamics.com","environmentId":"44444444-4444-4444-4444-444444444444","organizationId":"55555555-5555-5555-5555-555555555555","tenantId":"33333333-3333-3333-3333-333333333333","account":"maker@example.com","pacProfile":"env-y","dataverseProfile":"env-y","azureConfigDir":"C:\\fixture\\az-x","dataverseMcpServer":"dataverse-env-y","powerAutomateMcpServer":null,"copilotStudioMcpServer":"copilot-studio"}')
+        [IO.File]::WriteAllText((Join-Path $connDir 'env-x.json'), '{"schemaVersion":1,"alias":"env-x","environmentUrl":"https://envx.crm.dynamics.com","environmentId":"11111111-1111-1111-1111-111111111111","organizationId":"22222222-2222-2222-2222-222222222222","tenantId":"33333333-3333-3333-3333-333333333333","account":"maker@example.com","defaultSolution":"LaunchpadSolution","pacProfile":"env-x","dataverseProfile":"env-x","azureConfigDir":"C:\\fixture\\az-x","mcpServers":{"dataverse":"dataverse-env-x","flowagent":"flowagent-env-x","copilotStudio":"copilot-studio","canvas":"canvas-env-x"}}')
+        [IO.File]::WriteAllText((Join-Path $connDir 'env-y.json'), '{"schemaVersion":1,"alias":"env-y","environmentUrl":"https://envy.crm.dynamics.com","environmentId":"44444444-4444-4444-4444-444444444444","organizationId":"55555555-5555-5555-5555-555555555555","tenantId":"33333333-3333-3333-3333-333333333333","account":"maker@example.com","pacProfile":"env-y","dataverseProfile":"env-y","azureConfigDir":"C:\\fixture\\az-x","mcpServers":{"dataverse":"dataverse-env-y","copilotStudio":"copilot-studio"}}')
+        [IO.File]::WriteAllText((Join-Path $connDir 'z-legacy.json'), '{"schemaVersion":1,"alias":"legacy","environmentUrl":"https://legacy.crm.dynamics.com","environmentId":"66666666-6666-6666-6666-666666666666","organizationId":"77777777-7777-7777-7777-777777777777","tenantId":"33333333-3333-3333-3333-333333333333","account":"maker@example.com","dataverseMcpServer":"dataverse-legacy"}')
         $env:LOCALAPPDATA = $tempLocal
         $rows = @(& ($readerAst.GetScriptBlock()))
-        Assert-Equal $rows.Count 2
+        Assert-Equal $rows.Count 3
         Assert-Equal $rows[0].Alias 'env-x'
         Assert-Equal $rows[0].DefaultSolution 'LaunchpadSolution'
-        Assert-Equal $rows[0].DataverseMcpServer 'dataverse-env-x'
-        Assert-Equal $rows[0].PowerAutomateMcpServer 'flowagent-env-x'
-        Assert-Equal $rows[0].CopilotStudioMcpServer 'copilot-studio'
+        Assert-Equal $rows[0].McpServers.dataverse 'dataverse-env-x'
+        Assert-Equal $rows[0].McpServers.flowagent 'flowagent-env-x'
+        Assert-Equal $rows[0].McpServers.canvas 'canvas-env-x'
         Assert-Equal $rows[1].Alias 'env-y'
-        Assert-Equal $rows[1].DataverseMcpServer 'dataverse-env-y'
-        Assert-Equal ($null -eq $rows[1].PowerAutomateMcpServer) $true
-        Assert-Equal $rows[1].CopilotStudioMcpServer 'copilot-studio'
+        Assert-Equal $rows[1].McpServers.dataverse 'dataverse-env-y'
+        Assert-Equal ($null -eq $rows[1].McpServers.PSObject.Properties['flowagent']) $true
+        Assert-Equal $rows[2].Alias 'legacy'
+        Assert-Equal $rows[2].McpServers.dataverse 'dataverse-legacy'
     } finally {
         $env:LOCALAPPDATA = $previousLocal
         if (Test-Path -LiteralPath $tempLocal) { Remove-Item -LiteralPath $tempLocal -Recurse -Force }

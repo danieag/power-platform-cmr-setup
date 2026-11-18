@@ -32,7 +32,20 @@ $registryDir = Join-Path $env:LOCALAPPDATA 'PowerPlatformSetup\connections'
 if (Test-Path -LiteralPath $registryDir -PathType Container) {
     Get-ChildItem -LiteralPath $registryDir -Filter '*.json' -File | Sort-Object Name | ForEach-Object {
         $rec = Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json
-        $mcpMap = if ($rec.PSObject.Properties['mcpServers']) { $rec.mcpServers } else { $null }
+        $mcp = [ordered]@{}
+        if ($rec.PSObject.Properties['mcpServers'] -and $null -ne $rec.mcpServers) {
+            foreach ($p in $rec.mcpServers.PSObject.Properties) {
+                if (-not [string]::IsNullOrWhiteSpace($p.Value)) { $mcp[$p.Name] = [string]$p.Value }
+            }
+        }
+        foreach ($legacy in @(
+            @{ Prop = 'dataverseMcpServer'; Key = 'dataverse' },
+            @{ Prop = 'powerAutomateMcpServer'; Key = 'powerAutomate' },
+            @{ Prop = 'copilotStudioMcpServer'; Key = 'copilotStudio' })) {
+            if (-not $mcp.Contains($legacy.Key) -and $rec.PSObject.Properties[$legacy.Prop] -and -not [string]::IsNullOrWhiteSpace($rec.($legacy.Prop))) {
+                $mcp[$legacy.Key] = [string]$rec.($legacy.Prop)
+            }
+        }
         [pscustomobject]@{
             Alias = $rec.alias
             EnvironmentUrl = $rec.environmentUrl
@@ -40,20 +53,18 @@ if (Test-Path -LiteralPath $registryDir -PathType Container) {
             OrganizationId = $rec.organizationId
             TenantId = $rec.tenantId
             Account = $rec.account
-            DefaultSolution = if ($rec.PSObject.Properties['defaultSolution']) { $rec.defaultSolution } else { $null }
-            PacProfile = $rec.pacProfile
-            DataverseProfile = $rec.dataverseProfile
-            AzureConfigDir = $rec.azureConfigDir
-            DataverseMcpServer = $rec.dataverseMcpServer
-            PowerAutomateMcpServer = if ($rec.PSObject.Properties['powerAutomateMcpServer']) { $rec.powerAutomateMcpServer } elseif ($mcpMap -and $mcpMap.PSObject.Properties['powerAutomate']) { $mcpMap.powerAutomate } else { $null }
-            CopilotStudioMcpServer = if ($rec.PSObject.Properties['copilotStudioMcpServer']) { $rec.copilotStudioMcpServer } elseif ($mcpMap -and $mcpMap.PSObject.Properties['copilotStudio']) { $mcpMap.copilotStudio } else { $null }
-            McpServers = $mcpMap
+            DefaultSolution = if ($rec.PSObject.Properties['defaultSolution'] -and -not [string]::IsNullOrWhiteSpace($rec.defaultSolution)) { $rec.defaultSolution } else { $null }
+            PacProfile = if ($rec.PSObject.Properties['pacProfile']) { $rec.pacProfile } else { $null }
+            DataverseProfile = if ($rec.PSObject.Properties['dataverseProfile']) { $rec.dataverseProfile } else { $null }
+            AzureConfigDir = if ($rec.PSObject.Properties['azureConfigDir']) { $rec.azureConfigDir } else { $null }
+            McpServers = [pscustomobject]$mcp
         }
     }
 }
 ```
 
-Do not read raw MSAL/DPAPI token caches or print raw JSON files verbatim.
+Do not read raw MSAL/DPAPI token caches, print raw JSON files verbatim, or
+rewrite an older `<alias>.json` file merely to add optional/`null` keys.
 
 - **1 saved connection found:** propose it directly for confirmation—for example:
   *"Should I build this in your saved environment **`<Alias>`** (`<EnvironmentUrl>`, `<Account>`)?"*
@@ -129,62 +140,28 @@ Use only the surfaces installed and recorded on **Environment X**'s binding:
       $env:AZURE_CONFIG_DIR = $previousAzureConfigDir
   }
   ```
-- **Multi-environment MCP mapping & strict server isolation:**
-  A user with multiple environments can have **multiple MCP servers registered
-  simultaneously** (for example `dataverse-dev` vs `dataverse-prod`,
-  `flowagent-dev` vs `flowagent-prod`, plus `copilot-studio`). **Never** guess
-  an MCP tool prefix by name alone or invoke an MCP server mapped to a sibling
-  environment alias! Enforce exact environment matching for every MCP family:
-  1. **Dataverse MCP (`$target.DataverseMcpServer`):** each Dataverse MCP server
-     process is launched against **one specific `EnvironmentUrl`**. Call **only**
-     MCP tools belonging to `$target.DataverseMcpServer`; never fall back to
-     another `dataverse-*` server registered for a different environment.
-  2. **Power Automate MCP (`$target.PowerAutomateMcpServer`, e.g. `flowagent` or
-     `flowagent-<alias>`):** call **only** tools under `$target.PowerAutomateMcpServer`.
-     Because FlowAgent also tracks an active environment at runtime, **always
-     verify** `whoami` matches `$target.Account` / `$target.TenantId` and check
-     `get_current_env` before listing or modifying flows—calling `set_current_env`
-     with `$target.EnvironmentId` (after user confirmation if switching active
-     context) so flows are never created or edited in the wrong environment!
-  3. **Copilot Studio MCP (`$target.CopilotStudioMcpServer`, e.g. `copilot-studio`):**
-     Copilot Studio MCP holds **one active Power Platform environment session at
-     a time**. Before reading or authoring agents, inspect `copilot_studio_status`
-     to verify the signed-in account/tenant and selected environment match
-     `$target.EnvironmentId`; if it points to another environment, use
-     `copilot_studio_select_environment` for `$target.EnvironmentId` with user
-     confirmation rather than operating on the stale environment!
-  4. **When an MCP slot is unmapped (`null` / absent) in `<alias>.json` — ask,
-     don't hard-block or silently guess:** users often add MCP servers later
-     outside `power-platform-connect` (for example manually adding a new
-     `flowagent` or `dataverse-*` entry in **Customize** or `mcp-config.json`).
-     - When an MCP **is** mapped in `<alias>.json`, use it **automatically**
-       ("just works" with no extra MCP picker).
-     - When an MCP needed by the task is **not** mapped in `<alias>.json`, never
-       silently pick another environment's server on your own, and **do not
-       rigidly block the user** either: list any candidate MCP servers currently
-       available in the host and let the user **explicitly choose** which MCP to
-       use for `<alias>` (or add a new MCP / continue without MCP). Once they
-       choose one, verify its identity/environment matches `<alias>` and offer
-       to save that MCP server ID into `<alias>.json` so next time it works
-       automatically!
-  5. **Concrete multi-environment example (`Env X` = 3 MCPs vs `Env Y` = 2 MCPs):**
-     - `env-x.json` maps: `dataverseMcpServer = "dataverse-env-x"`,
-       `powerAutomateMcpServer = "flowagent-env-x"`,
-       `copilotStudioMcpServer = "copilot-studio"`.
-     - `env-y.json` maps: `dataverseMcpServer = "dataverse-env-y"`,
-       `powerAutomateMcpServer = null`,
-       `copilotStudioMcpServer = "copilot-studio"`.
-     - When the user confirms **Env X**: `dataverse-env-x`, `flowagent-env-x`
-       (aligned to Env X's `environmentId`), and `copilot-studio` (switched to
-       Env X's `environmentId`) all work automatically.
-     - When the user confirms **Env Y**: `dataverse-env-y` and `copilot-studio`
-       (switched to Env Y's `environmentId`) work automatically. If the user asks
-       to build a Power Automate flow in **Env Y**, tell them no Power Automate
-       MCP is mapped to `env-y.json` yet and let them **choose** an available
-       FlowAgent MCP server (for example one they added manually later—verifying
-       its account/environment matches Env Y and offering to save it to
-       `env-y.json`), set up a new one, or proceed without MCP—never silently
-       writing into Env X's `flowagent-env-x` unasked!
+- **Open, task-driven MCP selection (`$target.McpServers`):**
+  `$target.McpServers` is an open map of **any** MCP servers linked to
+  **Environment X** (for example `dataverse`, `flowagent`, `copilotStudio`,
+  `canvas`, `powerPages`, `erp`, or any future/custom MCP—no fixed 3-server
+  limit and no `null` placeholders needed):
+  1. **When a matching MCP is mapped in `$target.McpServers` — use it automatically:**
+     pick whichever server ID in `$target.McpServers` exposes the tools needed
+     for the current task (for example Dataverse schema/query tools, FlowAgent
+     flow tools, Copilot Studio authoring tools, Canvas coauthoring tools, etc.).
+     If that MCP holds a switchable active environment at runtime (such as
+     FlowAgent's `get_current_env`/`set_current_env` or Copilot Studio's
+     `copilot_studio_status`/`copilot_studio_select_environment`), verify its
+     active environment matches `$target.EnvironmentId` before acting.
+  2. **When no MCP for this task is mapped on Environment X yet — ask, don't
+     block or silently guess:** users may add new MCP servers outside
+     `power-platform-connect` at any time. Never silently call an MCP server
+     mapped to a different saved environment, and do not block the user either:
+     list any candidate MCP servers visible in the host and let the user
+     **choose** which MCP to use for `<Alias>` (verifying it matches `<Alias>`
+     and offering to save `"<label>": "<server-id>"` into `<Alias>.json`'s
+     `mcpServers` map so next time it works automatically), add a new MCP, or
+     proceed with CLI/SDK tools instead.
 - **Power Apps Code Apps (`create-code-app` / `pa` CLI):** supply the confirmed
   `EnvironmentId` and `EnvironmentUrl` from the binding record directly into
   `power.config.json` / `pa` commands so `create-code-app` does not prompt the
@@ -226,21 +203,16 @@ Please provide its Dataverse URL and environment ID"*! Therefore:
    - `selectedSolution`: `<SolutionUniqueName or N/A>`
    - Bound CLIs: `pacProfile=<PacProfile>`, `dataverseProfile=<DataverseProfile>`,
      `azureConfigDir=<AzureConfigDir>`
-   - Bound MCP servers for this environment ONLY:
-     `dataverseMcpServer=<DataverseMcpServer>`,
-     `powerAutomateMcpServer=<PowerAutomateMcpServer>`,
-     `copilotStudioMcpServer=<CopilotStudioMcpServer>`,
-     `mcpServers=<McpServers JSON or N/A>`
+   - Mapped MCP servers for `<Alias>`: `mcpServers=<McpServers JSON>`
    - Explicit instruction: *"Target environment and solution are already
      confirmed by the user from `%LOCALAPPDATA%\PowerPlatformSetup\connections\<Alias>.json`.
-     Reuse these exact values and bindings: mapped MCP servers for `<Alias>`
-     work automatically (verify `get_current_env`/`set_current_env` on FlowAgent
-     and `copilot_studio_status` on Copilot Studio MCP against `<EnvironmentId>`);
-     if an MCP slot is unmapped (`null`), do not silently use another
-     environment's MCP—ask the user to choose an available MCP (verifying it
-     matches `<Alias>`) or add a new one. Do NOT ask the user for Environment
-     URL, Environment ID, Tenant ID, or sign-in email again. Preserve normal
-     approvals before creating/modifying cloud tables, flows, apps, or deployments."*
+     Reuse these exact values and bindings: automatically use the MCP server IDs
+     in `mcpServers` that match your task (verifying active `environmentId` on
+     stateful servers like FlowAgent or Copilot Studio MCP); if a needed MCP is
+     not in `mcpServers`, ask the user to choose an available MCP rather than
+     silently using another environment's server. Do NOT ask the user for
+     Environment URL, Environment ID, Tenant ID, or sign-in email again.
+     Preserve normal approvals before creating/modifying cloud resources."*
 
 Confirming an environment from the registry selects **where** to work; it does
 **not** bypass explicit user approval before live Dataverse schema writes, bulk
