@@ -417,8 +417,12 @@ When multiple environments are saved, map each environment's exact MCP server ID
   or multi-tenant FlowAgent `flowagent-<alias>` bound to `AZURE_CONFIG_DIR`)
   distinct server IDs per environment.
 - Shared stateful servers (such as `copilot-studio` or a shared same-tenant
-  `flowagent`) can appear in multiple environments' `mcpServers` maps;
-  `power-platform-router` verifies/selects `environmentId` on them at runtime.
+  `flowagent`) persist sign-in across restarts while resetting their active
+  environment per session; they can appear in multiple environments'
+  `mcpServers` maps. Do **not** hardcode `PA_DEFAULT_ENVIRONMENT` on a shared
+  `flowagent` entry (which breaks multi-environment switching); instead let
+  `power-platform-router` pass the confirmed `environmentId` directly to
+  `set_current_env` / `copilot_studio_select_environment` per session.
 
 Initially save only confirmed bindings if onboarding is incomplete; do not
 invent missing IDs or label that record verified. Save discovered

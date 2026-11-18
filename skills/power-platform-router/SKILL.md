@@ -77,10 +77,13 @@ rewrite an older `<alias>.json` file merely to add optional/`null` keys.
   `EnvironmentId`, `OrganizationId`, `TenantId`, `Account`, profiles, MCP server,
   and `AzureConfigDir` without asking for any of those fields again; still keep
   normal write/deploy/publish approvals.
-- **0 saved connections found (or user wants an unlisted environment):** use the
-  `power-platform-connect` skill
+- **0 saved connections found (or user wants an unlisted environment):** if the
+  user wants a quick one-off test in another environment they already have
+  signed-in access to (for example in Copilot Studio MCP or FlowAgent), let them
+  list/pick that environment for this session without forcing full onboarding—and
+  optionally offer `power-platform-connect`
   ([public reference](https://github.com/danieag/power-platform-setup/blob/main/skills/power-platform-connect/SKILL.md))
-  to connect and save the binding record first so future builds remember it too.
+  only if they want it saved persistently to the registry.
 
 ---
 
@@ -145,14 +148,20 @@ Use only the surfaces installed and recorded on **Environment X**'s binding:
   **Environment X** (for example `dataverse`, `flowagent`, `copilotStudio`,
   `canvas`, `powerPages`, `erp`, or any future/custom MCP—no fixed 3-server
   limit and no `null` placeholders needed):
-  1. **When a matching MCP is mapped in `$target.McpServers` — use it automatically:**
+  1. **When a matching MCP is mapped in `$target.McpServers` — use it and set
+     its session environment automatically (do NOT ask a second time!):**
      pick whichever server ID in `$target.McpServers` exposes the tools needed
-     for the current task (for example Dataverse schema/query tools, FlowAgent
-     flow tools, Copilot Studio authoring tools, Canvas coauthoring tools, etc.).
-     If that MCP holds a switchable active environment at runtime (such as
-     FlowAgent's `get_current_env`/`set_current_env` or Copilot Studio's
-     `copilot_studio_status`/`copilot_studio_select_environment`), verify its
-     active environment matches `$target.EnvironmentId` before acting.
+     for the current task. Shared stateful MCP servers (such as **`copilot-studio`**
+     and Power Automate **`flowagent`**) persist sign-in across restarts, but
+     start each new session with **no active environment selected** (`none`).
+     Once the user has named or confirmed **Environment X** (e.g. *"build a
+     Code App and an agent in Env X, Solution Y"*), verify the server's
+     signed-in account/tenant matches `$target` (`copilot_studio_status` or
+     `whoami`) and **immediately pass `$target.EnvironmentId` directly to
+     `copilot_studio_select_environment` or `set_current_env` for this session**—do
+     **not** run `list_environments` to ask the user which environment to pick
+     all over again, and do **not** hardcode `PA_DEFAULT_ENVIRONMENT` in a
+     shared `mcp-config.json` entry!
   2. **When an MCP was added later outside `power-platform-connect` — auto-detect
      its connected environment and offer to link it:** if the host has a
      relevant MCP server that is not in `$target.McpServers` yet (for example
