@@ -1,567 +1,187 @@
 # Power Platform setup for Windows
 
-**Download, extract, then run `Setup.cmd` or send one short prompt in your AI agent.**
-This prepares a Windows PC (Intel/AMD x64 or ARM64 Windows 11) to use Microsoft's
-Power Platform plugins with **GitHub Copilot** (desktop app, VS Code, or CLI) or
-**Claude Code**.
+Set up a Windows PC (Intel/AMD x64 or ARM64 Windows 11) for Microsoft's
+[Power Platform plugins](https://github.com/microsoft/power-platform-skills) in
+**GitHub Copilot** (desktop app, VS Code, or CLI) or **Claude Code**.
 
-Instead of installing every developer tool at once, **you choose which Power Platform
-plugins (or marketplace) you want first, and Setup automatically checks and installs
-only the Windows prerequisites your choice actually needs**—or you can choose a full
-5-tool workstation setup. Everything asks for your approval before installing, and
-nothing signs you in or touches your Microsoft tenant until you ask to connect.
+- **Install only what you need:** pick the Power Platform workloads you want first, and `Setup.cmd` checks and installs **only** the Windows prerequisites those workloads require (or choose full 5-tool workstation setup).
+- **Approval-gated & safe:** checks are offline and read-only; every install, plugin, MCP server, and sign-in step asks before changing anything.
+- **Persistent environment routing:** connect once with `power-platform-connect`, and `power-platform-router` lets future projects confirm **Environment X and Solution Y** without re-asking for URLs, Tenant IDs, or emails.
 
-Follow these steps:
+---
 
-1. [Download and run Setup (or ask your agent)](#step-1-install-what-you-need)
-2. [See which prerequisites each plugin needs](#what-each-plugin-needs)
-3. [Connect to your environment (optional)](#step-3-connect-to-your-environment)
+## Quick start
 
-## Step 1: install what you need
+1. Click **Code > Download ZIP** on [this repository](https://github.com/danieag/power-platform-setup).
+2. Right-click the downloaded ZIP, choose **Extract All**, and open the extracted folder.
 
-1. **Download:** on [this repository](https://github.com/danieag/power-platform-setup),
-   click **Code > Download ZIP**.
-2. **Extract:** right-click the ZIP, choose **Extract All**, and open the extracted
-   folder containing `Setup.cmd` and `Setup.ps1`.
+Choose **Option A (use your AI agent)** or **Option B (double-click `Setup.cmd`)**—both run the same `Setup.ps1` script.
 
-Choose **Alternative A (double-click `Setup.cmd`)** or **Alternative B (ask your
-coding agent)**. Both run the exact same `Setup.ps1` safety and approval rules.
+<a id="alternative-b-download-this-folder-and-run-one-prompt-in-your-agent"></a>
 
-### Alternative A: double-click `Setup.cmd` yourself
+### Option A: ask your AI agent (easiest)
 
-1. **Open:** double-click **Setup.cmd** (Windows may show it simply as **Setup**).
-   You do not need to open PowerShell or choose "Run as administrator."
-2. **Pick your setup mode:**
-   - **1 = Select Power Platform plugins or marketplace (Recommended):** pick the
-     workloads you want (for example `model-apps`, `canvas-apps,power-automate`,
-     or `M` for marketplace only) and your app. Setup checks and installs **only**
-     the Windows prerequisites required for those choices.
-   - **2 = Full workstation setup:** checks and installs all 5 core Windows tools
-     (**Git > Node.js/npm > .NET 10 SDK > PAC CLI > Azure CLI**).
-3. **Approve:** review the check summary, type **INSTALL**, and press **Enter**
-   when tools need setup. Compatible tools already on your PC are kept:
-   existing Node **22.18+ (22.x), 24 or 26** with npm 10+ is preserved (fresh
-   installs use **24 LTS**), and PAC must be **newer than 2.10.0**.
-4. **Finish optional prompts:** approve **PLUGINS** (or open the printed desktop
-   links), optional Copilot Studio **MCP**, and optional connection **SKILL**,
-   or press **Enter** to skip any optional stage. Restart your app/terminal if
-   new tools or plugins were added.
-
-### Alternative B: download this folder and run one prompt in your agent
-
-You do not need to be technical or know command-line flags. Because this folder
-includes `AGENTS.md`, `CLAUDE.md`, and an auto-discovered `power-platform-setup`
-workspace skill, your agent automatically knows how to run `Setup.cmd` safely.
-
-1. Open **GitHub Copilot** (desktop app, VS Code, or Copilot CLI) or **Claude Code**
-   and **add/open the extracted folder** (in the Copilot desktop app: click
-   **+ > Add local folder or repository** and select the extracted folder).
-   You do not need Git installed yet just to open the folder.
+1. Open **GitHub Copilot** (desktop app, VS Code, or CLI) or **Claude Code** and **attach/open the extracted folder** (in the Copilot desktop app: **+ > Add local folder or repository**). You do not need Git installed first.
 2. Paste this **one short prompt**:
 
 > Help me set up Power Platform using this folder. Ask which app I use and let me choose one or multiple workloads, check and install only the combined prerequisites they need with my approval, help me add the plugins, and then ask if I want to connect to an environment.
 
-Or simply ask for a specific workload in plain English—the setup skill will
-trigger automatically and scope `Setup.cmd` to just that workload:
+Or ask directly for what you want in plain English:
 
 - *"Install the prerequisites for Model-driven apps."*
 - *"Set up Canvas apps and Power Automate for me."*
 - *"Just add the Power Platform marketplace."*
 
-**Short prompt, separate approvals.** Keep the **complete extracted folder**
-attached. Behind the scenes, [`AGENTS.md`](AGENTS.md) and
-[`skills/power-platform-setup/SKILL.md`](skills/power-platform-setup/SKILL.md)
-ensure the agent runs an offline check first, asks before installing prerequisites,
-asks separately before adding marketplaces/plugins, and never installs another
-agent host, enables blanket auto-approval, or signs into a tenant unasked.
-
-**A restart may still be necessary.** If new Windows tools changed `PATH` or
-new plugins/MCP servers were added, reopen your app or start a fresh chat when
-prompted; the agent will give you a short resume prompt so you don't start over.
-
-If Windows blocks running `Setup.ps1` directly, always run **`Setup.cmd`**,
-which uses a child-process-only policy exception without changing persistent
-PowerShell settings. Enterprise IT policies still apply normally.
-
-**See the [illustrated agent-guided setup walkthrough](docs/agent-guided-setup-guide.md)**
-for every screen in order: attaching the folder, picking multiple workloads,
-selective prerequisite checks, confirming the `microsoft/power-platform-skills`
-marketplace dialog in the Copilot desktop app, confirming each selected plugin,
-and handing off to environment connection.
+**Full step-by-step screenshots:** see the **[Illustrated Agent-Guided Setup Walkthrough](docs/agent-guided-setup-guide.md)**.
 
 <details>
-<summary>Quick preview screenshots: short prompt, multi-workload picker, and marketplace prompt</summary>
+<summary>Preview screenshots: attach folder, select multiple workloads, and confirm marketplace</summary>
 
-Choose **Add local folder or repository** (unrelated recent projects have been
-cropped out), then paste the short prompt above:
+Attach the extracted setup folder and send the prompt:
 
 ![Copilot menu option to add a local folder or repository](docs/images/09-add-local-folder.png)
 
 ![GitHub Copilot desktop app with the short setup prompt in the composer](docs/images/31-agent-short-prompt.png)
 
-After you choose your app, pick **one or multiple workloads** (such as `1,3`
-for Model-driven apps + Code apps) so Setup checks only the prerequisites they
-need:
+Pick one or multiple workloads at once (for example `1,3` for Model-driven apps + Code apps):
 
 ![Multi-workload selection prompt with 1,3 entered](docs/images/33-agent-multi-workload-select.png)
 
-On the GitHub Copilot desktop app, approving the marketplace opens the native
-`Add plugin marketplace?` prompt directly inside the app (`Allow` -> `Add`),
-waits for your confirmation, and then opens each selected plugin's install
-prompt before offering environment connection:
+On the GitHub Copilot desktop app, Setup opens the native `Add plugin marketplace?` dialog directly inside the app (`Allow` -> `Add`), waits for your confirmation, and then opens each selected plugin's install prompt one by one before offering environment connection:
 
 ![Copilot desktop app Add plugin marketplace confirmation dialog](docs/images/36-copilot-app-allow-marketplace.png)
 
 </details>
 
-### Approvals and next steps for either alternative
+### Option B: double-click `Setup.cmd` yourself
 
-Only run code you trust. If unsure, ask your IT administrator or agent to review
-`Setup.ps1` first. Start setup as your **normal user**, not "Run as administrator";
-Windows can ask separately when an individual installer needs admin permission.
-Follow your organization's restrictions rather than disabling Windows protections.
+1. Double-click **`Setup.cmd`** (shown in File Explorer as **Setup**). Start as your normal Windows user—Windows will prompt separately if an installer needs administrator permission.
+2. Choose your setup mode:
+   - **`1` = Select Power Platform plugins or marketplace (Recommended):** enter one or more numbers/IDs (e.g. `2, 3, 7`), `M` (marketplace only), or `A` (all 11), then pick your app. Setup checks and installs **only** the prerequisites your selection needs.
+   - **`2` = Full workstation setup:** checks and installs all 5 core tools (**Git > Node.js/npm > .NET 10 SDK > PAC CLI > Azure CLI**).
+3. Review the preflight summary and type **`INSTALL`** to approve any missing tools. Existing Node **22.18+ (22.x), 24 or 26** with npm 10+ is preserved (fresh installs use **24 LTS**), and PAC CLI must be **newer than 2.10.0**.
+4. Follow or press **Enter** to skip the optional stages:
+   - **`PLUGINS` / `MARKETPLACE`:** adds the official marketplace and your chosen plugins in Claude Code CLI, Copilot CLI, or the Copilot desktop app.
+   - **`MCP`:** registers `@microsoft/copilot-studio-mcp@latest` (close the target app first; does not sign in).
+   - **`SKILL`:** installs `power-platform-connect` and `power-platform-router` into your personal skills directory (`~/.copilot/skills/` or `~/.claude/skills/`).
+5. Reopen your app and terminals if new Windows tools changed `PATH`.
 
-For Alternative A, the terminal prompts are below. For Alternative B, the agent
-guides the same stages and requests the corresponding approval in chat.
+<details>
+<summary>Console walkthrough screenshots (Setup.cmd)</summary>
 
-| Setup asks about... | What to do |
-|---|---|
-| Existing agent hosts | Setup passively checks for `claude`/`copilot` commands and the Copilot app's `ghapp` link registration before the chooser. A command may be an install launcher; registration does not prove the app works. These checks do not start a host or sign in. |
-| Power Platform plugins | For individual CLI plugin choices, press **Enter** and continue to **Step 2's doctor**. The existing full-set route is still available: **1** = Claude Code, **2** = Copilot CLI, **3** = Copilot desktop links; type **PLUGINS** to approve that plan. Dataverse is optional: type **YES** when asked if you need it. |
-| Copilot desktop links (option 3) | Setup opens the **Add Marketplace** confirmation directly in the Copilot app (via its local `ghapp://` handler, without opening a browser) and prints the official launch links. Confirm the marketplace in the app first, then confirm each desired plugin link (or pick them in **Customize**). **Opening or printing links does not install plugins until confirmed.** |
-| Copilot Studio MCP | This gives your agent access to Copilot Studio tools. Choose your app, close that app as instructed, then type **MCP** to approve saving the connection setup. It does not sign you in. |
-| Connection skill | Choose your app, then type **SKILL** to copy `power-platform-connect` and `power-platform-router` into your personal skills directory. `power-platform-router` lets future projects (such as Code Apps or Model Apps) automatically find your saved environments, map each environment's exact MCP servers (Dataverse, FlowAgent, Copilot Studio), and ask you to confirm **Environment X and Solution Y** instead of re-asking for URLs or Tenant IDs. Installing skills does **not** run sign-in. |
+1. Download the repository ZIP (`Code > Download ZIP`) and **Extract All**:
 
-Press **Enter** at an optional host chooser to skip that stage. Other text at an
-approval prompt cancels that stage; earlier successful installs stay installed.
-Setup never installs another agent app just to make a host command available.
+   ![GitHub Code menu with Download ZIP selected](docs/images/01-download-zip.png)
 
-If your selected CLI is not found, setup shows that host's official instructions
-and stops with exit **2**, preserving completed prerequisites. Install/confirm
-the host yourself, reopen the terminal, then rerun Setup or resume the guided
-flow. It does not silently select the other CLI or start a remote installer.
-If the desktop app was not detected, type **APP** only if you already installed
-it to continue with its confirmation links; otherwise press Enter for the
-[official Copilot app page](https://github.com/features/ai/github-app).
-This availability confirmation is **not** plugin-installation approval.
+   ![Extracted setup folder containing Setup, Setup.ps1, and skills](docs/images/02-extracted-folder.png)
 
-Official CLI installation guides: [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli)
-and [Claude Code](https://code.claude.com/docs/en/setup).
-Host sign-in, plan requirements and organizational policy are separate from
-Power Platform setup; do not disable protections to install a host.
+2. Open **`Setup.cmd`** as your normal Windows user:
+
+   ![Setup selected in File Explorer with the Open command visible](docs/images/03-open-setup.png)
+
+3. Review the preflight check and type **`INSTALL`** to approve missing prerequisites (`.NET 10 SDK` can take several minutes; Setup prints a 30-second heartbeat while vendor installers run):
+
+   ![Preflight showing missing tools and the INSTALL approval prompt](docs/images/04-approve-install.png)
+
+   ![Setup downloading the ARM64 .NET SDK](docs/images/05-dotnet-download.png)
+
+4. Choose your host and approve **`PLUGINS`** if requested:
+
+   ![Choosing Copilot desktop and approving the plugin plan](docs/images/08-approve-plugins.png)
+
+</details>
+
+---
 
 ## What each plugin needs
 
-When you choose plugins in `Setup.cmd` (mode **1**) or tell your agent which
-workloads you want, `Setup.ps1` resolves **only** the required Windows tools
-from its 5 verified installers (and automatically includes `.NET 10 SDK`
-whenever `PAC CLI` is needed, since PAC runs as a global .NET tool):
+When you choose one or several workloads, `Setup.ps1` computes the union of their required Windows tools automatically (including `.NET 10 SDK` whenever `PAC CLI` is needed):
 
-| Plugin (`-Plugins`) | What it builds | Auto-installed Windows prerequisites | Additional workload notes |
+| Plugin (`-Plugins`) | What it builds | Auto-installed Windows prerequisites | Workload notes |
 |---|---|---|---|
-| `model-apps` | Model-driven apps and generative pages | Git, Node.js/npm, .NET 10 SDK, PAC CLI (`> 2.10.0`), Azure CLI | Uses PAC (`> 2.10.0`), Node 22+, and Azure CLI (`az account get-access-token`). |
-| `canvas-apps` | Canvas Apps authoring | Git, .NET 10 SDK | Skips Node, PAC, and Azure CLI. Requires Power Apps Studio coauthoring enabled on the app. |
-| `code-apps-preview` | Power Apps Code Apps (React/Vite) | Git, Node.js/npm | Skips .NET, PAC, and Azure CLI. Scaffolds use the project-local `pa` CLI (`@microsoft/power-apps`). |
-| `power-pages` | Power Pages websites and portals | Git, Node.js/npm, .NET 10 SDK, PAC CLI (`> 2.10.0`), Azure CLI | Full web, Dataverse, PAC, and Azure toolchain. |
-| `power-automate` | Power Automate cloud & desktop flows | Git, Node.js/npm, Azure CLI | Skips .NET and PAC. Uses bundled FlowAgent ESM + `az login` token auth. |
+| `model-apps` | Model-driven apps & generative pages | Git, Node.js/npm, .NET 10 SDK, PAC CLI (`> 2.10.0`), Azure CLI | Uses PAC, Node 22+, and Azure CLI (`az account get-access-token`). |
+| `canvas-apps` | Canvas Apps authoring | Git, .NET 10 SDK | Skips Node, PAC, and Azure CLI. Enable Studio coauthoring on the app. |
+| `code-apps-preview` | Power Apps Code Apps (React/Vite) | Git, Node.js/npm | Skips .NET, PAC, and Azure CLI. Uses project-local `pa` CLI during scaffold. |
+| `power-pages` | Power Pages websites & portals | Git, Node.js/npm, .NET 10 SDK, PAC CLI (`> 2.10.0`), Azure CLI | Full web, Dataverse, PAC, and Azure toolchain. |
+| `power-automate` | Power Automate cloud & desktop flows | Git, Node.js/npm, Azure CLI | Skips .NET and PAC. Uses bundled FlowAgent + `az login`. |
 | `process-intelligence` | Process Intelligence / process mining | Git, Node.js/npm, Azure CLI | Skips .NET and PAC. |
 | `pcf` | Power Apps component framework controls | Git, Node.js/npm, .NET 10 SDK, PAC CLI (`> 2.10.0`), Azure CLI | Full PCF build, PAC push, and verification toolchain. |
-| `dataverse` *(opt-in)* | Dataverse tables, schema, data & solutions | Git, Node.js/npm, .NET 10 SDK, PAC CLI (`> 2.10.0`), Azure CLI | `@microsoft/dataverse` npm CLI and optional Python SDK (`PowerPlatform-Dataverse-Client`) are checked/offered later during connection onboarding. |
-| `mobile-app` | Standalone mobile apps (Private Preview) | Git, Node.js/npm, Azure CLI | Skips .NET and PAC. Upstream docs note Node 24 LTS, Git Bash/WSL on Windows, and Power Apps Mobile Preview on phone. |
-| `power-apps-mobile-extension` | Native extensions for wrapped Canvas Apps | Git, Node.js/npm, .NET 10 SDK, PAC CLI (`> 2.10.0`) | Skips Azure CLI. Native `.ppmplugin` builds also need JDK 17+ / Android SDK 35 (or Xcode 16+ on macOS). |
+| `dataverse` *(opt-in)* | Dataverse tables, schema, data & solutions | Git, Node.js/npm, .NET 10 SDK, PAC CLI (`> 2.10.0`), Azure CLI | `@microsoft/dataverse` npm CLI and optional Python SDK are offered later during connection setup. |
+| `mobile-app` | Standalone mobile apps (Private Preview) | Git, Node.js/npm, Azure CLI | Skips .NET and PAC. Upstream docs note Node 24 LTS, Git Bash/WSL, and Power Apps Mobile Preview. |
+| `power-apps-mobile-extension` | Native extensions for wrapped Canvas Apps | Git, Node.js/npm, .NET 10 SDK, PAC CLI (`> 2.10.0`) | Skips Azure CLI. Native `.ppmplugin` builds also need JDK 17+ / Android SDK 35 (or macOS Xcode 16+). |
 | `mcp-apps` | Codeful MCP server tools & HTML widgets | Git, Node.js/npm, .NET 10 SDK, PAC CLI (`> 2.10.0`) | Skips Azure CLI. PAC/.NET are used when querying Dataverse schemas. |
 | *(Marketplace only)* | Add `microsoft/power-platform-skills` catalog | Git | `-MarketplaceOnly -Prerequisites FromPlugins` checks/installs only Git. |
 
-## Step 2: choose and install Power Platform plugins
+---
 
-### Copilot CLI, Claude Code, or Copilot desktop: selective plugin setup
+## Manual option: add plugins in VS Code
 
-If you started with `Setup.cmd` mode **1** or Alternative B's short prompt,
-plugin selection is already built right in. You can also run the bundled
-[power-platform-doctor skill](skills/power-platform-doctor/SKILL.md) on its own
-whenever you want to add another plugin later—it resolves only the missing
-Windows prerequisites for that plugin, prepares Microsoft's official
-marketplace with your approval, and installs **only your approved selection**:
+VS Code Copilot users do not need Copilot CLI or Claude Code—only Git on `PATH` (fully exit and reopen VS Code if Git was just installed):
 
-> Use `skills/power-platform-doctor/SKILL.md` in this folder to help me pick
-> Power Platform plugins (or add just the marketplace), check/install only the
-> prerequisites they need with my approval, and install my chosen plugins.
-
-This skill is included in the download; it is **not automatically copied into
-your personal skills directory**. Reading the file as above works without
-claiming a `/power-platform-doctor` command is already registered.
-
-The doctor keeps matching existing plugins, leaves unselected plugins alone,
-and does not change the other CLI.
-After installation, confirm its skills/tools appear, using the host's supported
-reload/restart when required. Reopen after PATH changes. A plugin registration is not proof of authentication or
-that every bundled MCP server is connected. Dataverse **CLI** installation
-and sign-in are later connection-onboarding decisions, not this plugin step.
-
-If you already installed plugins in Step 1, the doctor can check and retain
-them. Do not run a second broad curl/Node installer. Without an existing CLI,
-use the native VS Code route below or Copilot desktop's marketplace/plugin
-confirmation links from the optional setup prompt; no extra CLI is required.
-
-### Manual option: add the Power Platform plugins in VS Code
-
-You can use VS Code's normal marketplace controls instead of a CLI installer.
-**Copilot CLI and Claude Code are not required for this route**, but Git must be
-installed and discoverable by VS Code. After installing Git, fully exit and
-reopen VS Code so it picks up the updated PATH.
-
-1. Open **Customizations** (or **Customize**) and choose **Browse**.
-2. Open the source dropdown beside the search box (often **All Sources**),
-   then choose **Configure Marketplaces**.
-3. Choose **Add Marketplace...**, enter **`microsoft/power-platform-skills`**,
-   and press **Enter**.
-4. Back on **Browse**, select **power-platform-skills** in the source dropdown.
-   If it was already added, just select it rather than adding a duplicate.
-5. Choose the plugins you want and select **Install** for each. Include
-   **dataverse** if you need it. Review any permissions/trust prompts, then check
-   the installed plugins list and reload/restart if VS Code asks.
-
-**Adding the marketplace only shows the catalog; it does not install every
-plugin.** Plugins can contain skills, agents, hooks and MCP tools. Installation
-still does not sign you in or prove that every tool is connected.
-Menu wording can vary by VS Code version; the Command Palette alternative is
-**Chat: Manage Plugin Marketplaces > Add Marketplace...**.
+1. Open **Customizations** (or **Customize**) > **Browse**.
+2. Open the source dropdown (**All Sources**) > **Configure Marketplaces**.
+3. Select **Add Marketplace...**, enter **`microsoft/power-platform-skills`**, and press **Enter**.
+4. Select **power-platform-skills** in the source dropdown.
+5. Click **Install** beside each plugin you want (Command Palette alternative: **Chat: Manage Plugin Marketplaces > Add Marketplace...**).
 
 <details>
-<summary>Screenshots: configure the marketplace, add its source, and choose plugins</summary>
-
-From **Customizations > Browse**, open the source dropdown and choose
-**Configure Marketplaces**:
+<summary>VS Code marketplace screenshots</summary>
 
 ![VS Code source dropdown showing Configure Marketplaces](docs/images/11-vscode-configure-marketplaces.png)
 
-Choose **Add Marketplace...**:
-
 ![Manage Plugin Marketplaces dialog with Add Marketplace selected](docs/images/12-vscode-add-marketplace.png)
 
-Enter **microsoft/power-platform-skills** and press **Enter**:
-
-![Add Plugin Marketplace dialog with the Microsoft Power Platform repository entered](docs/images/13-vscode-marketplace-source.png)
-
-Select **power-platform-skills** to browse the available plugins. Select
-**Install** beside each one you want; a visible Install button does not mean
-that plugin has already been installed:
+![Add Plugin Marketplace dialog with microsoft/power-platform-skills entered](docs/images/13-vscode-marketplace-source.png)
 
 ![Power Platform marketplace catalog with individual plugin Install buttons](docs/images/14-vscode-plugin-catalog.png)
 
 </details>
 
-If Git runs by its full path but VS Code cannot find `git`, **do not reinstall
-it immediately**. A running app or its parent may still have the old PATH.
-See [Git/PATH troubleshooting](docs/advanced-setup.md#exit-codes-and-troubleshooting)
-before retrying the marketplace.
+---
 
-<a id="step-3-connect-in-a-fresh-chat"></a>
+## Connect to your environment & reuse across projects
 
-## Step 3: connect to your environment
+Once your plugins are installed, `power-platform-connect` guides persistent sign-in and saves a private, token-free binding record at `%LOCALAPPDATA%\PowerPlatformSetup\connections\<alias>.json`:
 
-Once your plugins are confirmed in place, the agent asks whether you want to run
-the bundled [`power-platform-connect` skill](skills/power-platform-connect/SKILL.md)
-for persistent sign-in—checking what is actually installed on your PC first:
+- **Checks what is installed:** connects **PAC CLI** (`pac env list` environment picker or manual URL) and **Azure CLI** (tenant-isolated `AZURE_CONFIG_DIR`) when installed and used by your plugins, and checks whether the **`dataverse` plugin** is installed before offering **Dataverse CLI** (`@microsoft/dataverse`) and **Dataverse MCP** (skipping them cleanly if `dataverse` is not installed).
+- **Maps per-environment MCP servers:** records which Dataverse MCP, Power Automate FlowAgent MCP, and Copilot Studio MCP server belongs to each saved environment.
+- **Automatic routing in future projects (`power-platform-router`):** when installed into your personal skills folder (`SKILL` stage or `-ConnectionSkillHost`), future chats, Projects (like Code Apps or Model Apps), and child sessions read your saved `<alias>.json` records automatically—asking you to confirm **Environment X and Solution Y** instead of re-asking for Environment URLs, Environment IDs, Tenant IDs, or sign-in emails.
 
-- **PAC CLI (`pac`)** and **Azure CLI (`az`)** are checked and connected when
-  installed and used by your chosen plugins (for example `model-apps`,
-  `power-pages`, and `pcf` use both PAC and Azure CLI; `power-automate` uses
-  Azure CLI without needing PAC).
-- **Dataverse CLI (`@microsoft/dataverse`) and Dataverse MCP** check whether the
-  **`dataverse` plugin** is installed: if it is not installed, they are cleanly
-  skipped (or you can opt in to adding the `dataverse` plugin first).
-- **Persistent binding record:** saves a private, token-free `<alias>.json`
-  record under `%LOCALAPPDATA%\PowerPlatformSetup\connections\` so named
-  profiles and tenant-isolated `AZURE_CONFIG_DIR` settings stay reusable across
-  chats even when `dataverse` is not installed.
+**See the [Illustrated Power Platform Connect Guide](docs/power-platform-connect-guide.md)** for a full walkthrough of multi-surface connection onboarding.
 
-When PAC is active, the guided route is **PAC sign-in/reuse > `pac env list` >
-environment names and URLs > your selection > saved connections**. Choose one or
-several environments; if no suitable PAC profile exists yet, the skill first
-asks for one known environment URL to establish that initial sign-in context,
-then lists environments. The list contains Dataverse environments returned by
-discovery, not guaranteed coverage of every tenant or every Power Platform
-environment.
+---
 
-**You can always add another existing environment by URL**, even if it is not
-listed or saved locally. Re-run the connection skill whenever you need another
-connection; working profiles and bindings are retained. This adds a local
-connection, not a new cloud environment. Each target gets its own nickname and
-connection record; only one profile is active in each CLI at a time.
+## Included skills
 
-If running this step separately, read/use the connection skill in your chosen
-host and paste the request below. Reopen after PATH changes and follow any
-required plugin/MCP reload first:
+| Skill | Scope | Purpose |
+|---|---|---|
+| [`skills/power-platform-setup`](skills/power-platform-setup/SKILL.md) | Workspace (auto-discovered in this folder) | Guides first-time Windows prerequisite checks/installs, marketplace & plugin selection, optional Copilot Studio MCP registration, and installing the two personal skills below. |
+| [`skills/power-platform-connect`](skills/power-platform-connect/SKILL.md) | Personal (`~/.copilot/skills/` or `~/.claude/skills/`) | Discovers/connects Power Platform environments across PAC, Azure CLI, Dataverse CLI, and MCP servers, saving token-free `<alias>.json` binding records. |
+| [`skills/power-platform-router`](skills/power-platform-router/SKILL.md) | Personal (`~/.copilot/skills/` or `~/.claude/skills/`) | Loads before/alongside Power Platform build skills (`create-code-app`, `model-apps`, `power-automate`, `dataverse`, etc.) to reuse saved environments, confirm **Environment X and Solution Y**, and route per-environment MCP servers. |
 
-> Use the power-platform-connect skill to help me connect my Dataverse CLI,
-> PAC CLI, Azure CLI, and Dataverse MCP. Check existing profiles first.
-> Confirm my account/tenant and ask before PAC sign-in or live discovery.
-> Show the environment names/URLs returned by `pac env list` and let me
-> choose one or more, or enter another existing URL. Confirm each selected
-> target and ask before sign-in or configuration changes. Reuse working
-> sessions; do not change tenant permissions.
+---
 
-Remove anything you do not need; add Copilot Studio MCP if you also want its
-sign-in. If the skill is missing or you skipped installation, ask the agent to
-read [the connection skill](skills/power-platform-connect/SKILL.md) instead.
-The agent can guide the commands; you still complete sign-in/MFA yourself.
-Separate tools can require separate initial sign-ins. One universal login is
-not guaranteed.
+## Troubleshooting & technical reference
 
-**See the [illustrated Power Platform Connect guide](docs/power-platform-connect-guide.md)**
-for the questions, separate installation/sign-in approvals, private connection
-record, MCP registration, and post-restart verification. It uses redacted
-screenshots from a user-reported run. Start with **power-platform-connect**;
-you do not need to run Microsoft's full `dv-connect` workflow first.
+Run a read-only, offline check at any time without changing your PC:
 
-<details>
-<summary>Do I also run the official curl / Node Power Platform Skills installer?</summary>
-
-**No extra command is needed when you use this setup's plugin stage.**
-Our script uses the selected host's supported plugin commands: `claude` for
-Claude Code or `copilot` for Copilot CLI. Copilot desktop-only users still
-confirm the official installation links in the app.
-
-The desktop app and CLI are separate installations. A terminal command that
-asks **"Install GitHub Copilot CLI? [y/N]"** can be just an install launcher,
-not proof that the full CLI is already installed. An agent should not silently
-accept that prompt. You can use the desktop links without the CLI, or
-independently install it using [GitHub's instructions](https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli)
-and ask the agent to recheck afterward. Declining that extra installation
-does not prevent the desktop plugin-link route.
-
-Installing the CLI or running plugin-management commands does not itself send
-AI prompts. AI conversations/tasks, including the agent guiding this setup,
-use the relevant plan's allowance. CLI AI use also needs the required access
-and organization policy; installing a program does not buy or grant AI credits.
-See [current GitHub billing guidance](https://docs.github.com/en/copilot/concepts/billing-and-usage/individuals/billing).
-
-Microsoft's quick installer is a valid **alternative for existing CLI hosts**.
-It can configure both detected CLIs, install/update prerequisites, and enable
-auto-updates, so it is not silently added to this narrower setup. It also does
-not replace the later connection/sign-in skill.
-
-**That CLI requirement belongs to `install.js`, not to Power Platform skills.**
-Copilot desktop users can install plugins normally through **Customize**.
-VS Code agent-mode users can use **Chat: Manage Plugin Marketplaces > Add
-Marketplace...**, enter `microsoft/power-platform-skills`, then install the
-plugins from **Customize**. Neither native app route requires Copilot CLI.
-The [manual walkthrough above](#manual-option-add-the-power-platform-plugins-in-vs-code)
-shows the **Configure Marketplaces** menu route with screenshots.
-See [GitHub's VS Code plugin instructions](https://docs.github.com/en/copilot/how-tos/copilot-in-your-ide/customize-copilot/extend-copilot-with-tools-and-context/using-plugins).
-The script's `CopilotApp` links target the desktop app, not VS Code; there is
-currently no `VSCode` host flag. Respect each host/plugin's support and policies.
-
-If following that alternative on Windows, **`curl.exe`** names the actual curl
-program; plain `curl` may mean PowerShell's `Invoke-WebRequest` alias. A download
-alone does not install plugins, and piping a remote script into Node executes
-it immediately. Have your agent review the source and explain its changes before
-you approve execution. Do not run both installation routes unnecessarily.
-
-</details>
-
-<details>
-<summary>What will the connection skill ask me? Wasn't Dataverse already installed?</summary>
-
-| Question | What it means |
-|---|---|
-| Environment choice / URL | Choose one or more environments from approved PAC discovery, or enter an existing environment's URL such as `https://yourorg.crm4.dynamics.com`. Manual entry is always available, including for an unlisted/unsaved environment. It is not the general maker-portal address. |
-| Tenant ID / Directory ID | The ID of your Microsoft organization. Find it in **Microsoft Entra admin center > Entra ID > Overview > Properties > Tenant ID**, after selecting the directory that owns your environment. It is **not** an Azure Subscription ID, PPAC Environment ID, or Dataverse Organization ID. |
-| Work sign-in email (UPN) | The username you use to sign in, usually your work or school email address. It can differ from your email mailbox address. |
-| Connection nickname (alias) | A friendly local name you choose, such as **`my-demo-environment`**. It helps the agent remember this connection; it does not rename your actual environment. |
-| Tools to connect | Which tools you want to sign into or connect to chat. The agent should explain the choices, not assume you need every tool. |
-
-**An Azure Subscription ID is not normally needed for this connection setup.**
-It identifies an Azure resource/billing subscription, not your Microsoft
-organization. The agent should not ask for it unless your separate Azure task
-actually needs one. [How to find your Tenant ID](https://learn.microsoft.com/en-us/entra/fundamentals/how-to-find-tenant).
-
-If PPAC's environment details show **Organization ID** and **Environment ID**,
-neither is the Tenant ID. In **Microsoft Entra admin center**, select the
-organization that owns the environment, then open **Entra ID > Overview >
-Properties > Tenant ID**. Ask the tenant's administrator if you cannot access it.
-
-**PAC CLI, the Dataverse plugin, and Dataverse CLI are different things.**
-Setup installs **PAC CLI** (`pac`). The optional **Dataverse plugin** gives your
-agent instructions and tools. The separate **Dataverse CLI** (`dataverse`) is
-the npm package `@microsoft/dataverse`; it is not included in the base
-prerequisite install.
-
-The connection skill should **check whether that CLI is already installed
-before asking to install it**. If it is missing and you want its commands/MCP
-proxy, the agent explains the extra download and asks for approval then.
-"Globally via npm" means making the command available outside one project,
-using Node.js's package manager; it does not grant cloud access or sign you in.
-
-Already installed an older copy of the connection skill? Setup deliberately
-does not overwrite different skill content. Ask your agent to read the
-[updated public skill](skills/power-platform-connect/SKILL.md), or review and
-intentionally update your personal copy.
-
-</details>
-
-### Keeping compatibility rules current
-
-A weekly **Review tool versions** GitHub Actions workflow checks official Node
-release and support metadata. Newly released, still-supported LTS majors can
-produce a **review pull request** updating the accepted versions, regression
-cases, and guidance. It never approves or merges the PR, changes your computer,
-or adds online checks to `Setup.cmd -CheckOnly`.
-
-The current automation covers **Node LTS additions**, not automatic upgrades
-of every tool's major version. New-install defaults stay unchanged; maintainers
-review plugin compatibility and end-of-life warnings. See
-[version maintenance](docs/advanced-setup.md#automatic-version-maintenance).
-Download/extract a newer repository version after an approved update is merged;
-an existing downloaded ZIP does not update itself.
-
-## Walkthrough with screenshots
-
-These are cropped screenshots from a user-reported **ARM64 Windows Sandbox**
-run of an older version. **Some show Azure CLI as optional; the current version
-includes it after PAC.** Version numbers, language, and prompts can differ.
-They show the workflow, not proof that every current feature has passed a
-complete clean-machine test.
-
-### 1. Download the ZIP
-
-Use GitHub's green **Code** button and choose **Download ZIP**.
-Download the whole repository, not just `Setup.cmd`.
-
-![GitHub Code menu with Download ZIP selected](docs/images/01-download-zip.png)
-
-### 2. Extract it and open Setup
-
-Use **Extract All**, then open the folder that contains these files.
-Do not run setup from inside the ZIP. Keep `Setup.ps1`, the `skills` folder,
-and the other downloaded files together.
-
-![Extracted setup folder containing Setup, Setup.ps1, and skills](docs/images/02-extracted-folder.png)
-
-Double-click **Setup** / **Setup.cmd**, or right-click and choose **Open**
-(the highlighted command in the supplied Norwegian screenshot). Do not choose
-**Run as administrator** for the whole setup.
-
-![Setup selected in File Explorer with the Open command visible](docs/images/03-open-setup.png)
-
-### 3. Read the check and type INSTALL
-
-The first check is called the **preflight**. `[READY]` means a compatible tool
-was found. `[NEEDS SETUP]` means it needs installation or attention.
-Nothing is downloaded until you approve the installation plan.
-
-![Preflight showing missing tools and the INSTALL approval prompt](docs/images/04-approve-install.png)
-
-### 4. Allow time for downloads and installation
-
-**The .NET SDK stage can take much longer than the others.** In the reported
-Sandbox session it took over an hour around this stage. That is one user's
-experience, not an expected duration or a reason to ignore a reported failure.
-Windows/connection speed can vary, and the download can time out.
-
-While a vendor installer is running, the current script prints a **"Still
-waiting" message about every 30 seconds**, with elapsed time. This is a heartbeat,
-not a percentage, proof of package progress, or an estimated finish time.
-Downloads and PAC's .NET tool command have their own output and are not covered
-by this installer heartbeat.
-
-Keep the window open while it is working and check for a Windows permission
-prompt. Do not start a second setup while an installer is still running.
-If setup reports **failed**, use [the recovery steps below](#if-setup-shows-an-error).
-
-<details>
-<summary>Screenshot: downloading the .NET SDK</summary>
-
-![Setup downloading the ARM64 .NET SDK with PowerShell progress visible](docs/images/05-dotnet-download.png)
-
-</details>
-
-### 5. Choose the app for plugins
-
-For **Copilot desktop**, choose **3**. Option **2** is for users who already
-have the `copilot` terminal command; installing the desktop app alone does not
-guarantee that command exists.
-
-If requested, type **YES** for Dataverse, then review the plugin plan and type
-**PLUGINS**. For option 3, open the printed links and confirm in the app.
-Check **Customize > Installed** afterward.
-
-<details>
-<summary>Screenshot: choosing Copilot desktop and approving the plugin plan</summary>
-
-![Copilot desktop option 3, Dataverse opt-in, and the PLUGINS approval prompt](docs/images/08-approve-plugins.png)
-
-</details>
-
-Keep following the window for optional **MCP** and **SKILL** setup, then use
-the [sign-in prompt above](#step-3-connect-to-your-environment) in your app. Sign-in is not started
-by the installer.
-
-## If setup shows an error
-
-**A red error or exit code `3` is not a successful installation.**
-Pressing Enter at "Press any key to continue" only closes the finished window.
-
-In the supplied run, setup reported:
-
-```text
-Setup failed: Access to the path 'dotnet.exe' is denied.
-Setup exit code: 3
+```powershell
+.\Setup.cmd -CheckOnly
 ```
 
+- **Exit codes:** `0` = ready/completed, `1` = missing/unsupported prerequisites in `-CheckOnly`, `2` = cancelled or invalid options / missing CLI handoff, `3` = error (re-run `-CheckOnly` after any active installer finishes), `4` = Copilot desktop app confirmation pending, `3010` = Windows restart required.
+- **`"hook errored"` when saving `mcp-config.json`:** some plugins (such as `model-apps@power-platform-skills`) attach a pre-tool-use file-write hook that can error on Windows when writing `%USERPROFILE%\.copilot\mcp-config.json`. Temporarily toggle that plugin **off** in **Customize > Installed**, retry saving `mcp-config.json`, and toggle it back **on**.
+
 <details>
-<summary>Screenshots: the .NET error, and the SDK detected on a later run</summary>
+<summary>Example: recovering from a transient .NET installer lock (exit code 3)</summary>
+
+If an installer reports a file lock or `exit code: 3`, wait for any background installer or Windows restart to finish, then run `.\Setup.cmd -CheckOnly` to see what completed before rerunning `Setup.cmd` (compatible installed tools are skipped automatically):
 
 ![Setup reporting access denied for dotnet.exe and exit code 3](docs/images/06-dotnet-error.png)
 
-On the later run, the check showed the .NET SDK as ready:
-
-![A later check showing READY for .NET SDK 10.0.404](docs/images/07-dotnet-ready.png)
+![A subsequent check showing READY for .NET SDK](docs/images/07-dotnet-ready.png)
 
 </details>
 
-That later result **does not explain or fix the original error**. To check safely:
-
-1. Let any active installer finish. If Windows asks for a restart, save your
-   work and restart yourself. Do not run overlapping installers.
-2. Open a new terminal in the extracted setup folder and run:
-
-   ```powershell
-   .\Setup.cmd -CheckOnly
-   ```
-
-   This only checks; it does not download, install, sign in, or open app links.
-3. If .NET is now `[READY]` and PAC is still `[NEEDS SETUP]`, run `Setup.cmd`
-   again, review the remaining plan, and approve it. Compatible installed tools
-   are skipped. If the error repeats or .NET is still missing, stop and seek
-   help using the exact error and exit code, with personal details removed.
-
-Do not disable security software, change persistent PowerShell policy, or
-assume administrator mode is the fix. See
-[detailed troubleshooting and exit codes](docs/advanced-setup.md#exit-codes-and-troubleshooting).
-
-## Detailed version
-
-Read the [full technical guide](docs/advanced-setup.md) for all options, supported
-Windows versions, download verification, architecture handling, authentication,
-and contributor tests. Only install vendor tools on a supported Windows version.
-On ARM64, Azure CLI uses the official x64 package under Windows 11 emulation.
-
-For an agent-led start, ask it to read [AGENTS.md](AGENTS.md), check readiness,
-and explain the plan before installing anything. CLI plugin choices use the
-[Step 2 doctor](skills/power-platform-doctor/SKILL.md); native app/IDE routes
-and optional MCP setup use the [integration skill](skills/power-platform-integrations/SKILL.md).
-
-This community bootstrap is not a Microsoft product. It never creates cloud
-resources or enables agent auto-approval. Setup behavior has automated local
-tests; full vendor installation, actual app discovery, and live authentication
-are separate acceptance checks. [MIT license](LICENSE); vendor tools have their
-own licenses.
-
-**Latest user-reported ARM64 Sandbox result:** Git, Node.js/npm, .NET SDK, PAC,
-and x64 Azure CLI under emulation completed. Copilot desktop plugin links were
-printed (plugins not installed); MCP configuration and the skill file were saved
-after a workaround for the then-incorrect default `COPILOT_HOME` rejection.
-The current script accepts that default path without clearing the variable.
-Actual app discovery and live sign-in were not tested in that run.
+- **[Detailed Technical Guide](docs/advanced-setup.md):** all CLI flags, SHA256/SHA512 & Authenticode verification, ARM64 emulation details, weekly Node LTS review workflow, and contributor tests (`.\scripts\Test-Setup.ps1`).
+- **License:** [MIT](LICENSE) (vendor tools have their own licenses; community bootstrap, not an official Microsoft product).

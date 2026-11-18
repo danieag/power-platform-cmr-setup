@@ -1950,8 +1950,7 @@ Test-Case 'Node maintenance preview uses fixed metadata sources without writing 
 Test-Case 'Node maintenance updates only guarded source, docs and cases and the proposed runtime accepts new majors' {
     . (Join-Path $root 'scripts\Update-NodeSupport.ps1')
     $temporary = Join-Path ([IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString('N'))
-    $files = @('Setup.ps1', 'README.md', 'docs\advanced-setup.md',
-        'skills\power-platform-integrations\SKILL.md', 'scripts\Test-Setup.ps1')
+    $files = @('Setup.ps1', 'README.md', 'docs\advanced-setup.md', 'scripts\Test-Setup.ps1')
     try {
         foreach ($file in $files) {
             $path = Join-Path $temporary $file
@@ -2008,8 +2007,6 @@ Test-Case 'Node maintenance updates only guarded source, docs and cases and the 
 Test-Case 'skill command examples parse without executing plugin or prerequisite installation' {
     foreach ($skillRelative in @(
         'skills\power-platform-setup\SKILL.md',
-        'skills\power-platform-doctor\SKILL.md',
-        'skills\power-platform-integrations\SKILL.md',
         'skills\power-platform-router\SKILL.md',
         '.github\skills\power-platform-setup\SKILL.md',
         '.claude\skills\power-platform-setup\SKILL.md')) {
@@ -2027,8 +2024,6 @@ Test-Case 'public documentation resolves all local links and screenshot files' {
     foreach ($relative in @('README.md', 'AGENTS.md', 'CLAUDE.md',
         'docs\advanced-setup.md', 'docs\agent-guided-setup-guide.md', 'docs\power-platform-connect-guide.md',
         'skills\power-platform-setup\SKILL.md',
-        'skills\power-platform-doctor\SKILL.md',
-        'skills\power-platform-integrations\SKILL.md',
         '.github\skills\power-platform-setup\SKILL.md',
         '.claude\skills\power-platform-setup\SKILL.md')) {
         $path = Join-Path $root $relative

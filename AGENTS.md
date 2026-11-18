@@ -103,7 +103,7 @@ Power Automate and Canvas Apps"*, or *"Add the Power Platform marketplace"*:
    -AcceptPlugins` and wait for user confirmation before opening the next plugin
    or offering `power-platform-connect`. Do not open authenticated browser URLs
    or install another host as a shortcut. Use
-   `skills/power-platform-integrations/SKILL.md` for custom plugin selections or
+   `skills/power-platform-setup/SKILL.md` for selective plugin setup or
    agent-guided Copilot Studio MCP setup. Preserve existing MCP configuration
    and verify desktop visibility separately.
 9. The final optional stage installs only the bundled personal user skills

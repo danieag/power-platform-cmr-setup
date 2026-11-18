@@ -71,7 +71,7 @@ jobs:
           git switch -c $branch
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- Setup.ps1 README.md docs/advanced-setup.md skills/power-platform-integrations/SKILL.md scripts/Test-Setup.ps1
+          git add -- Setup.ps1 README.md docs/advanced-setup.md scripts/Test-Setup.ps1
           git commit -m "Propose Node LTS support: $($report.AddedMajors -join ', ')"
           git push origin "HEAD:refs/heads/$branch"
           $body = @"

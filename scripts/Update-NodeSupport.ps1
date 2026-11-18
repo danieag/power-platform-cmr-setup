@@ -97,8 +97,7 @@ function Update-NodeSupportFiles {
     if (-not $Proposal.Changed) { return }
     $oldLabel = Format-NodeSupportLabel $Proposal.CurrentMajors
     $newLabel = Format-NodeSupportLabel $Proposal.ProposedMajors
-    $files = @('Setup.ps1', 'README.md', 'docs\advanced-setup.md',
-        'skills\power-platform-integrations\SKILL.md', 'scripts\Test-Setup.ps1')
+    $files = @('Setup.ps1', 'README.md', 'docs\advanced-setup.md', 'scripts\Test-Setup.ps1')
     $edits = @()
     foreach ($file in $files) {
         $path = Join-Path $Root $file

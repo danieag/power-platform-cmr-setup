@@ -612,7 +612,7 @@ under sign-in/registration approval.
 ## 6. Optional Copilot Studio MCP
 
 Reuse the server already registered by Setup.cmd. For missing registration,
-use the repository's [integration skill](https://github.com/danieag/power-platform-setup/blob/main/skills/power-platform-integrations/SKILL.md)
+use the repository's [setup skill](https://github.com/danieag/power-platform-setup/blob/main/skills/power-platform-setup/SKILL.md)
 and separately approved `-CopilotStudioHost <host> -AcceptCopilotStudio` stage.
 Never duplicate a working registration or run standalone `npx` as a login test.
 For several selected environments, follow this server's actual advertised

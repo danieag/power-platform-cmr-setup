@@ -238,12 +238,11 @@ tool even if their plugin installation succeeds. The old `-IncludeAzureCli`
 flag remains accepted for compatibility when `-Prerequisites All` is active; do
 not combine it with `-SkipAzureCli`.
 
-The optional [prerequisite skill](../skills/power-platform-setup/SKILL.md) contains
-these same instructions. Noninteractive runs do not silently opt into the new
-plugin stage: use the separate flags below only after approval. The
-[integration skill](../skills/power-platform-integrations/SKILL.md) can guide
-plugin setup or register Copilot Studio MCP. Skills instruct the agent to
-execute approved work; they are not just command lists for the user to copy.
+The bundled [setup skill](../skills/power-platform-setup/SKILL.md) guides
+prerequisites, marketplace/plugin selection, optional Copilot Studio MCP
+registration, and optional personal skill installation (`power-platform-connect`
+and `power-platform-router`). Noninteractive runs never opt into optional stages
+silently: pass each stage's approval flag only after explicit user approval.
 
 A GitHub URL does not itself install a skill. Load/copy the skills only using a
 mechanism supported by your app version, or let the agent read them directly.
@@ -352,22 +351,10 @@ not a machine-wide policy relaxation. No automatic reboot is requested.
 
 ## Step 2: choose Power Platform plugins
 
-For **existing Copilot CLI or Claude Code CLI** users, the beginner README's
-Step 2 starts with the bundled
-[power-platform-doctor skill](../skills/power-platform-doctor/SKILL.md).
-Ask the agent in the extracted setup folder to read that file. It confirms one
-host, prepares the official marketplace with approval, then asks for the desired
-plugins, checks existing registrations, presents the
-delta, and executes the approved selection through `Setup.cmd -Plugins`.
-The skill is included in source/runtime downloads, not automatically installed
-into a personal skill directory. It does not authenticate or install an agent
-host, Dataverse CLI, or additional tools.
-
-To use this individual-selection route after a double-click Step 1, press
-Enter to skip its optional full-set plugin host chooser. Continue with the
-doctor in the chosen CLI. In a guided agent setup, keep these stages in the
-same installation chat. The existing console full-set route below remains
-available for users who choose it.
+Guided agent runs use [`skills/power-platform-setup/SKILL.md`](../skills/power-platform-setup/SKILL.md),
+and interactive `Setup.cmd` launches offer **mode 1 (selective plugins or
+marketplace)** and **mode 2 (full workstation setup)** directly. Neither
+authenticates to a tenant or installs an agent host or Dataverse CLI.
 
 This stage runs **only after all selected prerequisites are ready**, never after
 an installer failure or restart requirement. An interactive launch, including a
@@ -608,17 +595,12 @@ ready. Setup does not check connectivity to an environment or invoke cloud tools
 If plugin links were printed, exit `4` still means those app confirmations are
 pending even when MCP configuration succeeded.
 
-### Optional integration skill
+### Copilot Studio MCP notes
 
-The [integration skill](../skills/power-platform-integrations/SKILL.md) remains
-available for custom plugin selections and agent-guided Copilot Studio MCP
-registration. In a Copilot desktop chat, ask it to read the skill and propose a
-plan; it should reuse plugins already installed by Setup.cmd. A repository URL
-does not permanently install the skill into any host.
-
-For the normal user-scope registration, the skill should reuse the script's
-separately approved MCP stage. Neither plugin approval nor prerequisite approval
-authorizes MCP registration or sign-in.
+For user-scope registration, [`skills/power-platform-setup/SKILL.md`](../skills/power-platform-setup/SKILL.md)
+reuses the script's separately approved `-CopilotStudioHost <host> -AcceptCopilotStudio`
+stage. Neither plugin approval nor prerequisite approval authorizes MCP
+registration or sign-in.
 
 `npx -y @microsoft/copilot-studio-mcp@latest` **launches a server**; by itself it
 does not register that server with the app. The script's MCP stage saves the approved launch
