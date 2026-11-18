@@ -1,16 +1,16 @@
 ---
 name: power-platform-router
-description: "Load FIRST or ALONGSIDE any Power Platform build, create, edit, deploy, or data request—including when the user names create-code-app, code app, model-apps, genpage, app-builder, canvas-app, power-automate, create-flow, power-pages, create-site, pcf, mobile-app, mcp-apps, or dataverse, and in Project coordinators before spawning child sessions. Reads saved connections in %LOCALAPPDATA%\\PowerPlatformSetup\\connections\\*.json so you never re-ask for Environment URL, Environment ID, Tenant ID, or sign-in email: confirm saved Environment X and Solution Y with the user, activate PAC/Dataverse/AZURE_CONFIG_DIR/MCP bindings, and hand off the verified target."
+description: "Load FIRST or ALONGSIDE any Power Platform or Copilot Studio build, create, edit, deploy, or data request—including when the user names create-code-app, code app, model-apps, genpage, app-builder, canvas-app, power-automate, create-flow, power-pages, create-site, pcf, mobile-app, mcp-apps, copilot-studio, build-agent, or dataverse, and in Project coordinators before spawning child sessions. Reads saved connections in %LOCALAPPDATA%\\PowerPlatformSetup\\connections\\*.json so you never re-ask for Environment URL, Environment ID, Tenant ID, or sign-in email: confirm saved Environment X and Solution Y with the user, activate PAC/Dataverse/AZURE_CONFIG_DIR/MCP bindings, and hand off the verified target."
 ---
 
 # Power Platform environment & solution router
 
-Load this skill **before or alongside** any Power Platform product skill
-(`create-code-app`, `model-apps`, `genpage`, `app-builder`, `canvas-app`,
-`power-automate`, `create-flow`, `power-pages`, `create-site`, `pcf`,
-`mobile-app`, `power-apps-mobile-extension`, `mcp-apps`, or `dataverse`),
-including when the user's prompt explicitly names a product skill or runs in a
-Project coordinator that spawns child sessions.
+Load this skill **before or alongside** any Power Platform or Copilot Studio
+product skill (`create-code-app`, `model-apps`, `genpage`, `app-builder`,
+`canvas-app`, `power-automate`, `create-flow`, `power-pages`, `create-site`,
+`pcf`, `mobile-app`, `power-apps-mobile-extension`, `mcp-apps`,
+`copilot-studio`, or `dataverse`), including when the user's prompt explicitly
+names a product skill or runs in a Project coordinator that spawns child sessions.
 
 Its job is simple: **read the user's saved local connection registry first so
 you never ask them to look up Environment URLs, Environment IDs, Tenant IDs, or
@@ -153,15 +153,23 @@ Use only the surfaces installed and recorded on **Environment X**'s binding:
      FlowAgent's `get_current_env`/`set_current_env` or Copilot Studio's
      `copilot_studio_status`/`copilot_studio_select_environment`), verify its
      active environment matches `$target.EnvironmentId` before acting.
-  2. **When no MCP for this task is mapped on Environment X yet — ask, don't
-     block or silently guess:** users may add new MCP servers outside
-     `power-platform-connect` at any time. Never silently call an MCP server
-     mapped to a different saved environment, and do not block the user either:
-     list any candidate MCP servers visible in the host and let the user
-     **choose** which MCP to use for `<Alias>` (verifying it matches `<Alias>`
-     and offering to save `"<label>": "<server-id>"` into `<Alias>.json`'s
-     `mcpServers` map so next time it works automatically), add a new MCP, or
-     proceed with CLI/SDK tools instead.
+  2. **When an MCP was added later outside `power-platform-connect` — auto-detect
+     its connected environment and offer to link it:** if the host has a
+     relevant MCP server that is not in `$target.McpServers` yet (for example
+     the user added `copilot-studio`, `flowagent`, or another MCP manually),
+     never silently call a server mapped to a sibling environment and never
+     force manual JSON edits:
+     - Inspect its read-only status or host config (`copilot_studio_status` for
+       Copilot Studio MCP, `get_current_env` + `whoami` for FlowAgent, or the
+       server's configured environment URL in `mcp-config.json`).
+     - If its active `environmentId` or `environmentUrl` already matches a saved
+       `<Alias>.json` record, propose that automatic match (*"I see
+       `<server-id>` is connected to **`<Alias>`**—use it and save this mapping
+       to `<Alias>.json`?"*).
+     - If it is a switchable server (like `copilot-studio` or `flowagent`) or
+       multiple candidate MCPs exist, let the user confirm switching/choosing it
+       for `<Alias>` and offer to save `"<label>": "<server-id>"` into
+       `<Alias>.json`'s `mcpServers` map so future runs are automatic.
 - **Power Apps Code Apps (`create-code-app` / `pa` CLI):** supply the confirmed
   `EnvironmentId` and `EnvironmentUrl` from the binding record directly into
   `power.config.json` / `pa` commands so `create-code-app` does not prompt the
