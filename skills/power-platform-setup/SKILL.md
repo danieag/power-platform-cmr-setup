@@ -228,10 +228,20 @@ to the user's chosen plugins before offering surfaces:
      installed PAC / Azure CLI surfaces) or **(B) install the `dataverse` plugin
      first** (plus Node/npm if missing, with separate approval) and then connect
      Dataverse CLI + Dataverse MCP.
-4. **Persistent binding record (`connections\<alias>.json`) & verification:**
+4. **Persistent binding record (`connections\<alias>.json`), personal router
+   skills, & verification:**
    always offer/save the approved token-free binding record (recording whichever
    surfaces were configured) and run the bounded identity + restart persistence
    checks so `AZURE_CONFIG_DIR` and named profiles remain reusable across chats!
+   **Strongly recommend** installing the bundled personal user skills
+   (`.\Setup.cmd -NonInteractive -ConnectionSkillHost <host> -AcceptConnectionSkill`,
+   with separate user approval) before finishing onboarding: this installs both
+   `power-platform-connect` and `power-platform-router` into `~/.copilot/skills/`
+   (or `~/.claude/skills/`) so future standalone chats, Projects (such as Code
+   Apps or Model Apps), and spawned child sessions automatically read
+   `%LOCALAPPDATA%\PowerPlatformSetup\connections\*.json` and ask the user to
+   confirm **Environment X and Solution Y** instead of re-asking for URLs,
+   Environment IDs, Tenant IDs, or sign-in emails!
 
 Confirm the host, sign-in identity and tenant, reuse/sign in to PAC in an
 approved exact environment context when PAC is active, run `pac env list`,

@@ -17,6 +17,7 @@ $files = @(
     'skills\power-platform-doctor\SKILL.md',
     'skills\power-platform-integrations\SKILL.md',
     'skills\power-platform-connect\SKILL.md',
+    'skills\power-platform-router\SKILL.md',
     'docs\advanced-setup.md',
     'docs\agent-guided-setup-guide.md',
     'docs\power-platform-connect-guide.md',

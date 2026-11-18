@@ -106,9 +106,14 @@ Power Automate and Canvas Apps"*, or *"Add the Power Platform marketplace"*:
    `skills/power-platform-integrations/SKILL.md` for custom plugin selections or
    agent-guided Copilot Studio MCP setup. Preserve existing MCP configuration
    and verify desktop visibility separately.
-9. The final optional stage installs only the bundled connection skill file.
+9. The final optional stage installs only the bundled personal user skills
+   (`power-platform-connect` and `power-platform-router`).
    Use `-ConnectionSkillHost <host> -AcceptConnectionSkill` only after approval
    for that host's personal skill directory. It never runs authentication.
+   `power-platform-router` lets future projects/chats read saved
+   `%LOCALAPPDATA%\PowerPlatformSetup\connections\*.json` bindings, confirm
+   Environment X and Solution Y, and map exact per-environment MCP servers
+   without re-asking for URLs, Tenant IDs, or sign-in emails.
    Preserve existing skills; do not overwrite different content or follow linked
    destinations. If skipped, relay the printed connection prompt/public skill URL.
    File installation is not proof of host discovery or sign-in.

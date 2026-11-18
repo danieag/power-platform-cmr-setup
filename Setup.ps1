@@ -1192,12 +1192,12 @@ function Invoke-SetupIntegrations {
 }
 
 function Get-ConnectionSkillDirectory {
-    param([string]$HostName)
+    param([string]$HostName, [string]$SkillName = 'power-platform-connect')
     if ($HostName -eq 'ClaudeCode') {
         if ($env:CLAUDE_CONFIG_DIR) { throw 'Custom CLAUDE_CONFIG_DIR is set. Install the connection skill through that host explicitly; setup will not guess its personal skill directory.' }
-        return Join-Path $env:USERPROFILE '.claude\skills\power-platform-connect'
+        return Join-Path $env:USERPROFILE ".claude\skills\$SkillName"
     }
-    return Join-Path (Get-CopilotSetupHome) 'skills\power-platform-connect'
+    return Join-Path (Get-CopilotSetupHome) "skills\$SkillName"
 }
 
 function Assert-SkillDirectoryChain {
@@ -1215,12 +1215,13 @@ function Assert-SkillDirectoryChain {
 }
 
 function Install-ConnectionSkill {
-    param([string]$Source, [string]$Destination)
+    param([string]$Source, [string]$Destination, [string]$ExpectedSkillName = 'power-platform-connect')
     if (-not (Test-Path -LiteralPath $Source -PathType Leaf)) {
         throw 'Bundled connection skill is missing. Download/extract the full setup ZIP; do not run just the launcher/script.'
     }
     $text = Get-Content -LiteralPath $Source -Raw
-    if ($text -notmatch '(?s)^---\s*\r?\nname: power-platform-connect\r?\ndescription: [^\r\n]+\r?\n---' -or
+    $escapedName = [regex]::Escape($ExpectedSkillName)
+    if ($text -notmatch "(?s)^---\s*\r?\nname: $escapedName\r?\ndescription: [^\r\n]+\r?\n---" -or
         $text -match '(?m)^allowed-tools:') {
         throw 'The bundled connection skill has an unexpected definition. Review the full source before installing it.'
     }
@@ -1231,7 +1232,7 @@ function Install-ConnectionSkill {
         if ((Test-Path -LiteralPath $target -PathType Leaf) -and
             -not ((Get-Item -LiteralPath $target -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) -and
             (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash -eq $expectedHash) {
-            Write-Host 'Matching connection skill already exists; left unchanged.'
+            Write-Host "Matching $ExpectedSkillName skill already exists; left unchanged."
             return
         }
         throw 'The connection skill directory already contains a different definition or other content. Review/update it manually; setup will not overwrite it.'
@@ -1251,7 +1252,7 @@ function Install-ConnectionSkill {
         if ((Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash -ne $expectedHash) {
             throw 'The installed skill no longer matches the reviewed bundle. Stop and inspect the destination.'
         }
-        Write-Host "Connection skill saved to $target"
+        Write-Host "Skill saved to $target"
     } finally {
         if (Test-Path -LiteralPath $staging) { Remove-Item -LiteralPath $staging -Recurse -Force }
     }
@@ -1276,7 +1277,7 @@ function Invoke-ConnectionSkillSetup {
         [switch]$AcceptConnectionSkill, [switch]$NonInteractive
     )
     if (-not $ConnectionSkillHost -and -not $NonInteractive) {
-        Write-Host "`nOptional final step: install the bundled power-platform-connect skill for your user."
+        Write-Host "`nOptional final step: install the bundled power-platform-connect and power-platform-router skills for your user."
         Write-Host '1 = Claude Code; 2 = Copilot CLI; 3 = Copilot desktop; Enter = skip and show next-step instructions.'
         switch (Read-Host 'Choose the skill host (no authentication will run)') {
             '' { $ConnectionSkillHost = 'Skip' }
@@ -1295,18 +1296,22 @@ function Invoke-ConnectionSkillSetup {
         Write-Host 'Separate -AcceptConnectionSkill approval is required.'
         return 2
     }
-    $destination = Get-ConnectionSkillDirectory $ConnectionSkillHost
-    Write-Host "`nConnection skill plan for ${ConnectionSkillHost}: $destination"
+    $connectDestination = Get-ConnectionSkillDirectory $ConnectionSkillHost 'power-platform-connect'
+    $routerDestination = Get-ConnectionSkillDirectory $ConnectionSkillHost 'power-platform-router'
+    Write-Host "`nPersonal skill plan for ${ConnectionSkillHost}:"
+    Write-Host "  - $connectDestination (connect/manage saved environments)"
+    Write-Host "  - $routerDestination (automatically reuse saved environments & confirm Solution Y in future builds)"
     Write-Host 'Copy the bundled instructions into the documented personal skills directory; no CLI, server or sign-in is started.'
-    Write-Host 'This makes the instructions available across projects. Existing definitions are never overwritten.'
+    Write-Host 'This makes saved environments discoverable across future projects/chats. Existing definitions are never overwritten.'
     Write-Host 'Host discovery/policy must still be checked after restart; no auto-approval permissions will be enabled.'
     if (-not $AcceptConnectionSkill -and (Read-Host 'Type SKILL to approve installation (anything else cancels)') -cne 'SKILL') {
         Write-Host 'Connection skill installation cancelled. Earlier setup is retained.'
         Show-ConnectionNextStep
         return 2
     }
-    Install-ConnectionSkill -Source (Join-Path $PSScriptRoot 'skills\power-platform-connect\SKILL.md') -Destination $destination
-    Write-Host 'Skill file installation verified. Host discovery and authentication are NOT verified.'
+    Install-ConnectionSkill -Source (Join-Path $PSScriptRoot 'skills\power-platform-connect\SKILL.md') -Destination $connectDestination -ExpectedSkillName 'power-platform-connect'
+    Install-ConnectionSkill -Source (Join-Path $PSScriptRoot 'skills\power-platform-router\SKILL.md') -Destination $routerDestination -ExpectedSkillName 'power-platform-router'
+    Write-Host 'Personal skill file installation verified (power-platform-connect and power-platform-router). Host discovery and authentication are NOT verified.'
     Show-ConnectionNextStep
     return 0
 }

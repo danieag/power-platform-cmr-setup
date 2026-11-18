@@ -1438,7 +1438,9 @@ Test-Case 'default Copilot home permits MCP and skill installation together in a
         Assert-Equal (Invoke-ConnectionSkillSetup -ConnectionSkillHost CopilotApp -AcceptConnectionSkill -NonInteractive) 0
         Assert-Equal (Test-CopilotStudioRegistration (Read-McpUserConfig (Get-CopilotStudioConfigPath 'CopilotApp'))) $true
         $skillPath = Join-Path (Get-ConnectionSkillDirectory 'CopilotApp') 'SKILL.md'
+        $routerPath = Join-Path (Get-ConnectionSkillDirectory 'CopilotApp' 'power-platform-router') 'SKILL.md'
         Assert-Equal (Get-FileHash -LiteralPath $skillPath -Algorithm SHA256).Hash (Get-FileHash -LiteralPath (Join-Path $root 'skills\power-platform-connect\SKILL.md') -Algorithm SHA256).Hash
+        Assert-Equal (Get-FileHash -LiteralPath $routerPath -Algorithm SHA256).Hash (Get-FileHash -LiteralPath (Join-Path $root 'skills\power-platform-router\SKILL.md') -Algorithm SHA256).Hash
     } finally {
         $env:USERPROFILE = $previousProfile
         $env:COPILOT_HOME = $previousHome
@@ -1703,30 +1705,31 @@ Test-Case 'skill staging never overwrites a concurrent install and cleans only i
 Test-Case 'interactive skill setup requires SKILL approval and uses the selected host only' {
     $script:skillAnswers = [System.Collections.Generic.Queue[string]]::new()
     foreach ($answer in @('3', 'SKILL')) { $script:skillAnswers.Enqueue($answer) }
-    $script:skillInstallCalls = 0
+    $script:skillInstallCalls = @()
     function Read-Host { $script:skillAnswers.Dequeue() }
     function Get-ConnectionSkillDirectory {
-        param($HostName)
+        param($HostName, $SkillName = 'power-platform-connect')
         Assert-Equal $HostName 'CopilotApp'
-        'C:\fixture\power-platform-connect'
+        "C:\fixture\$SkillName"
     }
     function Install-ConnectionSkill {
-        param($Source, $Destination)
+        param($Source, $Destination, $ExpectedSkillName = 'power-platform-connect')
         Assert-Equal (Test-Path -LiteralPath $Source -PathType Leaf) $true
-        Assert-Equal $Destination 'C:\fixture\power-platform-connect'
-        $script:skillInstallCalls++
+        Assert-Equal $Destination "C:\fixture\$ExpectedSkillName"
+        $script:skillInstallCalls += $ExpectedSkillName
     }
     Assert-Equal (Invoke-ConnectionSkillSetup) 0
-    Assert-Equal $script:skillInstallCalls 1
+    Assert-Equal ($script:skillInstallCalls -join ',') 'power-platform-connect,power-platform-router'
     function Read-Host { 'MCP' }
     Assert-Equal (Invoke-ConnectionSkillSetup -ConnectionSkillHost CopilotApp) 2
-    Assert-Equal $script:skillInstallCalls 1
+    Assert-Equal ($script:skillInstallCalls -join ',') 'power-platform-connect,power-platform-router'
 }
 
 Test-Case 'step 4 installs for each host in disposable profiles and survives a new process without touching real user skills' {
     $directory = Join-Path ([IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString('N'))
     $engine = (Get-Process -Id $PID).Path
-    $source = Join-Path $root 'skills\power-platform-connect\SKILL.md'
+    $connectSource = Join-Path $root 'skills\power-platform-connect\SKILL.md'
+    $routerSource = Join-Path $root 'skills\power-platform-router\SKILL.md'
     $setup = Join-Path $root 'Setup.ps1'
     $installScript = @'
 $ErrorActionPreference = 'Stop'
@@ -1750,14 +1753,17 @@ if ($result -ne 0) { throw "Skill installation failed: $result" }
             $output = & $engine -NoLogo -NoProfile -NonInteractive -EncodedCommand $encoded 2>&1
             if ($LASTEXITCODE -ne 0) { throw "Isolated $hostName skill install failed: $($output -join "`n")" }
             $hostDirectory = if ($hostName -eq 'ClaudeCode') { '.claude' } else { '.copilot' }
-            $target = Join-Path $profile "$hostDirectory\skills\power-platform-connect\SKILL.md"
-            $expectedHash = (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash
-            Assert-Equal (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash $expectedHash
-            $timestamp = (Get-Item -LiteralPath $target).LastWriteTimeUtc
+            $connectTarget = Join-Path $profile "$hostDirectory\skills\power-platform-connect\SKILL.md"
+            $routerTarget = Join-Path $profile "$hostDirectory\skills\power-platform-router\SKILL.md"
+            Assert-Equal (Get-FileHash -LiteralPath $connectTarget -Algorithm SHA256).Hash (Get-FileHash -LiteralPath $connectSource -Algorithm SHA256).Hash
+            Assert-Equal (Get-FileHash -LiteralPath $routerTarget -Algorithm SHA256).Hash (Get-FileHash -LiteralPath $routerSource -Algorithm SHA256).Hash
+            $connectTimestamp = (Get-Item -LiteralPath $connectTarget).LastWriteTimeUtc
+            $routerTimestamp = (Get-Item -LiteralPath $routerTarget).LastWriteTimeUtc
             $output = & $engine -NoLogo -NoProfile -NonInteractive -EncodedCommand $encoded 2>&1
             if ($LASTEXITCODE -ne 0) { throw "Isolated $hostName skill rerun failed: $($output -join "`n")" }
-            Assert-Equal (Get-Item -LiteralPath $target).LastWriteTimeUtc $timestamp
-            Assert-Equal (@(Get-ChildItem -LiteralPath $profile -Recurse -File -Force).Count) 1
+            Assert-Equal (Get-Item -LiteralPath $connectTarget).LastWriteTimeUtc $connectTimestamp
+            Assert-Equal (Get-Item -LiteralPath $routerTarget).LastWriteTimeUtc $routerTimestamp
+            Assert-Equal (@(Get-ChildItem -LiteralPath $profile -Recurse -File -Force).Count) 2
         }
     } finally {
         if (Test-Path -LiteralPath $directory) { Remove-Item -LiteralPath $directory -Recurse -Force }
@@ -1765,25 +1771,62 @@ if ($result -ne 0) { throw "Skill installation failed: $result" }
     Assert-Equal (Test-Path -LiteralPath $directory) $false
 }
 
-Test-Case 'installed connection skill is standalone and all its PowerShell examples parse without execution' {
-    $skill = Get-Content -LiteralPath (Join-Path $root 'skills\power-platform-connect\SKILL.md') -Raw
-    $blocks = [regex]::Matches($skill, '(?s)```powershell\s*\r?\n(.*?)\r?\n```')
-    if (-not $blocks.Count) { throw 'No connection examples were found to validate.' }
-    foreach ($block in $blocks) {
-        $tokens = $null
-        $errors = $null
-        [Management.Automation.Language.Parser]::ParseInput($block.Groups[1].Value, [ref]$tokens, [ref]$errors) | Out-Null
-        if ($errors.Count) { throw ($errors.Message -join '; ') }
-    }
-    # Only SKILL.md is installed. Relative references to unbundled files would break.
-    foreach ($link in [regex]::Matches($skill, '\[[^\]]+\]\(([^)]+)\)')) {
-        if ($link.Groups[1].Value -notmatch '^(https://|#)') {
-            throw "Standalone skill references an unbundled file: $($link.Groups[1].Value)"
+Test-Case 'installed connection and router skills are standalone and router maps per-environment MCP servers cleanly' {
+    foreach ($standaloneRelative in @('skills\power-platform-connect\SKILL.md', 'skills\power-platform-router\SKILL.md')) {
+        $skill = Get-Content -LiteralPath (Join-Path $root $standaloneRelative) -Raw
+        $blocks = [regex]::Matches($skill, '(?s)```powershell\s*\r?\n(.*?)\r?\n```')
+        if (-not $blocks.Count) { throw "No PowerShell examples were found to validate in $standaloneRelative." }
+        foreach ($block in $blocks) {
+            $tokens = $null
+            $errors = $null
+            [Management.Automation.Language.Parser]::ParseInput($block.Groups[1].Value, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count) { throw ($errors.Message -join '; ') }
+        }
+        # Only SKILL.md is installed. Relative references to unbundled files would break.
+        foreach ($link in [regex]::Matches($skill, '\[[^\]]+\]\(([^)]+)\)')) {
+            if ($link.Groups[1].Value -notmatch '^(https://|#)') {
+                throw "Standalone skill $standaloneRelative references an unbundled file: $($link.Groups[1].Value)"
+            }
         }
     }
-    $record = [regex]::Match($skill, '(?s)```json\s*\r?\n(.*?)\r?\n```').Groups[1].Value | ConvertFrom-Json
+    $connectSkill = Get-Content -LiteralPath (Join-Path $root 'skills\power-platform-connect\SKILL.md') -Raw
+    $record = [regex]::Match($connectSkill, '(?s)```json\s*\r?\n(.*?)\r?\n```').Groups[1].Value | ConvertFrom-Json
     Assert-Equal $record.schemaVersion 1
     Assert-Equal ($record.PSObject.Properties.Name -contains 'azureConfigDir') $true
+    Assert-Equal ($record.PSObject.Properties.Name -contains 'dataverseMcpServer') $true
+    Assert-Equal ($record.PSObject.Properties.Name -contains 'powerAutomateMcpServer') $true
+    Assert-Equal ($record.PSObject.Properties.Name -contains 'copilotStudioMcpServer') $true
+    Assert-Equal ($record.PSObject.Properties.Name -contains 'mcpServers') $true
+
+    # Verify router registry snippet maps Env X (3 MCPs) vs Env Y (2 MCPs, no FlowAgent) in isolated LOCALAPPDATA.
+    $routerSkill = Get-Content -LiteralPath (Join-Path $root 'skills\power-platform-router\SKILL.md') -Raw
+    $readerBlock = ([regex]::Matches($routerSkill, '(?s)```powershell\s*\r?\n(.*?)\r?\n```')[0]).Groups[1].Value
+    $tokens = $null; $errors = $null
+    $readerAst = [Management.Automation.Language.Parser]::ParseInput($readerBlock, [ref]$tokens, [ref]$errors)
+    Assert-Equal $errors.Count 0
+    $tempLocal = Join-Path ([IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString('N'))
+    $previousLocal = $env:LOCALAPPDATA
+    try {
+        $connDir = Join-Path $tempLocal 'PowerPlatformSetup\connections'
+        New-Item -ItemType Directory -Path $connDir -Force | Out-Null
+        [IO.File]::WriteAllText((Join-Path $connDir 'env-x.json'), '{"schemaVersion":1,"alias":"env-x","environmentUrl":"https://envx.crm.dynamics.com","environmentId":"11111111-1111-1111-1111-111111111111","organizationId":"22222222-2222-2222-2222-222222222222","tenantId":"33333333-3333-3333-3333-333333333333","account":"maker@example.com","defaultSolution":"LaunchpadSolution","pacProfile":"env-x","dataverseProfile":"env-x","azureConfigDir":"C:\\fixture\\az-x","dataverseMcpServer":"dataverse-env-x","powerAutomateMcpServer":"flowagent-env-x","copilotStudioMcpServer":"copilot-studio"}')
+        [IO.File]::WriteAllText((Join-Path $connDir 'env-y.json'), '{"schemaVersion":1,"alias":"env-y","environmentUrl":"https://envy.crm.dynamics.com","environmentId":"44444444-4444-4444-4444-444444444444","organizationId":"55555555-5555-5555-5555-555555555555","tenantId":"33333333-3333-3333-3333-333333333333","account":"maker@example.com","pacProfile":"env-y","dataverseProfile":"env-y","azureConfigDir":"C:\\fixture\\az-x","dataverseMcpServer":"dataverse-env-y","powerAutomateMcpServer":null,"copilotStudioMcpServer":"copilot-studio"}')
+        $env:LOCALAPPDATA = $tempLocal
+        $rows = @(& ($readerAst.GetScriptBlock()))
+        Assert-Equal $rows.Count 2
+        Assert-Equal $rows[0].Alias 'env-x'
+        Assert-Equal $rows[0].DefaultSolution 'LaunchpadSolution'
+        Assert-Equal $rows[0].DataverseMcpServer 'dataverse-env-x'
+        Assert-Equal $rows[0].PowerAutomateMcpServer 'flowagent-env-x'
+        Assert-Equal $rows[0].CopilotStudioMcpServer 'copilot-studio'
+        Assert-Equal $rows[1].Alias 'env-y'
+        Assert-Equal $rows[1].DataverseMcpServer 'dataverse-env-y'
+        Assert-Equal ($null -eq $rows[1].PowerAutomateMcpServer) $true
+        Assert-Equal $rows[1].CopilotStudioMcpServer 'copilot-studio'
+    } finally {
+        $env:LOCALAPPDATA = $previousLocal
+        if (Test-Path -LiteralPath $tempLocal) { Remove-Item -LiteralPath $tempLocal -Recurse -Force }
+    }
 }
 
 Test-Case 'connection Azure scope is restored across multiple environment records and failures with a mocked CLI' {
@@ -1967,6 +2010,7 @@ Test-Case 'skill command examples parse without executing plugin or prerequisite
         'skills\power-platform-setup\SKILL.md',
         'skills\power-platform-doctor\SKILL.md',
         'skills\power-platform-integrations\SKILL.md',
+        'skills\power-platform-router\SKILL.md',
         '.github\skills\power-platform-setup\SKILL.md',
         '.claude\skills\power-platform-setup\SKILL.md')) {
         $text = Get-Content -LiteralPath (Join-Path $root $skillRelative) -Raw
