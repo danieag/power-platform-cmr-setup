@@ -59,7 +59,7 @@ workspace skill, your agent automatically knows how to run `Setup.cmd` safely.
    You do not need Git installed yet just to open the folder.
 2. Paste this **one short prompt**:
 
-> Help me set up Power Platform using this folder. Ask which app and workloads I want, check and install only the required prerequisites with my approval, help me add the plugins, and then ask if I want to connect to an environment.
+> Help me set up Power Platform using this folder. Ask which app I use and let me choose one or multiple workloads, check and install only the combined prerequisites they need with my approval, help me add the plugins, and then ask if I want to connect to an environment.
 
 Or simply ask for a specific workload in plain English—the setup skill will
 trigger automatically and scope `Setup.cmd` to just that workload:

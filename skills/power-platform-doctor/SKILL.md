@@ -76,6 +76,16 @@ Offer **Marketplace only**, **All reviewed plugins** (confirming explicitly
 whether `dataverse` is included), and **None / skip**. Never turn an empty
 selection into `All`, and do not pass arbitrary URLs or unreviewed plugin names.
 
+**Multi-select UI rule:** users usually want **several** plugins together, and
+`-Plugins "id1,id2,..." -Prerequisites FromPlugins` automatically computes the
+union of their required prerequisites. **Never** pass individual plugins as
+single-select `choices` in `ask_user` (clicking one immediately submits and
+blocks choosing multiple!). Use checkboxes only if the host tool natively
+supports `multiSelect: true`; otherwise print the numbered 1–11 catalog and ask
+via freeform `ask_user` (no `choices`, e.g. *"Reply with one or more numbers or
+names, such as `1, 2, 6` or `dataverse, model-apps, power-automate`"*) or offer
+only multi-plugin preset bundles as `choices` alongside the freeform input.
+
 ## 3. Check and install only the required prerequisites
 
 Run the offline, read-only, CLI-free check scoped to their selection using

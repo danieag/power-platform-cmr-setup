@@ -1279,7 +1279,7 @@ function Select-InteractiveSetupMode {
     }
     Write-Host '   M. Marketplace only             - Official marketplace without plugins [git]'
     Write-Host '   A. All 11 plugins               - Full catalog including Dataverse [git, node, dotnet, pac, azure]'
-    $raw = Read-Host 'Enter comma-separated numbers or plugin IDs, M, or A (Enter = cancel)'
+    $raw = Read-Host 'Pick one or more (e.g. 2,3,7 or 2 3 7), plugin IDs, M, or A (Enter = cancel)'
     if ([string]::IsNullOrWhiteSpace($raw)) {
         Write-Host 'Cancelled. No changes made.'
         return [pscustomobject]@{ Cancelled = $true }
@@ -1292,13 +1292,14 @@ function Select-InteractiveSetupMode {
     } elseif ($trimmedRaw -ieq 'A' -or $trimmedRaw -ieq 'All') {
         $selectedPlugins = ($catalog | ForEach-Object { $_.Id }) -join ','
     } else {
+        if ($trimmedRaw -match '(^|,)\s*(,|$)') {
+            Write-Host 'Empty entry in plugin selection. Setup cancelled.'
+            return [pscustomobject]@{ Cancelled = $true }
+        }
         $picked = [System.Collections.Generic.List[string]]::new()
-        foreach ($token in $trimmedRaw.Split(',')) {
+        foreach ($token in [regex]::Split($trimmedRaw, '[\s,]+')) {
             $part = $token.Trim().ToLowerInvariant()
-            if (-not $part) {
-                Write-Host 'Empty entry in plugin selection. Setup cancelled.'
-                return [pscustomobject]@{ Cancelled = $true }
-            }
+            if (-not $part) { continue }
             $num = 0
             if ([int]::TryParse($part, [ref]$num)) {
                 if ($num -lt 1 -or $num -gt $catalog.Count) {

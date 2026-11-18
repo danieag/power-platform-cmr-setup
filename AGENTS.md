@@ -20,7 +20,15 @@ Power Automate and Canvas Apps"*, or *"Add the Power Platform marketplace"*:
    `power-apps-mobile-extension`, `mcp-apps`, `dataverse`, or
    `-MarketplaceOnly`) and scope checks/installs with
    `-Prerequisites FromPlugins` unless they want the full 5-tool setup.
-3. If they already named their workload (for example *"install the prereqs for
+3. **Let users pick multiple workloads at once:** `Setup.ps1` (`-Plugins "id1,id2,..."
+   -Prerequisites FromPlugins`) automatically computes the combined union of
+   prerequisites across all chosen plugins. Never put individual plugins as
+   single-select `ask_user` `choices` (in Copilot, clicking one choice submits
+   immediately and blocks choosing multiple!). Only use checkboxes when the host
+   supports `multiSelect: true`; otherwise show the numbered 1–11 workload list
+   and use freeform `ask_user` (omit `choices`) or multi-plugin bundle presets
+   so the user can enter several numbers/names (e.g. `1, 2, 6`).
+4. If they already named their workload(s) (for example *"install the prereqs for
    model-driven apps"*), run `.\Setup.cmd -CheckOnly -Plugins "model-apps"
    -Prerequisites FromPlugins` right away without a redundant questionnaire,
    explain what is ready and what is missing in plain language, and ask approval

@@ -895,6 +895,8 @@ Test-Case 'plugin catalog maps all 11 plugins and Resolve-SetupPrerequisites enf
     Assert-Equal $catalog.Count 11
     Assert-Equal ((Resolve-SetupPrerequisites -Prerequisites 'FromPlugins' -MarketplaceOnly) -join ',') 'git'
     Assert-Equal ((Resolve-SetupPrerequisites -Prerequisites 'FromPlugins' -Plugins 'canvas-apps') -join ',') 'git,dotnet'
+    Assert-Equal ((Resolve-SetupPrerequisites -Prerequisites 'FromPlugins' -Plugins 'canvas-apps,code-apps-preview') -join ',') 'git,node,dotnet'
+    Assert-Equal ((Resolve-SetupPrerequisites -Prerequisites 'FromPlugins' -Plugins 'canvas-apps,power-automate') -join ',') 'git,node,dotnet,azure'
     Assert-Equal ((Resolve-SetupPrerequisites -Prerequisites 'FromPlugins' -Plugins 'canvas-apps' -IncludeCopilotStudioMcp) -join ',') 'git,node,dotnet'
     Assert-Equal ((Resolve-SetupPrerequisites -Prerequisites 'FromPlugins' -Plugins 'code-apps-preview') -join ',') 'git,node'
     Assert-Equal ((Resolve-SetupPrerequisites -Prerequisites 'FromPlugins' -Plugins 'power-automate') -join ',') 'git,node,azure'
@@ -948,8 +950,12 @@ Test-Case 'interactive setup mode supports selective plugin prerequisites and fu
         New-TestState -Ready @('git', 'node', 'dotnet', 'azure') -Azure:$Azure
     }
     $script:modeAnswers = [Collections.Generic.Queue[string]]::new()
-    foreach ($answer in @('1', '3,7', '4', '', '')) { $script:modeAnswers.Enqueue($answer) }
+    foreach ($answer in @('1', '3 7', '4', '', '')) { $script:modeAnswers.Enqueue($answer) }
     function Read-Host { $script:modeAnswers.Dequeue() }
+    Assert-Equal (Invoke-Setup) 0
+    Assert-Equal $script:modeAnswers.Count 0
+
+    foreach ($answer in @('1', '3, 4, 7', '4', '', '')) { $script:modeAnswers.Enqueue($answer) }
     Assert-Equal (Invoke-Setup) 0
     Assert-Equal $script:modeAnswers.Count 0
 

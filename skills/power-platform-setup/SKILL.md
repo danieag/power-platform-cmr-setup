@@ -74,11 +74,27 @@ substituting a host.
 Ask what they want to build/install, presenting the choices in friendly plain
 language with the tools each choice needs:
 
-- **Selected plugins** (for example `canvas-apps` -> `git, dotnet`;
-  `code-apps-preview` -> `git, node`; `power-automate` or
-  `process-intelligence` or `mobile-app` -> `git, node, azure`; `mcp-apps` or
-  `power-apps-mobile-extension` -> `git, node, dotnet, pac`; `dataverse`,
-  `model-apps`, `power-pages`, or `pcf` -> all 5 core tools).
+- **CRITICAL multi-select UI rule:** users frequently want **multiple** workloads
+  at once (for example *Model-driven apps + Dataverse + Power Automate*), and
+  `Setup.ps1` (`-Plugins "id1,id2,..." -Prerequisites FromPlugins`) automatically
+  combines the union of all prerequisites they need. **Never** put individual
+  plugins as single-select `choices` in `ask_user`! In GitHub Copilot's
+  `ask_user` tool, `choices` is single-select (clicking one option submits
+  immediately and prevents picking multiple). Only use clickable plugin options
+  if your host's question tool explicitly supports `multiSelect: true`.
+  Otherwise show the numbered 1–11 workload table in your message and either
+  call `ask_user` **without `choices`** (freeform: *"Reply with one or more
+  numbers or workload names separated by commas, such as `1, 2, 6` or
+  `Model-driven apps, Power Automate`, `all` for all 11, or `marketplace` for
+  marketplace only"*) **or** offer only multi-plugin preset bundles as `choices`
+  (such as `"Core Maker bundle (Dataverse + Model-driven + Canvas + Power Automate)"`,
+  `"All 11 Power Platform plugins"`, `"Marketplace only"`) while reminding them
+  to type any custom multi-plugin combination in the text box.
+- **Selected plugins** (pass all chosen IDs together in `-Plugins "<id1,id2,...>"`:
+  `canvas-apps` -> `git, dotnet`; `code-apps-preview` -> `git, node`;
+  `power-automate` or `process-intelligence` or `mobile-app` -> `git, node, azure`;
+  `mcp-apps` or `power-apps-mobile-extension` -> `git, node, dotnet, pac`;
+  `dataverse`, `model-apps`, `power-pages`, or `pcf` -> all 5 core tools).
 - **Official marketplace only** (`-MarketplaceOnly` on `CopilotCli`,
   `ClaudeCode`, or `CopilotApp` link -> requires `git` only).
 - **Full workstation setup** (all 5 core tools: `git, node, dotnet, pac, azure`).
