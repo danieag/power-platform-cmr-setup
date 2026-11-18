@@ -59,7 +59,21 @@ $files = @(
     'docs\images\37-copilot-app-manage-marketplaces-add.png',
     'docs\images\38-copilot-app-adding-marketplace.png',
     'docs\images\39-copilot-app-marketplace-added.png',
-    'docs\images\40-agent-connect-handoff.png'
+    'docs\images\40-copilot-app-return-to-session.png',
+    'docs\images\41-agent-confirm-marketplace-added.png',
+    'docs\images\42-copilot-app-allow-model-apps.png',
+    'docs\images\43-copilot-app-install-model-apps.png',
+    'docs\images\44-copilot-app-allow-code-apps.png',
+    'docs\images\45-copilot-app-install-code-apps.png',
+    'docs\images\46-agent-both-plugins-ready-connect.png',
+    'docs\images\47-connect-enter-url-or-discover.png',
+    'docs\images\48-connect-ask-account.png',
+    'docs\images\49-connect-confirm-pac-signin.png',
+    'docs\images\50-connect-pac-device-code-prompt.png',
+    'docs\images\51-connect-enter-device-code.png',
+    'docs\images\52-connect-approve-signin.png',
+    'docs\images\53-connect-pac-signed-in-browser.png',
+    'docs\images\54-connect-complete-summary.png'
 )
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
 $temporary = Join-Path $destination ([guid]::NewGuid().ToString('N') + '.zip')

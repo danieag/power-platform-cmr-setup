@@ -101,28 +101,84 @@ appears under **Marketplaces**:
 
 ---
 
-## 7. Confirm each selected plugin before environment connection
+## 7. Switch back to your setup session and confirm each selected plugin
 
-Because Copilot desktop app confirmations happen inside the app UI (`exit 4`),
-the agent **waits for you to confirm that the marketplace is added first**, and
-then opens the install prompt for each workload you selected one by one (using
-`Setup.cmd -PluginHost CopilotApp -Plugins "<plugin-id>" -SkipMarketplace`,
-which triggers `ghapp://plugins/install?source=<plugin-id>%40power-platform-skills`
-directly in the app, or you can click **+ Install** beside them in **Customize >
-Browse**).
+Adding a marketplace or plugin opens the **Customize** view in the GitHub
+Copilot desktop app. Click back on your active setup session in the left
+sidebar under **Sessions** (marked with the yellow question icon indicating the
+agent is waiting for your confirmation):
 
-Check **Customize > Installed** to verify your chosen plugins are enabled.
+![Left sidebar highlighting the active Power platform setup session to return to after Customize](images/40-copilot-app-return-to-session.png)
+
+Select **Marketplace added** and click **Continue**:
+
+![Agent waiting for confirmation that Added power-platform-skills marketplace appeared](images/41-agent-confirm-marketplace-added.png)
+
+The agent now opens the install prompt for **each workload you chose at the
+start**, one at a time, so dialogs never stack on top of each other. First,
+`model-apps@power-platform-skills` opens—click **Allow**:
+
+![Install plugin confirmation dialog for model-apps@power-platform-skills](images/42-copilot-app-allow-model-apps.png)
+
+Then click **Install** in the Customize modal, return to your setup session in
+the sidebar, and confirm **`model-apps installed`**:
+
+![Install plugin modal with model-apps@power-platform-skills pre-filled and the Install button](images/43-copilot-app-install-model-apps.png)
+
+Next, the agent opens your second chosen plugin,
+`code-apps-preview@power-platform-skills`—click **Allow**:
+
+![Install plugin confirmation dialog for code-apps-preview@power-platform-skills](images/44-copilot-app-allow-code-apps.png)
+
+Click **Install**, return to your setup session in the sidebar, and confirm
+**`code-apps-preview installed`**:
+
+![Install plugin modal with code-apps-preview@power-platform-skills pre-filled and the Install button](images/45-copilot-app-install-code-apps.png)
 
 ---
 
 ## 8. Optional: connect to your Power Platform environment
 
-Only **after** your marketplace and selected plugins are confirmed does the
-agent ask whether you want to connect to a Power Platform environment:
+Only **after** all selected plugins are confirmed in place does the agent ask
+whether you want to connect to a Power Platform environment (sensitive
+environment URLs, admin emails, organization names, device codes, and local
+paths below have been redacted):
 
-![Agent asking whether to connect to a Power Platform environment now or skip](images/40-agent-connect-handoff.png)
+![Agent confirming both plugins are in place and asking whether to connect to an environment](images/46-agent-both-plugins-ready-connect.png)
 
-If you choose **Yes, connect to an environment**, follow the
-[illustrated Power Platform Connect guide](power-platform-connect-guide.md) to
-sign in with PAC CLI, pick one or more environments from `pac env list` (or
-enter an existing URL), and register your selected tools.
+1. **Enter your environment URL (or type `discover`):** enter an existing
+   Dataverse URL (such as `https://yourorg.crm.dynamics.com`) or type `discover`
+   to list environments after signing in:
+
+   ![Prompt asking for the target environment URL or discover](images/47-connect-enter-url-or-discover.png)
+
+2. **Provide your work/school sign-in email and approve PAC sign-in:** the agent
+   confirms the exact account and target environment URL before running any
+   authentication command:
+
+   ![Prompt asking which work or school email to sign in with for the redacted environment URL](images/48-connect-ask-account.png)
+
+   ![Confirmation card verifying the redacted account email and environment URL before PAC sign-in](images/49-connect-confirm-pac-signin.png)
+
+3. **Complete interactive / device-code sign-in in your browser:** PAC CLI
+   displays a one-time device code for `https://login.microsoft.com/device` (or
+   opens your browser). Enter the code and approve sign-in with your Microsoft
+   Entra account:
+
+   ![Agent running PAC device-code sign-in and displaying the redacted one-time code](images/50-connect-pac-device-code-prompt.png)
+
+   ![Microsoft browser prompt to enter the one-time device code](images/51-connect-enter-device-code.png)
+
+   ![Microsoft Entra prompt confirming sign-in to Power Platform CLI - pac](images/52-connect-approve-signin.png)
+
+   ![Browser confirmation that Power Platform CLI - pac sign-in succeeded](images/53-connect-pac-signed-in-browser.png)
+
+4. **Review the completion summary:** the agent reports prerequisites, confirmed
+   plugins, and your active PAC profile separately, and reminds you to reopen
+   your terminal/app if `PATH` changed during this session:
+
+   ![Final summary reporting prerequisites, confirmed plugins, and the redacted PAC connection profile](images/54-connect-complete-summary.png)
+
+For multi-surface setup (Dataverse CLI, Dataverse MCP registration, and
+tenant-isolated Azure CLI caches), see the companion
+[Power Platform Connect guide](power-platform-connect-guide.md).
