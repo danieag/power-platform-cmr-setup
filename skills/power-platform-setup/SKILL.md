@@ -192,31 +192,55 @@ and all approved plugins from Step 3 have finished installing (for `CopilotApp`
 or VS Code UI, until the user explicitly confirms they completed the in-app
 plugin installations or chose to skip them).
 
-When Step 3 is complete and the request includes connection onboarding, read
-`skills/power-platform-connect/SKILL.md` from this same repo and follow it;
-the user need not paste a second setup prompt. If the user asked only for
-installation, ask whether they want to connect before initiating this stage.
-The skill file can be read directly; a personal copy is optional and still
-requires its own installation approval.
+Once Step 3 is confirmed complete, **always ask explicitly** whether the user
+wants to run the persistent connection setup (`skills/power-platform-connect/SKILL.md`)
+now. If they say yes, **always read and follow
+`skills/power-platform-connect/SKILL.md` end to end**—never improvise a bare
+`pac auth create` one-liner that skips Azure CLI, Dataverse checks, or the
+private `%LOCALAPPDATA%\PowerPlatformSetup\connections\<alias>.json` binding
+record!
 
-Connect **only the surfaces relevant to the user's chosen plugins**. If their
-selective setup intentionally omitted `pac` (for example `power-automate`,
-`process-intelligence`, `canvas-apps`, or `code-apps-preview`), do **not** run
-`pac` commands or assume PAC is installed: guide the relevant surface instead
-(such as scoped `az login` for Azure-backed plugins, Studio coauthoring for
-Canvas Apps, or `pa` sign-in during Code Apps work), or obtain separate
-prerequisite install approval first if they want PAC environment discovery.
-When PAC is part of their setup, confirm the host, sign-in identity and tenant,
-let the connection skill reuse/sign in to PAC in an approved exact environment
-context, run `pac env list`, present returned environment names/URLs, and keep
-manual entry of another existing URL available. Discovery approval is not
-approval to configure all returned environments. Confirm each selected target,
-nickname and tools as the connection skill requires. Reuse supplied details
-without asking again, but never infer a tenant from the active profile.
-Ask before additional software, profile changes, private binding records,
-authentication, MCP registration/startup and bounded live identity checks.
-Do not install Dataverse CLI just because its plugin was selected; check first
-and ask only when the selected connection needs it and it is missing.
+Inside `power-platform-connect`, inspect what is **actually installed** and map
+to the user's chosen plugins before offering surfaces:
+
+1. **PAC CLI (`pac`):** check whether `pac` (`> 2.10.0`) is installed. Connect a
+   named PAC profile when installed and used by their plugins (`model-apps`,
+   `power-pages`, `pcf`, `power-apps-mobile-extension`, `mcp-apps`, `dataverse`).
+   If their selective setup intentionally skipped `pac` (`power-automate`,
+   `process-intelligence`, `canvas-apps`, `code-apps-preview`), skip PAC
+   commands unless they separately approve installing `.NET 10 SDK` + `PAC`.
+2. **Azure CLI (`az`):** check whether `az` is installed! Connect Azure CLI
+   (`az login --tenant ... --allow-no-subscriptions` in a tenant-scoped
+   `AZURE_CONFIG_DIR`) whenever `az` is installed and used by their plugins
+   (`model-apps`, `power-pages`, `power-automate`, `process-intelligence`,
+   `pcf`, `mobile-app`, `dataverse`)—do **not** omit Azure CLI just because the
+   `dataverse` plugin was not chosen!
+3. **`dataverse` plugin -> Dataverse CLI + Dataverse MCP:** check whether the
+   **`dataverse` plugin** is installed/selected (and Node/npm is ready):
+   - **If `dataverse` IS installed:** offer **Dataverse CLI**
+     (`@microsoft/dataverse`, installing via npm only if missing and approved)
+     and **Dataverse MCP** (`mcp-config.json`), reusing `dv-connect`'s stdio
+     proxy contract without writing a project `.env` into the setup folder or
+     forcing Python/`pandas` unless requested.
+   - **If `dataverse` is NOT installed:** explain that Dataverse CLI and
+     Dataverse MCP pair with the `dataverse` plugin, and let the user choose
+     either **(A) skip Dataverse CLI & Dataverse MCP** (connecting only their
+     installed PAC / Azure CLI surfaces) or **(B) install the `dataverse` plugin
+     first** (plus Node/npm if missing, with separate approval) and then connect
+     Dataverse CLI + Dataverse MCP.
+4. **Persistent binding record (`connections\<alias>.json`) & verification:**
+   always offer/save the approved token-free binding record (recording whichever
+   surfaces were configured) and run the bounded identity + restart persistence
+   checks so `AZURE_CONFIG_DIR` and named profiles remain reusable across chats!
+
+Confirm the host, sign-in identity and tenant, reuse/sign in to PAC in an
+approved exact environment context when PAC is active, run `pac env list`,
+present returned environment names/URLs, and keep manual entry of another
+existing URL available. Discovery approval is not approval to configure all
+returned environments. Confirm each selected target, nickname and tools as the
+connection skill requires. Ask before additional software, profile changes,
+private binding records, authentication, MCP registration/startup and bounded
+live identity checks.
 
 Read the installed `dv-overview` / `dv-connect` resources through their supported
 locations when needed. If an installed plugin's `PreToolUse` file-write hook

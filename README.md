@@ -260,17 +260,29 @@ before retrying the marketplace.
 
 ## Step 3: connect to your environment
 
-With Alternative B's full-flow prompt, the agent now reads the bundled
-connection skill and continues asking for your target and approvals. You do not
-need another starting prompt or a personal skill copy.
+Once your plugins are confirmed in place, the agent asks whether you want to run
+the bundled [`power-platform-connect` skill](skills/power-platform-connect/SKILL.md)
+for persistent sign-in—checking what is actually installed on your PC first:
 
-The guided route is **PAC sign-in/reuse > `pac env list` > environment names
-and URLs > your selection > saved connections**. Choose one or several
-environments. Discovery requires an approved PAC account/tenant/profile context;
-if no suitable profile exists, the skill first asks for one known environment
-URL to establish that initial sign-in context, then lists environments.
-The list contains Dataverse environments returned by discovery, not guaranteed
-coverage of every tenant or every Power Platform environment.
+- **PAC CLI (`pac`)** and **Azure CLI (`az`)** are checked and connected when
+  installed and used by your chosen plugins (for example `model-apps`,
+  `power-pages`, and `pcf` use both PAC and Azure CLI; `power-automate` uses
+  Azure CLI without needing PAC).
+- **Dataverse CLI (`@microsoft/dataverse`) and Dataverse MCP** check whether the
+  **`dataverse` plugin** is installed: if it is not installed, they are cleanly
+  skipped (or you can opt in to adding the `dataverse` plugin first).
+- **Persistent binding record:** saves a private, token-free `<alias>.json`
+  record under `%LOCALAPPDATA%\PowerPlatformSetup\connections\` so named
+  profiles and tenant-isolated `AZURE_CONFIG_DIR` settings stay reusable across
+  chats even when `dataverse` is not installed.
+
+When PAC is active, the guided route is **PAC sign-in/reuse > `pac env list` >
+environment names and URLs > your selection > saved connections**. Choose one or
+several environments; if no suitable PAC profile exists yet, the skill first
+asks for one known environment URL to establish that initial sign-in context,
+then lists environments. The list contains Dataverse environments returned by
+discovery, not guaranteed coverage of every tenant or every Power Platform
+environment.
 
 **You can always add another existing environment by URL**, even if it is not
 listed or saved locally. Re-run the connection skill whenever you need another

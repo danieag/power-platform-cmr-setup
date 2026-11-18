@@ -236,28 +236,39 @@ consent, role grant, MCP allowlist change, connector creation, or cloud resource
 write is part of this flow. A consent/403/policy blocker must be reported for a
 separately approved admin action, not silently "fixed."
 
-## 2. Check tools; reuse the official Dataverse connection skill
+## 2. Check installed tools & plugins; gate surfaces cleanly
 
-Locate the reviewed, extracted setup repository and run `.\Setup.cmd -CheckOnly`
-**from that folder** first. If unavailable, ask where it was extracted or obtain
-and review the full official source before running it; do not assume the script
-exists in the current project or download a random launcher. The full setup now
-includes Azure CLI after PAC by default. Use `-SkipAzureCli` only if the user
-chooses a minimal setup without Azure-dependent workflows. Installing Azure
-does not authorize signing into it; connect only the selected surfaces.
-Missing prerequisites still need their own installation approval.
-The same installer handles x64/ARM64; do not replace it with ad hoc installers.
+This skill is the **workstation-level connection router**—it works **with or
+without** the `dataverse` plugin installed (unlike Microsoft's `dv-connect`,
+which initializes a Python/`.env` coding workspace and does not configure Azure
+CLI). Locate the reviewed, extracted setup repository and run an offline
+`.\Setup.cmd -CheckOnly` (adding `-Prerequisites "<ids>"` or `-Plugins "<ids>"
+-Prerequisites FromPlugins` when the user chose a selective setup) **from that
+folder** first. If unavailable, ask where it was extracted or obtain and review
+the full official source before running it; do not assume the script exists in
+the current project or download a random launcher.
 
-Read the installed Microsoft Dataverse plugin's **`dv-overview`**, then
-**`dv-connect`** and its current MCP/auth references. If the plugin is missing,
-use this repository's integration stage only with the user's approval. Official
-source: [Microsoft Dataverse connection skill](https://github.com/microsoft/Dataverse-skills/blob/main/.github/plugins/dataverse/skills/dv-connect/SKILL.md).
+Before proposing connection tools to the user, check which prerequisites and
+plugins are **actually installed** and gate each surface accordingly:
+
+| Connection surface | Local prerequisite & plugin check | What to do when missing |
+|---|---|---|
+| **PAC CLI (`pac`)** | Check `pac` (`> 2.10.0`) from `-CheckOnly`. Needed by `model-apps`, `power-pages`, `pcf`, `power-apps-mobile-extension`, `mcp-apps`, and `dataverse`. | If intentionally omitted (for example `power-automate`, `process-intelligence`, `canvas-apps`, or `code-apps-preview`), **skip PAC** and use manual environment URL entry where needed; otherwise ask separate prerequisite install approval (`-Prerequisites "dotnet,pac"`). |
+| **Azure CLI (`az`)** | Check `az` from `-CheckOnly`. Needed by `model-apps`, `power-pages`, `power-automate`, `process-intelligence`, `pcf`, `mobile-app`, and `dataverse`. | Do **not** skip Azure CLI merely because `dataverse` was not selected! If `az` is installed and relevant to their chosen plugins, offer tenant-isolated Azure CLI sign-in (`AZURE_CONFIG_DIR`). If `az` is missing and needed, ask separate prerequisite install approval (`-Prerequisites "azure"`), or skip Azure CLI if unneeded. |
+| **Dataverse CLI (`@microsoft/dataverse`) & Dataverse MCP** | Check whether the **`dataverse` plugin** is installed in the chosen host (via CLI `plugin list --json`, read-only host plugin inspection, or user confirmation on `CopilotApp`/VS Code) **and** Node/npm is `[READY]`. | If the `dataverse` plugin is **not** installed: explain that Dataverse CLI and Dataverse MCP pair with the `dataverse` plugin, and let the user choose either **(A) skip Dataverse CLI & Dataverse MCP** (connecting only their installed PAC / Azure CLI tools) or **(B) install the `dataverse` plugin first** (plus Node/npm if missing, with separate approval). |
+| **Private binding record (`connections\<alias>.json`)** | No extra binary required. | **Always offer and save** (with approval) for every connected environment—even PAC+Azure or PAC-only setups without `dataverse`—so `AZURE_CONFIG_DIR` and profile names remain persistent across sessions! |
+
+When the **`dataverse` plugin IS installed** (and Dataverse CLI/MCP was chosen),
+read its installed **`dv-overview`** and **`dv-connect`** MCP/auth references to
+follow its current `@microsoft/dataverse` CLI auth and stdio MCP proxy contract.
+Official source: [Microsoft Dataverse connection skill](https://github.com/microsoft/Dataverse-skills/blob/main/.github/plugins/dataverse/skills/dv-connect/SKILL.md).
 
 Use that specialist's supported profile/cache and proxy mechanisms; do not
 copy its auth helper or implement another MSAL/device-code protocol. Its broader
-flow can propose installs, `.env`, SDK scaffolding, or tenant writes: do **only**
-the subset approved here. Do not create a project, solution, Python environment,
-service principal, or repository-local settings just to sign in.
+`dv-connect` flow can propose Python/`pandas` installs, workspace `.env` files,
+SDK scaffolding, or tenant writes: do **only** the workstation subset approved
+here. Never write `.env` into the setup repository or install Python just to
+authenticate CLIs or register Dataverse MCP.
 
 ### Explain any additional Dataverse CLI installation
 
