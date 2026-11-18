@@ -219,7 +219,13 @@ Do not install Dataverse CLI just because its plugin was selected; check first
 and ask only when the selected connection needs it and it is missing.
 
 Read the installed `dv-overview` / `dv-connect` resources through their supported
-locations when needed. If freshly installed plugin resources or callable MCP
+locations when needed. If an installed plugin's `PreToolUse` file-write hook
+(such as `model-apps@power-platform-skills`) fails on Windows with `"hook
+errored"` when saving `%USERPROFILE%\.copilot\mcp-config.json` or the private
+connection record, do not silently work around it: tell the user which plugin's
+hook errored so they can temporarily toggle that plugin off under **Customize >
+Installed**, retry the approved write, and toggle the plugin back on afterward.
+If freshly installed plugin resources or callable MCP
 tools are not available in the current host, use the pause/resume procedure
 below. Reading an instruction file is not proof that its MCP tools are loaded.
 Do not duplicate the connection skill's auth implementation or invent tokens,

@@ -548,6 +548,17 @@ Use the installed official `@microsoft/dataverse` package, rather than fetching
   Preserve unrelated definitions, ACLs, tool restrictions and safe backups.
   Stop on malformed config, custom locations, or concurrent edits you cannot
   safely reconcile. A Copilot desktop user does not need another host installed.
+- **Windows plugin `PreToolUse` hook errors (`"hook errored"`):** some installed
+  Power Platform plugins (notably `model-apps@power-platform-skills`, `pcf`,
+  `power-pages`, and `mobile-app`) attach Unix-quoted `PreToolUse` hooks to
+  `Write|Edit|MultiEdit` that can fail on Windows when writing
+  `%USERPROFILE%\.copilot\mcp-config.json` or
+  `%LOCALAPPDATA%\PowerPlatformSetup\connections\<alias>.json` outside the
+  workspace folder. Never silently bypass a blocked hook: name the exact plugin
+  reported in the error, ask the user to **temporarily toggle that plugin off in
+  `Customize > Installed`** (or disable it briefly in the selected host), retry
+  the approved configuration write once they confirm, and **remind them to turn
+  the plugin back on afterward**.
 - Do not read, decode, copy, export, or transplant MSAL/DPAPI token caches.
   Authentication reuse is performed by the official tools, never by the skill.
 

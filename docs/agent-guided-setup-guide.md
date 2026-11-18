@@ -179,6 +179,66 @@ paths below have been redacted):
 
    ![Final summary reporting prerequisites, confirmed plugins, and the redacted PAC connection profile](images/54-connect-complete-summary.png)
 
-For multi-surface setup (Dataverse CLI, Dataverse MCP registration, and
-tenant-isolated Azure CLI caches), see the companion
+---
+
+## 9. Extending your connection: Dataverse CLI, Dataverse MCP, Azure CLI, and persistence
+
+You can also add the **Dataverse** plugin, **Dataverse CLI** (`@microsoft/dataverse`),
+**Dataverse MCP**, and **Azure CLI** to the same authenticated PAC environment
+profile (all environment URLs, admin emails, profile aliases, and organization
+IDs below are redacted):
+
+1. **Install the Dataverse plugin and reuse your PAC profile target:** after
+   confirming `dataverse` under **Customize > Installed**, the agent detects
+   your existing PAC profile and asks before connecting Dataverse to that same
+   environment:
+
+   ![Agent confirming the Dataverse plugin install and offering to connect Dataverse to the existing redacted PAC environment](images/55-connect-add-dataverse-plugin.png)
+
+2. **Approve installing `@microsoft/dataverse` (only if missing) and signing in:**
+   installing the npm CLI and signing into your environment are separate
+   approvals:
+
+   ![Prompt asking permission to install @microsoft/dataverse globally via npm](images/56-connect-approve-dataverse-cli-npm.png)
+
+   ![Prompt asking permission to start Dataverse CLI device-code sign-in for the redacted account and environment](images/57-connect-approve-dataverse-cli-signin.png)
+
+   ![Summary confirming both PAC and Dataverse CLI profiles exist and offering Dataverse MCP registration next](images/58-connect-dataverse-cli-ready-offer-mcp.png)
+
+3. **Register Dataverse MCP in `%USERPROFILE%\.copilot\mcp-config.json`:**
+   the agent shows the exact MCP server entry and asks before writing
+   `mcp-config.json`:
+
+   ![Prompt asking approval to create %USERPROFILE%\.copilot\mcp-config.json](images/59-connect-approve-mcp-config.png)
+
+   > **Tip — if an installed plugin hook blocks `mcp-config.json` (`"hook errored"`):**
+   > Some Power Platform plugins (such as **`model-apps@power-platform-skills`**)
+   > include a pre-tool-use file-write hook that can error on Windows when an
+   > agent writes `%USERPROFILE%\.copilot\mcp-config.json` outside the workspace
+   > folder. If the agent reports that a plugin hook blocked the write, open
+   > **Customize > Installed**, temporarily toggle that plugin **off**, ask the
+   > agent to retry saving `mcp-config.json`, and then toggle the plugin back
+   > **on** afterward!
+
+   ![Agent confirming mcp-config.json was created on retry and asking to reload or start a new chat](images/60-connect-mcp-config-saved.png)
+
+4. **Verify Dataverse MCP in `Customize > Installed` and run a read-only check:**
+   confirm the custom MCP server appears enabled under **Customize > Installed >
+   MCP Servers**, then ask the agent to run a read-only check and list its tools:
+
+   ![Copilot desktop app Customize Installed view showing the enabled Dataverse MCP server](images/61-connect-mcp-server-customize-installed.png)
+
+   ![Read-only Dataverse MCP query succeeding and listing all 18 exposed tools](images/62-connect-mcp-live-verify-tools.png)
+
+5. **Align Azure CLI, save the private binding record, and verify persistence
+   after restart:** once Azure CLI, PAC, Dataverse CLI, and Dataverse MCP all
+   confirm the same account, tenant, and organization ID, the agent writes the
+   token-free binding record under `%LOCALAPPDATA%\PowerPlatformSetup\connections\`
+   and verifies everything stays signed in across a restart:
+
+   ![Table confirming Azure CLI, PAC, Dataverse CLI, Dataverse MCP, and the private connection record](images/63-connect-all-surfaces-summary.png)
+
+   ![Post-restart persistence check confirming Azure CLI, PAC, Dataverse CLI, and Dataverse MCP work with no new sign-in prompts](images/64-connect-persistence-verified.png)
+
+For additional multi-environment details, see the companion
 [Power Platform Connect guide](power-platform-connect-guide.md).

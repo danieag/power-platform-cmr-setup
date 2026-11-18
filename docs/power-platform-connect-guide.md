@@ -231,6 +231,15 @@ or can access Dataverse. Launching the server and live verification require
 their own approval. Missing tenant consent, allowlisting, or roles must be
 reported for a separate decision, not silently changed.
 
+> **Troubleshooting `"hook errored"` when saving `mcp-config.json`:** Some
+> installed Power Platform plugins (such as `model-apps@power-platform-skills`)
+> include a pre-tool-use file-write hook that can error on Windows when an agent
+> writes `%USERPROFILE%\.copilot\mcp-config.json` outside the project folder. If
+> the agent reports that a plugin hook blocked creating `mcp-config.json`, open
+> **Customize > Installed**, temporarily toggle that plugin **off**, ask the
+> agent to retry saving the approved MCP configuration, and toggle the plugin
+> back **on** right afterward.
+
 ## 9. Restart when required, then verify the live connection
 
 The agent should explain any reload/restart needed to load the definition.

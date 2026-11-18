@@ -73,7 +73,17 @@ $files = @(
     'docs\images\51-connect-enter-device-code.png',
     'docs\images\52-connect-approve-signin.png',
     'docs\images\53-connect-pac-signed-in-browser.png',
-    'docs\images\54-connect-complete-summary.png'
+    'docs\images\54-connect-complete-summary.png',
+    'docs\images\55-connect-add-dataverse-plugin.png',
+    'docs\images\56-connect-approve-dataverse-cli-npm.png',
+    'docs\images\57-connect-approve-dataverse-cli-signin.png',
+    'docs\images\58-connect-dataverse-cli-ready-offer-mcp.png',
+    'docs\images\59-connect-approve-mcp-config.png',
+    'docs\images\60-connect-mcp-config-saved.png',
+    'docs\images\61-connect-mcp-server-customize-installed.png',
+    'docs\images\62-connect-mcp-live-verify-tools.png',
+    'docs\images\63-connect-all-surfaces-summary.png',
+    'docs\images\64-connect-persistence-verified.png'
 )
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
 $temporary = Join-Path $destination ([guid]::NewGuid().ToString('N') + '.zip')
