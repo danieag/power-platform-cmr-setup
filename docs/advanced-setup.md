@@ -429,11 +429,16 @@ When `HKCR\ghapp` is registered on Windows, Setup triggers
 `ghapp://plugins/marketplace/add?source=microsoft%2Fpower-platform-skills`
 directly so the **Add Marketplace** confirmation opens inside the GitHub Copilot
 desktop app without launching a web browser, and also prints the official links
-matching [Microsoft's marketplace README](https://github.com/microsoft/power-platform-skills#install-one-plugin-with-a-click).
+The printed links match [Microsoft's marketplace README](https://github.com/microsoft/power-platform-skills#install-one-plugin-with-a-click).
 Opening or printing links does not install plugins without your confirmation in
-the app. Confirm the marketplace dialog once first, then open the selected
-plugin links (or install from **Customize**). No web browser is opened
-automatically and no account or browser profile is selected.
+the app. In agent-guided `-NonInteractive` runs, add the marketplace first with
+`-PluginHost CopilotApp -MarketplaceOnly -Prerequisites FromPlugins -AcceptPlugins`,
+wait for user confirmation in the app, and then open each selected plugin dialog
+one at a time with `-PluginHost CopilotApp -Plugins "<single-id>" -SkipMarketplace
+-Prerequisites FromPlugins -AcceptPlugins` (in interactive `Setup.cmd` runs,
+pressing Enter after confirming the marketplace steps through each selected
+plugin dialog one by one). No web browser is opened automatically and no
+account or browser profile is selected.
 
 ### Agent/noninteractive usage
 

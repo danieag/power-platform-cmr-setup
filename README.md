@@ -83,31 +83,34 @@ If Windows blocks running `Setup.ps1` directly, always run **`Setup.cmd`**,
 which uses a child-process-only policy exception without changing persistent
 PowerShell settings. Enterprise IT policies still apply normally.
 
+**See the [illustrated agent-guided setup walkthrough](docs/agent-guided-setup-guide.md)**
+for every screen in order: attaching the folder, picking multiple workloads,
+selective prerequisite checks, confirming the `microsoft/power-platform-skills`
+marketplace dialog in the Copilot desktop app, confirming each selected plugin,
+and handing off to environment connection.
+
 <details>
-<summary>Screenshots: attach the folder, paste the prompt, and choose a host</summary>
+<summary>Quick preview screenshots: short prompt, multi-workload picker, and marketplace prompt</summary>
 
 Choose **Add local folder or repository** (unrelated recent projects have been
-cropped out):
+cropped out), then paste the short prompt above:
 
 ![Copilot menu option to add a local folder or repository](docs/images/09-add-local-folder.png)
 
-Attach/open the complete setup folder or repository, then paste the full
-starting prompt above. This screenshot shows the prompt **in the composer,
-before sending**; scroll within the composer to review the whole message.
-Use the copyable text above rather than transcribing the image:
+![GitHub Copilot desktop app with the short setup prompt in the composer](docs/images/31-agent-short-prompt.png)
 
-![Full guided-onboarding prompt drafted in Copilot with the setup repository attached](docs/images/29-agent-guided-prompt.png)
+After you choose your app, pick **one or multiple workloads** (such as `1,3`
+for Model-driven apps + Code apps) so Setup checks only the prerequisites they
+need:
 
-After the readiness check, the agent confirms the intended existing host.
-Choose your own host; the highlighted desktop row is not a recommendation to
-choose it instead of your CLI:
+![Multi-workload selection prompt with 1,3 entered](docs/images/33-agent-multi-workload-select.png)
 
-![Agent asking which existing host to use, separately from installation approval](docs/images/30-agent-host-selection.png)
+On the GitHub Copilot desktop app, approving the marketplace opens the native
+`Add plugin marketplace?` prompt directly inside the app (`Allow` -> `Add`),
+waits for your confirmation, and then opens each selected plugin's install
+prompt before offering environment connection:
 
-**Host selection is not installation/configuration approval.** Any prerequisite
-installation plan and later marketplace/plugin changes have separate decisions.
-The images illustrate the interface, not proof of completed setup or sign-in.
-Appearance and question wording can vary by agent/version.
+![Copilot desktop app Add plugin marketplace confirmation dialog](docs/images/36-copilot-app-allow-marketplace.png)
 
 </details>
 

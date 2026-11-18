@@ -95,10 +95,17 @@ Power Automate and Canvas Apps"*, or *"Add the Power Platform marketplace"*:
    private. Stop on conflicts or concurrent writes rather than overwriting them.
 8. Report tools, plugin/MCP registration, runtime visibility, and authentication
    separately. Desktop links return exit `4`: user app confirmations are pending,
-   not a verified installation. Do not open authenticated browser URLs or install
-   another host as a shortcut. Use `skills/power-platform-integrations/SKILL.md`
-   for custom plugin selections or agent-guided Copilot Studio MCP setup.
-   Preserve existing MCP configuration and verify desktop visibility separately.
+   not a verified installation. On `CopilotApp`, always sequence confirmations:
+   first run `-PluginHost CopilotApp -MarketplaceOnly -Prerequisites FromPlugins
+   -AcceptPlugins` and wait for the user to confirm the marketplace is added;
+   then open each selected plugin one at a time with `-PluginHost CopilotApp
+   -Plugins "<single-id>" -SkipMarketplace -Prerequisites FromPlugins
+   -AcceptPlugins` and wait for user confirmation before opening the next plugin
+   or offering `power-platform-connect`. Do not open authenticated browser URLs
+   or install another host as a shortcut. Use
+   `skills/power-platform-integrations/SKILL.md` for custom plugin selections or
+   agent-guided Copilot Studio MCP setup. Preserve existing MCP configuration
+   and verify desktop visibility separately.
 9. The final optional stage installs only the bundled connection skill file.
    Use `-ConnectionSkillHost <host> -AcceptConnectionSkill` only after approval
    for that host's personal skill directory. It never runs authentication.

@@ -152,23 +152,43 @@ sign-in, live MCP calls, tenant selection, or cloud changes.
 
 ## 5. Execute the exact approved selection
 
-Reuse `Setup.cmd -Plugins ... -Prerequisites FromPlugins`, not the broad
-marketplace `scripts/install.js` or a second plugin installer. Choose **one**
-matching host command and replace the example IDs with the approved selection:
+Reuse `Setup.cmd`, not the broad marketplace `scripts/install.js` or a second
+plugin installer.
+
+For **`CopilotCli` or `ClaudeCode`**, pass all approved plugin IDs in one
+comma-separated `-Plugins` string:
 
 ```powershell
 .\Setup.cmd -NonInteractive -PluginHost CopilotCli -Plugins "dataverse,model-apps" -Prerequisites FromPlugins -AcceptPlugins
 .\Setup.cmd -NonInteractive -PluginHost ClaudeCode -Plugins "dataverse,model-apps" -Prerequisites FromPlugins -AcceptPlugins
-.\Setup.cmd -NonInteractive -PluginHost CopilotApp -Plugins "dataverse,model-apps" -Prerequisites FromPlugins -AcceptPlugins
 ```
+
+For **`CopilotApp` (GitHub Copilot desktop app)**, `ghapp://` modals are
+asynchronous in-app dialogs (`exit 4`)—**never fire everything and jump ahead to
+connection onboarding while modals are still open!** Execute sequentially with
+user confirmation at each step:
+
+1. **First add the marketplace & wait:** run
+   `.\Setup.cmd -NonInteractive -PluginHost CopilotApp -MarketplaceOnly -Prerequisites FromPlugins -AcceptPlugins`
+   and **stop with `ask_user`** until the user confirms clicking **Allow -> Add**
+   (`✓ Added power-platform-skills marketplace`) in the Copilot app (skip this
+   sub-step if the user confirms the marketplace is already added).
+2. **Then trigger each selected plugin one at a time with `-SkipMarketplace` & wait:**
+   ```powershell
+   .\Setup.cmd -NonInteractive -PluginHost CopilotApp -Plugins "model-apps" -SkipMarketplace -Prerequisites FromPlugins -AcceptPlugins
+   ```
+   Each call opens `ghapp://plugins/install?source=<id>%40power-platform-skills`
+   directly in the Copilot desktop app (also share the printed launch link in
+   chat as fallback). **Stop with `ask_user` after each plugin** so the user can
+   confirm installing that plugin in the app before the next modal opens—and
+   confirm all selected plugins are installed before moving to connection setup!
 
 Always pass `-Plugins` explicitly (`All` only when the standard full set was
 explicitly approved; add `-IncludeDataverse` or include `dataverse` in `-Plugins`
 only when approved). Keeping `-Prerequisites FromPlugins` verifies only the
 prerequisites required by the selected plugins, while omitting `-Install -Accept`
 ensures a newly missing prerequisite stops with exit `2` instead of installing
-unapproved software. For `CopilotApp`, exit `4` means the official marketplace
-and selected plugin links were printed and await user confirmation in the app.
+unapproved software.
 
 Do not run npm/npx to install Dataverse CLI here. Installing the Dataverse
 plugin is not installing that CLI; connection onboarding handles it later

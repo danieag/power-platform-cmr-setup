@@ -151,25 +151,48 @@ conversation. Keep `-Prerequisites FromPlugins` on selective reruns so
 intentionally skipped tools (such as `.NET`/`PAC` for Power Automate or `Node`/
 `Azure` for Canvas Apps) never block plugin setup:
 
-- **Marketplace-only** (`CopilotCli`, `ClaudeCode`, or `CopilotApp` link),
-  after marketplace approval:
-  `.\Setup.cmd -NonInteractive -PluginHost <host> -MarketplaceOnly -Prerequisites FromPlugins -AcceptPlugins`
-- **Selected plugins** (`CopilotCli`, `ClaudeCode`, or `CopilotApp` links),
-  after inspecting CLI state (when using a CLI) and obtaining plugin approval:
-  `.\Setup.cmd -NonInteractive -PluginHost <host> -Plugins "<id,id>" -Prerequisites FromPlugins -AcceptPlugins`
+- **CLI hosts (`CopilotCli` or `ClaudeCode`)**:
+  - Marketplace-only, after marketplace approval:
+    `.\Setup.cmd -NonInteractive -PluginHost <host> -MarketplaceOnly -Prerequisites FromPlugins -AcceptPlugins`
+  - Selected plugins, after inspecting CLI state and obtaining plugin approval:
+    `.\Setup.cmd -NonInteractive -PluginHost <host> -Plugins "<id,id>" -Prerequisites FromPlugins -AcceptPlugins`
+- **GitHub Copilot desktop app (`CopilotApp` — MANDATORY step-by-step confirmation!):**
+  Because `ghapp://` prompts open asynchronous in-app dialogs and exit `4`
+  immediately while the user is still clicking in the UI, **never jump ahead to
+  environment connection while marketplace or plugin dialogs are unconfirmed!**
+  Execute in strict confirmed steps:
+  1. **Add marketplace first & WAIT:** after user approval, run
+     `.\Setup.cmd -NonInteractive -PluginHost CopilotApp -MarketplaceOnly -Prerequisites FromPlugins -AcceptPlugins`
+     (triggers `ghapp://plugins/marketplace/add?source=microsoft%2Fpower-platform-skills`).
+     **Immediately pause with `ask_user`** asking the user to click **Allow -> Add**
+     in the Copilot app until `✓ Added power-platform-skills marketplace` appears
+     (or let them say the marketplace was already added).
+  2. **Open each selected plugin prompt one by one & WAIT:** only AFTER the user
+     confirms the marketplace is added, if plugins were selected, trigger **one
+     plugin at a time** with `-SkipMarketplace`:
+     `.\Setup.cmd -NonInteractive -PluginHost CopilotApp -Plugins "<single-id>" -SkipMarketplace -Prerequisites FromPlugins -AcceptPlugins`
+     (triggers `ghapp://plugins/install?source=<single-id>%40power-platform-skills`
+     directly in the Copilot app, and include the clickable launch link in chat
+     as fallback). **Pause with `ask_user` after each plugin** so the user confirms
+     installing that plugin in the Copilot app before you open the next plugin's
+     modal—and confirm all selected plugins appear under **Customize > Installed**
+     before moving to Step 4!
 - **VS Code without CLI**: guide the user through **Customizations > Browse >
   Configure Marketplaces > Add Marketplace... > `microsoft/power-platform-skills`**
-  to install their chosen plugins.
+  to install their chosen plugins, and wait for their confirmation before Step 4.
 
-`CopilotApp` prints ONLY the official marketplace link (and the chosen plugin
-links, when plugins were selected) and exits `4`, meaning user confirmations in
-the Copilot desktop app are pending rather than verified. Never choose every
-plugin by default, configure an unselected CLI, install an agent host, or run
-the broad remote `install.js` installer.
+Never choose every plugin by default, configure an unselected CLI, install an
+agent host, or run the broad remote `install.js` installer.
 
-### Step 4: continue with the connection skill
+### Step 4: continue with the connection skill (ONLY after Step 3 is confirmed!)
 
-When the request includes connection onboarding, read
+**Hard gate:** do **not** ask *"Do you want to connect to a Power Platform
+environment now?"* or initiate `power-platform-connect` until the marketplace
+and all approved plugins from Step 3 have finished installing (for `CopilotApp`
+or VS Code UI, until the user explicitly confirms they completed the in-app
+plugin installations or chose to skip them).
+
+When Step 3 is complete and the request includes connection onboarding, read
 `skills/power-platform-connect/SKILL.md` from this same repo and follow it;
 the user need not paste a second setup prompt. If the user asked only for
 installation, ask whether they want to connect before initiating this stage.

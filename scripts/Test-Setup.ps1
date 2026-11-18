@@ -1324,20 +1324,45 @@ Test-Case 'desktop route hands off official links, excludes Dataverse by default
     Assert-Equal (($information -join "`n").Contains('dataverse%2540power-platform-skills')) $true
 }
 
-Test-Case 'interactive app selection requires separate approval and Dataverse opt-in' {
+Test-Case 'interactive app selection requires separate approval, Dataverse opt-in, and can step through plugin prompts after marketplace confirmation' {
     function Get-SetupAgentHosts { New-TestAgentHosts }
+    function Test-Path { param($LiteralPath) $LiteralPath -eq 'Registry::HKEY_CLASSES_ROOT\ghapp' }
+    function Get-ItemProperty { [pscustomobject]@{ 'URL Protocol' = '' } }
     $script:answers = [System.Collections.Generic.Queue[string]]::new()
-    foreach ($answer in @('3', 'YES', 'PLUGINS')) { $script:answers.Enqueue($answer) }
+    foreach ($answer in @('3', 'YES', 'PLUGINS', 'LINKS')) { $script:answers.Enqueue($answer) }
     function Read-Host { $script:answers.Dequeue() }
-    function Start-Process {
-        param($FilePath)
-        Assert-Equal $FilePath 'ghapp://plugins/marketplace/add?source=microsoft%2Fpower-platform-skills'
-    }
+    $script:appLaunched = @()
+    function Start-Process { param($FilePath) $script:appLaunched += $FilePath }
     function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
     $information = @()
     Assert-Equal (Invoke-PluginSetup -InformationVariable information) 4
     Assert-Equal $script:answers.Count 0
+    Assert-Equal ($script:appLaunched -join ',') 'ghapp://plugins/marketplace/add?source=microsoft%2Fpower-platform-skills'
     Assert-Equal (($information -join "`n").Contains('dataverse%2540power-platform-skills')) $true
+
+    $script:appLaunched = @()
+    foreach ($answer in @('PLUGINS', '', '', '')) { $script:answers.Enqueue($answer) }
+    Assert-Equal (Invoke-PluginSetup -PluginHost CopilotApp -Plugins 'model-apps,code-apps-preview') 4
+    Assert-Equal $script:answers.Count 0
+    Assert-Equal ($script:appLaunched -join ',') 'ghapp://plugins/marketplace/add?source=microsoft%2Fpower-platform-skills,ghapp://plugins/install?source=model-apps%40power-platform-skills,ghapp://plugins/install?source=code-apps-preview%40power-platform-skills'
+}
+
+Test-Case 'CopilotApp -SkipMarketplace triggers one plugin install dialog at a time after marketplace confirmation' {
+    function Get-SetupArchitecture { 'x64' }
+    function Get-SetupState { New-TestState -Ready @('git', 'node') }
+    function Find-SetupExecutable { throw 'CLI DISCOVERY FORBIDDEN' }
+    function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
+    function Test-Path { param($LiteralPath) $LiteralPath -eq 'Registry::HKEY_CLASSES_ROOT\ghapp' }
+    function Get-ItemProperty { [pscustomobject]@{ 'URL Protocol' = '' } }
+    $script:pluginUris = @()
+    function Start-Process { param($FilePath) $script:pluginUris += $FilePath }
+    Assert-Equal (Invoke-Setup -NonInteractive -PluginHost CopilotCli -Plugins 'code-apps-preview' -SkipMarketplace -AcceptPlugins) 2
+    Assert-Equal (Invoke-Setup -NonInteractive -PluginHost CopilotApp -MarketplaceOnly -SkipMarketplace -AcceptPlugins) 2
+    Assert-Equal (Invoke-Setup -NonInteractive -PluginHost CopilotApp -Plugins 'model-apps,code-apps-preview' -SkipMarketplace -Prerequisites FromPlugins -AcceptPlugins) 2
+    $information = @()
+    Assert-Equal (Invoke-Setup -NonInteractive -PluginHost CopilotApp -Plugins 'code-apps-preview' -SkipMarketplace -Prerequisites FromPlugins -AcceptPlugins -InformationVariable information) 4
+    Assert-Equal ($script:pluginUris -join ',') 'ghapp://plugins/install?source=code-apps-preview%40power-platform-skills'
+    Assert-Equal (($information -join "`n").Contains((Get-CopilotAppPluginLink 'code-apps-preview'))) $true
 }
 
 Test-Case 'Copilot Studio approval is independent and validated before any prerequisite changes' {
@@ -1956,7 +1981,7 @@ Test-Case 'skill command examples parse without executing plugin or prerequisite
 
 Test-Case 'public documentation resolves all local links and screenshot files' {
     foreach ($relative in @('README.md', 'AGENTS.md', 'CLAUDE.md',
-        'docs\advanced-setup.md', 'docs\power-platform-connect-guide.md',
+        'docs\advanced-setup.md', 'docs\agent-guided-setup-guide.md', 'docs\power-platform-connect-guide.md',
         'skills\power-platform-setup\SKILL.md',
         'skills\power-platform-doctor\SKILL.md',
         'skills\power-platform-integrations\SKILL.md',

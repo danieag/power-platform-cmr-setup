@@ -18,6 +18,7 @@ $files = @(
     'skills\power-platform-integrations\SKILL.md',
     'skills\power-platform-connect\SKILL.md',
     'docs\advanced-setup.md',
+    'docs\agent-guided-setup-guide.md',
     'docs\power-platform-connect-guide.md',
     'docs\images\01-download-zip.png',
     'docs\images\02-extracted-folder.png',
@@ -48,7 +49,17 @@ $files = @(
     'docs\images\27-connect-before-restart.png',
     'docs\images\28-connect-after-restart.png',
     'docs\images\29-agent-guided-prompt.png',
-    'docs\images\30-agent-host-selection.png'
+    'docs\images\30-agent-host-selection.png',
+    'docs\images\31-agent-short-prompt.png',
+    'docs\images\32-agent-choose-app.png',
+    'docs\images\33-agent-multi-workload-select.png',
+    'docs\images\34-agent-selective-prereq-check.png',
+    'docs\images\35-agent-approve-marketplace-links.png',
+    'docs\images\36-copilot-app-allow-marketplace.png',
+    'docs\images\37-copilot-app-manage-marketplaces-add.png',
+    'docs\images\38-copilot-app-adding-marketplace.png',
+    'docs\images\39-copilot-app-marketplace-added.png',
+    'docs\images\40-agent-connect-handoff.png'
 )
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
 $temporary = Join-Path $destination ([guid]::NewGuid().ToString('N') + '.zip')
