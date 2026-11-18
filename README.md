@@ -1,116 +1,87 @@
 # Power Platform setup for Windows
 
-**Download, extract, then choose Setup or your coding agent.** This helps you prepare a Windows PC to use
-Microsoft's Power Platform plugins with **GitHub Copilot or Claude Code**.
-Use an already installed agent app. If one is missing, setup can show its
-official installation instructions; it does not install an agent host for you.
+**Download, extract, then run `Setup.cmd` or send one short prompt in your AI agent.**
+This prepares a Windows PC (Intel/AMD x64 or ARM64 Windows 11) to use Microsoft's
+Power Platform plugins with **GitHub Copilot** (desktop app, VS Code, or CLI) or
+**Claude Code**.
 
-Use the **same Setup.cmd** on Intel/AMD x64 PCs and ARM64 Windows 11 PCs.
-It checks your computer, shows a plan, and asks before installing anything.
-The installer does not sign you in or create anything in your Microsoft
-environment. Optional agent-guided connection onboarding has separate approvals.
+Instead of installing every developer tool at once, **you choose which Power Platform
+plugins (or marketplace) you want first, and Setup automatically checks and installs
+only the Windows prerequisites your choice actually needs**—or you can choose a full
+5-tool workstation setup. Everything asks for your approval before installing, and
+nothing signs you in or touches your Microsoft tenant until you ask to connect.
 
-Follow these three steps:
+Follow these steps:
 
-1. [Install the Windows tools](#step-1-install-the-windows-tools).
-2. [Choose and install Power Platform plugins](#step-2-choose-and-install-power-platform-plugins).
-3. [Connect to your environment](#step-3-connect-to-your-environment), only when ready.
+1. [Download and run Setup (or ask your agent)](#step-1-install-what-you-need)
+2. [See which prerequisites each plugin needs](#what-each-plugin-needs)
+3. [Connect to your environment (optional)](#step-3-connect-to-your-environment)
 
-## Step 1: install the Windows tools
+## Step 1: install what you need
 
 1. **Download:** on [this repository](https://github.com/danieag/power-platform-setup),
    click **Code > Download ZIP**.
 2. **Extract:** right-click the ZIP, choose **Extract All**, and open the extracted
    folder containing `Setup.cmd` and `Setup.ps1`.
 
-Now choose **Alternative A or B**, not both at the same time. They use the
-same setup script and approval rules. Keep all extracted files together.
+Choose **Alternative A (double-click `Setup.cmd`)** or **Alternative B (ask your
+coding agent)**. Both run the exact same `Setup.ps1` safety and approval rules.
 
-### Alternative A: run Setup yourself
+### Alternative A: double-click `Setup.cmd` yourself
 
-1. **Run:** review the downloaded script, then double-click **Setup.cmd**
-   (Windows may show it simply as **Setup**). You do not need to open PowerShell.
-2. **Approve:** read the plan, type **INSTALL**, and press **Enter**.
-   Setup installs missing tools in this order:
-   **Git > Node.js/npm > .NET 10 SDK > PAC CLI > Azure CLI**.
-   Compatible tools already installed are skipped.
-   Existing Node **22.18+ (22.x), 24 or 26** is preserved when bundled npm is
-   version 10+ and the executable architecture is compatible. New Node installs
-   still use **24 LTS**; setup does not downgrade a compatible Node 26 install.
-   PAC must be **newer than 2.10.0**; exactly `2.10.0` and older versions need
-   an approved upgrade rather than being marked ready.
-3. **Wait, then answer the optional prompts** below. Keep this window open.
-   When finished, restart your chosen app and terminals.
+1. **Open:** double-click **Setup.cmd** (Windows may show it simply as **Setup**).
+   You do not need to open PowerShell or choose "Run as administrator."
+2. **Pick your setup mode:**
+   - **1 = Select Power Platform plugins or marketplace (Recommended):** pick the
+     workloads you want (for example `model-apps`, `canvas-apps,power-automate`,
+     or `M` for marketplace only) and your app. Setup checks and installs **only**
+     the Windows prerequisites required for those choices.
+   - **2 = Full workstation setup:** checks and installs all 5 core Windows tools
+     (**Git > Node.js/npm > .NET 10 SDK > PAC CLI > Azure CLI**).
+3. **Approve:** review the check summary, type **INSTALL**, and press **Enter**
+   when tools need setup. Compatible tools already on your PC are kept:
+   existing Node **22.18+ (22.x), 24 or 26** with npm 10+ is preserved (fresh
+   installs use **24 LTS**), and PAC must be **newer than 2.10.0**.
+4. **Finish optional prompts:** approve **PLUGINS** (or open the printed desktop
+   links), optional Copilot Studio **MCP**, and optional connection **SKILL**,
+   or press **Enter** to skip any optional stage. Restart your app/terminal if
+   new tools or plugins were added.
 
-For the CLI doctor in **Step 2**, press **Enter** at the optional Power Platform
-plugin host prompt to skip the built-in full-set route. You will choose your
-individual plugins with the doctor instead. Other optional stages still have
-their own approvals; no sign-in happens here.
+### Alternative B: download this folder and run one prompt in your agent
 
-### Alternative B: use your coding agent
+You do not need to be technical or know command-line flags. Because this folder
+includes `AGENTS.md`, `CLAUDE.md`, and an auto-discovered `power-platform-setup`
+workspace skill, your agent automatically knows how to run `Setup.cmd` safely.
 
-1. Open your coding agent and **add the extracted local folder to the session**.
-   In the Copilot desktop app, click **+ > Add local folder or repository** and
-   select the folder containing `AGENTS.md`, `README.md`, and `Setup.ps1`.
-   In Claude Code, open/start it in that folder. You do not need to initialize
-   a Git repository or install Git just to open the extracted folder.
-2. Use an agent session that can run local terminal commands, with normal
-   interactive approvals. If the app asks you to trust the folder, review it
-   and make that decision yourself; do not enable blanket auto-approval.
-3. Paste this **one starting prompt**. The bundled
-   [power-platform-setup entry skill](skills/power-platform-setup/SKILL.md)
-   coordinates the script, doctor and connection skill for you:
+1. Open **GitHub Copilot** (desktop app, VS Code, or Copilot CLI) or **Claude Code**
+   and **add/open the extracted folder** (in the Copilot desktop app: click
+   **+ > Add local folder or repository** and select the extracted folder).
+   You do not need Git installed yet just to open the folder.
+2. Paste this **one short prompt**:
 
-> Read `AGENTS.md`, `README.md`, `Setup.ps1`, and
-> `skills/power-platform-setup/SKILL.md` from this extracted setup folder.
-> Follow that entry skill as one guided onboarding flow using my existing
-> Copilot CLI or Claude Code CLI. Confirm the intended host if unclear.
->
-> First run `.\Setup.cmd -CheckOnly`, explain the prerequisite plan, and ask
-> before installing anything. Once tools are ready, follow
-> `skills/power-platform-doctor/SKILL.md`: ask before adding Microsoft's
-> official marketplace, then ask which Power Platform plugins I want.
-> Show the selected-plugin plan and install only what I approve.
->
-> Finally continue with `skills/power-platform-connect/SKILL.md`.
-> Confirm my account and tenant, reuse/sign in to PAC with my approval,
-> then use `pac env list` to show environment names and URLs. Let me choose
-> one or more environments, or enter another existing environment URL.
-> Confirm the selected targets and tools, and ask
-> separately before additional software, sign-in, profile/configuration
-> changes, MCP registration/startup or live identity checks.
->
-> Keep guiding me in this conversation where possible. If PATH changes,
-> new plugins/MCP tools, or Windows require a restart, explain why and give
-> me a short resume prompt showing what is complete and what comes next.
-> Do not close the host for me or repeat working installations.
-> Do not install another agent host, enable blanket auto-approval, change
-> tenant permissions, or create cloud resources. For a native app/IDE
-> without a CLI, explain the supported manual route instead.
+> Help me set up Power Platform using this folder. Ask which app and workloads I want, check and install only the required prerequisites with my approval, help me add the plugins, and then ask if I want to connect to an environment.
 
-**One starting prompt, separate approvals.** You do not need to discover and
-paste each skill's prompt yourself. Keep the **complete extracted folder**
-available; attaching only a README or launcher is insufficient.
+Or simply ask for a specific workload in plain English—the setup skill will
+trigger automatically and scope `Setup.cmd` to just that workload:
 
-**A restart may still be necessary.** A running host keeps its old PATH, and
-some versions load plugins/MCP tools only after a reload or restart. Reopen
-after PATH changes; otherwise pause only when the required capability is not
-available. Your agent should finish approved local stages where possible,
-give the resume prompt, and continue the guided flow after you return.
-There is no promise that one conversation can remain uninterrupted through
-Windows reboots, host-close requirements, or new MCP discovery.
+- *"Install the prerequisites for Model-driven apps."*
+- *"Set up Canvas apps and Power Automate for me."*
+- *"Just add the Power Platform marketplace."*
 
-`AGENTS.md` is an instruction file for the agent, **not a program you run**.
-The agent checks first, explains the plan, and runs the same installer after
-your approval. It can use the script's noninteractive flags after that approval,
-so you may approve in chat rather than typing the terminal keywords yourself.
-Windows administrator prompts and Copilot desktop plugin confirmations may
-still need your action.
+**Short prompt, separate approvals.** Keep the **complete extracted folder**
+attached. Behind the scenes, [`AGENTS.md`](AGENTS.md) and
+[`skills/power-platform-setup/SKILL.md`](skills/power-platform-setup/SKILL.md)
+ensure the agent runs an offline check first, asks before installing prerequisites,
+asks separately before adding marketplaces/plugins, and never installs another
+agent host, enables blanket auto-approval, or signs into a tenant unasked.
 
-If Windows blocks running `Setup.ps1` directly, use **`Setup.cmd`** instead,
-including for `-CheckOnly`. The launcher is the intended entry point and uses
-a child-process-only policy exception; do not change persistent execution policy.
-Enterprise restrictions can still block it and should be handled by your IT team.
+**A restart may still be necessary.** If new Windows tools changed `PATH` or
+new plugins/MCP servers were added, reopen your app or start a fresh chat when
+prompted; the agent will give you a short resume prompt so you don't start over.
+
+If Windows blocks running `Setup.ps1` directly, always run **`Setup.cmd`**,
+which uses a child-process-only policy exception without changing persistent
+PowerShell settings. Enterprise IT policies still apply normally.
 
 <details>
 <summary>Screenshots: attach the folder, paste the prompt, and choose a host</summary>
@@ -154,7 +125,7 @@ guides the same stages and requests the corresponding approval in chat.
 |---|---|
 | Existing agent hosts | Setup passively checks for `claude`/`copilot` commands and the Copilot app's `ghapp` link registration before the chooser. A command may be an install launcher; registration does not prove the app works. These checks do not start a host or sign in. |
 | Power Platform plugins | For individual CLI plugin choices, press **Enter** and continue to **Step 2's doctor**. The existing full-set route is still available: **1** = Claude Code, **2** = Copilot CLI, **3** = Copilot desktop links; type **PLUGINS** to approve that plan. Dataverse is optional: type **YES** when asked if you need it. |
-| Copilot desktop links (option 3) | Open the **marketplace link first**, then each desired plugin link. Confirm each installation in the app. **Printing links does not install the plugins.** |
+| Copilot desktop links (option 3) | Setup opens the **Add Marketplace** confirmation directly in the Copilot app (via its local `ghapp://` handler, without opening a browser) and prints the official launch links. Confirm the marketplace in the app first, then confirm each desired plugin link (or pick them in **Customize**). **Opening or printing links does not install plugins until confirmed.** |
 | Copilot Studio MCP | This gives your agent access to Copilot Studio tools. Choose your app, close that app as instructed, then type **MCP** to approve saving the connection setup. It does not sign you in. |
 | Connection skill | Choose your app, then type **SKILL** to copy the instructions for later sign-in. Installing a skill does **not** run it. |
 
@@ -176,29 +147,42 @@ and [Claude Code](https://code.claude.com/docs/en/setup).
 Host sign-in, plan requirements and organizational policy are separate from
 Power Platform setup; do not disable protections to install a host.
 
+## What each plugin needs
+
+When you choose plugins in `Setup.cmd` (mode **1**) or tell your agent which
+workloads you want, `Setup.ps1` resolves **only** the required Windows tools
+from its 5 verified installers (and automatically includes `.NET 10 SDK`
+whenever `PAC CLI` is needed, since PAC runs as a global .NET tool):
+
+| Plugin (`-Plugins`) | What it builds | Auto-installed Windows prerequisites | Additional workload notes |
+|---|---|---|---|
+| `model-apps` | Model-driven apps and generative pages | Git, Node.js/npm, .NET 10 SDK, PAC CLI (`> 2.10.0`), Azure CLI | Uses PAC (`> 2.10.0`), Node 22+, and Azure CLI (`az account get-access-token`). |
+| `canvas-apps` | Canvas Apps authoring | Git, .NET 10 SDK | Skips Node, PAC, and Azure CLI. Requires Power Apps Studio coauthoring enabled on the app. |
+| `code-apps-preview` | Power Apps Code Apps (React/Vite) | Git, Node.js/npm | Skips .NET, PAC, and Azure CLI. Scaffolds use the project-local `pa` CLI (`@microsoft/power-apps`). |
+| `power-pages` | Power Pages websites and portals | Git, Node.js/npm, .NET 10 SDK, PAC CLI (`> 2.10.0`), Azure CLI | Full web, Dataverse, PAC, and Azure toolchain. |
+| `power-automate` | Power Automate cloud & desktop flows | Git, Node.js/npm, Azure CLI | Skips .NET and PAC. Uses bundled FlowAgent ESM + `az login` token auth. |
+| `process-intelligence` | Process Intelligence / process mining | Git, Node.js/npm, Azure CLI | Skips .NET and PAC. |
+| `pcf` | Power Apps component framework controls | Git, Node.js/npm, .NET 10 SDK, PAC CLI (`> 2.10.0`), Azure CLI | Full PCF build, PAC push, and verification toolchain. |
+| `dataverse` *(opt-in)* | Dataverse tables, schema, data & solutions | Git, Node.js/npm, .NET 10 SDK, PAC CLI (`> 2.10.0`), Azure CLI | `@microsoft/dataverse` npm CLI and optional Python SDK (`PowerPlatform-Dataverse-Client`) are checked/offered later during connection onboarding. |
+| `mobile-app` | Standalone mobile apps (Private Preview) | Git, Node.js/npm, Azure CLI | Skips .NET and PAC. Upstream docs note Node 24 LTS, Git Bash/WSL on Windows, and Power Apps Mobile Preview on phone. |
+| `power-apps-mobile-extension` | Native extensions for wrapped Canvas Apps | Git, Node.js/npm, .NET 10 SDK, PAC CLI (`> 2.10.0`) | Skips Azure CLI. Native `.ppmplugin` builds also need JDK 17+ / Android SDK 35 (or Xcode 16+ on macOS). |
+| `mcp-apps` | Codeful MCP server tools & HTML widgets | Git, Node.js/npm, .NET 10 SDK, PAC CLI (`> 2.10.0`) | Skips Azure CLI. PAC/.NET are used when querying Dataverse schemas. |
+| *(Marketplace only)* | Add `microsoft/power-platform-skills` catalog | Git | `-MarketplaceOnly -Prerequisites FromPlugins` checks/installs only Git. |
+
 ## Step 2: choose and install Power Platform plugins
 
-### Copilot CLI or Claude Code: use the doctor skill
+### Copilot CLI, Claude Code, or Copilot desktop: selective plugin setup
 
-The bundled [power-platform-doctor skill](skills/power-platform-doctor/SKILL.md)
-first prepares Microsoft's marketplace with your approval, then asks
-**which plugins you want**, checks what is installed, shows a plan, and installs
-**only your approved selection**. For example, you can choose just **Dataverse
-and Model Apps**, rather than installing every plugin.
+If you started with `Setup.cmd` mode **1** or Alternative B's short prompt,
+plugin selection is already built right in. You can also run the bundled
+[power-platform-doctor skill](skills/power-platform-doctor/SKILL.md) on its own
+whenever you want to add another plugin later—it resolves only the missing
+Windows prerequisites for that plugin, prepares Microsoft's official
+marketplace with your approval, and installs **only your approved selection**:
 
-Use your **already installed GitHub Copilot CLI or Claude Code CLI**. Open it
-in the extracted setup folder, or continue the guided installation chat that
-already has access to that folder. If you started with Alternative B's single
-prompt, the agent continues here automatically; you need not paste this again.
-For Step 2 on its own, paste:
-
-> Read `skills/power-platform-doctor/SKILL.md` in this extracted setup folder
-> and follow it as Step 2. Confirm my existing CLI host, ask before adding
-> Microsoft's marketplace, then ask which Power Platform plugins I want.
-> Check what is already installed, show the selected-plugin plan, and ask
-> before making changes.
-> Install only my approved selection. Do not install another agent host,
-> sign in, invoke tenant tools, or change cloud resources.
+> Use `skills/power-platform-doctor/SKILL.md` in this folder to help me pick
+> Power Platform plugins (or add just the marketplace), check/install only the
+> prerequisites they need with my approval, and install my chosen plugins.
 
 This skill is included in the download; it is **not automatically copied into
 your personal skills directory**. Reading the file as above works without

@@ -1,34 +1,67 @@
 # Agent instructions
 
 This repository bootstraps **local Windows tooling** and offers approved plugin
-setup for users who already have Claude Code, GitHub Copilot CLI, or the GitHub
-Copilot desktop app. It does not install an agent host or provision cloud resources.
+setup for users who already have Claude Code, GitHub Copilot CLI, the GitHub
+Copilot desktop app, or VS Code Copilot. It does not install an agent host or
+provision cloud resources.
+
+## Natural-language entry for non-technical users
+
+Most users of this repository are makers, not software developers. Whenever a
+user opens/attaches this folder and asks in plain English—such as *"Set up Power
+Platform for me"*, *"Install the prereqs for model-driven apps"*, *"Set up
+Power Automate and Canvas Apps"*, or *"Add the Power Platform marketplace"*:
+
+1. Read `skills/power-platform-setup/SKILL.md`, `README.md`, and `Setup.ps1`
+   immediately; do not ask the user to name a skill file or CLI flags.
+2. Map plain-English requests directly to `Get-SetupPluginCatalog` IDs
+   (`model-apps`, `canvas-apps`, `code-apps-preview`, `power-pages`,
+   `power-automate`, `process-intelligence`, `pcf`, `mobile-app`,
+   `power-apps-mobile-extension`, `mcp-apps`, `dataverse`, or
+   `-MarketplaceOnly`) and scope checks/installs with
+   `-Prerequisites FromPlugins` unless they want the full 5-tool setup.
+3. If they already named their workload (for example *"install the prereqs for
+   model-driven apps"*), run `.\Setup.cmd -CheckOnly -Plugins "model-apps"
+   -Prerequisites FromPlugins` right away without a redundant questionnaire,
+   explain what is ready and what is missing in plain language, and ask approval
+   before installing anything. If they asked only for prerequisites, install
+   only the approved prerequisites and then politely offer plugin/connection
+   next steps.
 
 ## Running setup for a user
 
 1. Read `README.md` and `Setup.ps1` before execution. If acquiring this repository,
    download/review the full official `danieag/power-platform-setup` source, not a
    random script URL or only `Setup.cmd`.
-2. Run `.\Setup.cmd -CheckOnly` first. Azure CLI is included by default after
-   PAC for the full Power Platform setup. Use `-SkipAzureCli` on both check and
-   install only for a user-approved minimal setup; explain Azure-dependent plugin
-   limitations. Legacy `-IncludeAzureCli` remains accepted but is unnecessary.
-   Check-only must not require network access, prompt, or mutate the machine.
-3. Explain the actual missing/unsupported-tool plan and obtain **explicit user
-   approval** before installation. Repository access, reading this file, generic
-   agent permissions, or a request to check readiness is not installation approval.
-4. Only after approval run
-   `.\Setup.cmd -Install -Accept -NonInteractive` (plus `-SkipAzureCli` only when approved).
+2. Confirm whether the user wants **selected Power Platform plugins**,
+   **marketplace-only preparation**, or the **full 5-tool workstation setup**,
+   then run `.\Setup.cmd -CheckOnly` first (adding
+   `-Plugins "<id,id>" -Prerequisites FromPlugins`,
+   `-MarketplaceOnly -Prerequisites FromPlugins`, or `-Prerequisites "<ids>"`
+   when scoping prerequisites to their selection). In full setup (`-Prerequisites All`,
+   the noninteractive CLI default), Azure CLI is included after PAC. Use
+   `-SkipAzureCli` only when the user explicitly opts out of Azure CLI; explain
+   Azure-dependent plugin limitations. Legacy `-IncludeAzureCli` remains
+   accepted. Check-only must not require network access, prompt, or mutate the machine.
+3. Explain the actual missing/unsupported-tool plan (plus any printed plugin
+   workload notes) and obtain **explicit user approval** before installation.
+   Repository access, reading this file, generic agent permissions, or a request
+   to check readiness is not installation approval.
+4. Only after approval run `.\Setup.cmd -Install -Accept -NonInteractive` with
+   the same approved `-Plugins` / `-Prerequisites` / `-SkipAzureCli` flags.
    Do not synthesize an interactive `INSTALL` response to avoid approval.
    Noninteractive mode does not bypass UAC or authorize other operations.
 5. Handle exit codes from the README. Stop on failure or restart requirement;
    never report successful setup just because an installer exited. Reopen
    terminals and the desktop app after PATH changes. Do not automatically reboot.
-6. Plugin setup is separately approval-gated. Interactive setup offers
-   `ClaudeCode`, `CopilotCli`, `CopilotApp` links, or skip after prerequisites.
-   README Step 2's doctor first prepares the chosen CLI's official marketplace
-   with separately approved `-MarketplaceOnly -AcceptPlugins`, then asks which
-   plugins the user wants and reuses `Setup.cmd -Plugins "id,id"`.
+6. Plugin setup is separately approval-gated. Interactive `Setup.cmd` offers
+   **mode 1 (Select plugins or marketplace -> resolves only needed prerequisites)**
+   and **mode 2 (Full workstation setup)**, supporting `ClaudeCode`,
+   `CopilotCli`, `CopilotApp` links, or prerequisites-only for VS Code's UI.
+   The doctor can prepare the official marketplace with separately approved
+   `-MarketplaceOnly -Prerequisites FromPlugins -AcceptPlugins` (on
+   `ClaudeCode`, `CopilotCli`, or `CopilotApp` link) or install an approved
+   selection via `Setup.cmd -Plugins "id,id" -Prerequisites FromPlugins`.
    Marketplace-only approval does not authorize later plugin installation.
    The interactive chooser uses passive command/`ghapp` registration evidence,
    not proof of working hosts. Missing selected CLIs get fixed official install

@@ -35,7 +35,10 @@ the flow; explain them rather than silently continuing.
 
 ## 1. Inspect, explain, approve
 
-- Run the repository's `.\Setup.cmd -CheckOnly` first. Do not treat its exit 1
+- Run the repository's `.\Setup.cmd -CheckOnly` first (adding
+  `-Plugins "<id,id>" -Prerequisites FromPlugins` or
+  `-MarketplaceOnly -Prerequisites FromPlugins` when scoping prerequisites to
+  selected plugins or the marketplace). Do not treat its exit 1
   (missing/unsupported tools) as permission to install them; use the prerequisite
   skill only after approval. Keep this check offline and read-only.
 - Setup preserves compatible **Node 22.18+ (22.x), 24 or 26** with npm 10+;
@@ -98,12 +101,13 @@ Do not delete/reinstall working Git or change installation directories as a
 substitute for refreshing the app's environment.
 
 Setup.cmd now offers the reviewed plugin set after prerequisites are ready.
-For CLI onboarding, the doctor first obtains marketplace-only approval and
-runs `.\Setup.cmd -NonInteractive -PluginHost CopilotCli -MarketplaceOnly
--AcceptPlugins` (or `ClaudeCode`). This installs no plugins; selection and its
-approval follow. Do not mix `-MarketplaceOnly` with `-Plugins` or
-`-IncludeDataverse`, or pass prerequisite approval just for this stage.
-For that set, prefer its shared implementation after approval, choosing **one**
+For onboarding, the doctor can obtain marketplace-only approval and run
+`.\Setup.cmd -NonInteractive -PluginHost CopilotCli -MarketplaceOnly
+-Prerequisites FromPlugins -AcceptPlugins` (or `ClaudeCode`, or `CopilotApp` to
+print the official marketplace confirmation link). This installs no plugins;
+selection and its approval follow. Do not mix `-MarketplaceOnly` with `-Plugins`
+or `-IncludeDataverse`, or pass prerequisite approval just for this stage.
+For the full set, prefer its shared implementation after approval, choosing **one**
 host rather than duplicating the installation logic in an agent:
 
 ```powershell
@@ -113,7 +117,9 @@ host rather than duplicating the installation logic in an agent:
 ```
 
 These examples select the standard full set. For the doctor's individual
-choices use `-Plugins "id,id"` instead, as below. Dataverse requires an explicit
+choices use `-Plugins "id,id" -Prerequisites FromPlugins` instead, as below, so
+only the prerequisites needed by those plugins are checked or installed.
+Dataverse requires an explicit
 `dataverse` ID or `-IncludeDataverse`, only when approved. `-Accept` and `-AcceptPlugins` are
 separate decisions. If prerequisites are already ready, they are skipped.
 If optional MCP and connection-skill installation were also approved, append
@@ -127,12 +133,13 @@ install or proof that any plugin was installed. Do not automatically launch
 browser sign-in or claim app availability from a link.
 
 For **custom subsets**, prefer the same script implementation after approval.
-When prerequisites are ready, choose **one** plugin-only example and replace
-its IDs with the actual approved choices:
+When prerequisites for the selection are ready, choose **one** plugin-only
+example and replace its IDs with the actual approved choices:
 
 ```powershell
-.\Setup.cmd -NonInteractive -PluginHost CopilotCli -Plugins "dataverse,model-apps" -AcceptPlugins
-.\Setup.cmd -NonInteractive -PluginHost ClaudeCode -Plugins "dataverse,model-apps" -AcceptPlugins
+.\Setup.cmd -NonInteractive -PluginHost CopilotCli -Plugins "canvas-apps,power-automate" -Prerequisites FromPlugins -AcceptPlugins
+.\Setup.cmd -NonInteractive -PluginHost ClaudeCode -Plugins "canvas-apps,power-automate" -Prerequisites FromPlugins -AcceptPlugins
+.\Setup.cmd -NonInteractive -PluginHost CopilotApp -Plugins "canvas-apps,power-automate" -Prerequisites FromPlugins -AcceptPlugins
 ```
 
 Omitting `-Install -Accept` prevents a missing prerequisite from being installed

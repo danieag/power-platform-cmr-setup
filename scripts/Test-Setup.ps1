@@ -860,16 +860,113 @@ Test-Case 'marketplace-only preparation installs no plugins before a separately 
     }
 }
 
-Test-Case 'marketplace-only rejects missing consent, mixed selections and non-CLI hosts before inventory' {
+Test-Case 'marketplace-only rejects missing consent, mixed selections and skipped hosts before inventory' {
     function Get-SetupArchitecture { throw 'INVENTORY FORBIDDEN' }
     function Update-SetupPath { throw 'PATH CHANGE FORBIDDEN' }
     function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
     Assert-Equal (Invoke-Setup -NonInteractive -PluginHost CopilotCli -MarketplaceOnly) 2
+    Assert-Equal (Invoke-Setup -NonInteractive -PluginHost CopilotApp -MarketplaceOnly) 2
     Assert-Equal (Invoke-Setup -NonInteractive -MarketplaceOnly -AcceptPlugins) 2
-    Assert-Equal (Invoke-Setup -PluginHost CopilotApp -MarketplaceOnly -AcceptPlugins) 2
     Assert-Equal (Invoke-Setup -PluginHost Skip -MarketplaceOnly) 2
     Assert-Equal (Invoke-Setup -PluginHost CopilotCli -MarketplaceOnly -Plugins 'dataverse' -AcceptPlugins) 2
     Assert-Equal (Invoke-Setup -PluginHost ClaudeCode -MarketplaceOnly -IncludeDataverse -AcceptPlugins) 2
+}
+
+Test-Case 'desktop marketplace-only triggers local ghapp marketplace URI without opening a browser and prints official link' {
+    function Get-SetupArchitecture { 'x64' }
+    function Get-SetupState { New-TestState -Ready @('git') }
+    function Find-SetupExecutable { throw 'CLI DISCOVERY FORBIDDEN' }
+    function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
+    function Test-Path { param($LiteralPath) $LiteralPath -eq 'Registry::HKEY_CLASSES_ROOT\ghapp' }
+    function Get-ItemProperty { [pscustomobject]@{ 'URL Protocol' = '' } }
+    $script:launchedUris = @()
+    function Start-Process { param($FilePath) $script:launchedUris += $FilePath }
+    $information = @()
+    $result = Invoke-Setup -NonInteractive -PluginHost CopilotApp -MarketplaceOnly -Prerequisites FromPlugins -AcceptPlugins -InformationVariable information
+    Assert-Equal $result 4
+    Assert-Equal ($script:launchedUris -join ',') 'ghapp://plugins/marketplace/add?source=microsoft%2Fpower-platform-skills'
+    $output = $information -join "`n"
+    Assert-Equal ($output.Contains((Get-CopilotAppPluginLink))) $true
+    Assert-Equal ($output.Contains('plugins%2Finstall')) $false
+}
+
+Test-Case 'plugin catalog maps all 11 plugins and Resolve-SetupPrerequisites enforces canonical order and dependencies' {
+    $catalog = @(Get-SetupPluginCatalog)
+    Assert-Equal $catalog.Count 11
+    Assert-Equal ((Resolve-SetupPrerequisites -Prerequisites 'FromPlugins' -MarketplaceOnly) -join ',') 'git'
+    Assert-Equal ((Resolve-SetupPrerequisites -Prerequisites 'FromPlugins' -Plugins 'canvas-apps') -join ',') 'git,dotnet'
+    Assert-Equal ((Resolve-SetupPrerequisites -Prerequisites 'FromPlugins' -Plugins 'canvas-apps' -IncludeCopilotStudioMcp) -join ',') 'git,node,dotnet'
+    Assert-Equal ((Resolve-SetupPrerequisites -Prerequisites 'FromPlugins' -Plugins 'code-apps-preview') -join ',') 'git,node'
+    Assert-Equal ((Resolve-SetupPrerequisites -Prerequisites 'FromPlugins' -Plugins 'power-automate') -join ',') 'git,node,azure'
+    Assert-Equal ((Resolve-SetupPrerequisites -Prerequisites 'FromPlugins' -Plugins 'mcp-apps') -join ',') 'git,node,dotnet,pac'
+    Assert-Equal ((Resolve-SetupPrerequisites -Prerequisites 'FromPlugins' -Plugins 'model-apps') -join ',') 'git,node,dotnet,pac,azure'
+    Assert-Equal ((Resolve-SetupPrerequisites -Prerequisites 'FromPlugins' -Plugins 'dataverse') -join ',') 'git,node,dotnet,pac,azure'
+    Assert-Equal ((Resolve-SetupPrerequisites -Prerequisites 'pac') -join ',') 'dotnet,pac'
+    Assert-Equal ((Resolve-SetupPrerequisites -Prerequisites 'azure,git') -join ',') 'git,azure'
+    Assert-Throws { Resolve-SetupPrerequisites -Prerequisites '' } 'empty'
+    Assert-Throws { Resolve-SetupPrerequisites -Prerequisites 'python' } 'Unsupported prerequisite selection'
+    Assert-Throws { Resolve-SetupPrerequisites -Prerequisites 'azure' -SkipAzureCli } 'Do not combine -SkipAzureCli'
+}
+
+Test-Case 'selective check-only and install evaluate and install only prerequisites required by chosen plugins' {
+    function Get-SetupArchitecture { 'arm64' }
+    $script:readyTools = @('git', 'node')
+    function Get-SetupState {
+        param([switch]$Azure)
+        New-TestState -Ready $script:readyTools -Azure:$Azure
+    }
+    $script:installedTools = @()
+    function Install-SetupTool {
+        param($Id)
+        $script:installedTools += $Id
+        $script:readyTools += $Id
+        return $false
+    }
+    function Confirm-InstalledTool { param($Id) Assert-Equal $Id 'dotnet' }
+    function Update-SetupPath {}
+    function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
+    function Read-Host { throw 'PROMPT FORBIDDEN' }
+    Assert-Equal (Invoke-Setup -CheckOnly -Plugins 'code-apps-preview' -Prerequisites FromPlugins) 0
+    Assert-Equal (Invoke-Setup -CheckOnly -Plugins 'model-apps' -Prerequisites FromPlugins) 1
+    Assert-Equal (Invoke-Setup -CheckOnly -Plugins 'canvas-apps' -Prerequisites FromPlugins) 1
+    Assert-Equal (Invoke-Setup -Install -Accept -NonInteractive -Plugins 'canvas-apps' -Prerequisites FromPlugins) 0
+    Assert-Equal ($script:installedTools -join ',') 'dotnet'
+}
+
+Test-Case 'interactive setup mode supports selective plugin prerequisites and full workstation mode' {
+    function Get-SetupArchitecture { 'x64' }
+    function Get-SetupAgentHosts { New-TestAgentHosts }
+    function Install-SetupTool { throw 'INSTALL FORBIDDEN' }
+    function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
+    function Start-Process {
+        param($FilePath)
+        Assert-Equal $FilePath 'ghapp://plugins/marketplace/add?source=microsoft%2Fpower-platform-skills'
+    }
+    function Get-SetupState {
+        param([switch]$Azure)
+        # PAC is intentionally NOT ready; canvas-apps + power-automate must not require PAC.
+        New-TestState -Ready @('git', 'node', 'dotnet', 'azure') -Azure:$Azure
+    }
+    $script:modeAnswers = [Collections.Generic.Queue[string]]::new()
+    foreach ($answer in @('1', '3,7', '4', '', '')) { $script:modeAnswers.Enqueue($answer) }
+    function Read-Host { $script:modeAnswers.Dequeue() }
+    Assert-Equal (Invoke-Setup) 0
+    Assert-Equal $script:modeAnswers.Count 0
+
+    foreach ($answer in @('1', 'M', '3', 'MARKETPLACE', '', '')) { $script:modeAnswers.Enqueue($answer) }
+    function Get-SetupState { New-TestState -Ready @('git') }
+    $information = @()
+    Assert-Equal (Invoke-Setup -InformationVariable information) 4
+    Assert-Equal $script:modeAnswers.Count 0
+    Assert-Equal (($information -join "`n").Contains((Get-CopilotAppPluginLink))) $true
+
+    foreach ($answer in @('2', '', '', '')) { $script:modeAnswers.Enqueue($answer) }
+    function Get-SetupState {
+        param([switch]$Azure)
+        New-TestState -Ready @('git', 'node', 'dotnet', 'pac', 'azure') -Azure:$Azure
+    }
+    Assert-Equal (Invoke-Setup) 0
+    Assert-Equal $script:modeAnswers.Count 0
 }
 
 Test-Case 'interactive marketplace-only approval cannot be replaced by plugin approval' {
@@ -1069,7 +1166,8 @@ Test-Case 'an undetected desktop app needs user confirmation or gets its officia
     function Get-SetupAgentHosts { New-TestAgentHosts -Detected @() }
     function Find-SetupExecutable { throw 'CLI DISCOVERY FORBIDDEN' }
     function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
-    function Start-Process { throw 'APP/BROWSER LAUNCH FORBIDDEN' }
+    function Test-Path { $false }
+    function Start-Process { throw 'APP/BROWSER LAUNCH FORBIDDEN WHEN GHAPP UNREGISTERED' }
     $script:answers = [Collections.Generic.Queue[string]]::new()
     foreach ($answer in @('3', '')) { $script:answers.Enqueue($answer) }
     function Read-Host { $script:answers.Dequeue() }
@@ -1197,10 +1295,18 @@ Test-Case 'malformed or unsupported listing schemas fail closed without leaking 
 Test-Case 'desktop route hands off official links, excludes Dataverse by default, and reports pending' {
     function Find-SetupExecutable { throw 'CLI DISCOVERY FORBIDDEN' }
     function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
-    function Start-Process { throw 'APP/BROWSER LAUNCH FORBIDDEN' }
+    function Test-Path { param($LiteralPath) $LiteralPath -eq 'Registry::HKEY_CLASSES_ROOT\ghapp' }
+    function Get-ItemProperty { [pscustomobject]@{ 'URL Protocol' = '' } }
+    $script:desktopLaunched = @()
+    function Start-Process {
+        param($FilePath)
+        Assert-Equal $FilePath 'ghapp://plugins/marketplace/add?source=microsoft%2Fpower-platform-skills'
+        $script:desktopLaunched += $FilePath
+    }
     $information = @()
     $result = Invoke-PluginSetup -PluginHost CopilotApp -AcceptPlugins -NonInteractive -InformationVariable information
     Assert-Equal $result 4
+    Assert-Equal $script:desktopLaunched.Count 1
     $output = $information -join "`n"
     Assert-Equal ($output.Contains('dataverse%2540power-platform-skills')) $false
     Assert-Equal ($output.Contains('ACTION REQUIRED')) $true
@@ -1208,6 +1314,7 @@ Test-Case 'desktop route hands off official links, excludes Dataverse by default
     Assert-Equal (Get-CopilotAppPluginLink 'canvas-apps') 'https://github.com/copilot/app/launch?open=ghapp%3A%2F%2Fplugins%2Finstall%3Fsource%3Dcanvas-apps%2540power-platform-skills'
     $information = @()
     Assert-Equal (Invoke-PluginSetup -PluginHost CopilotApp -AcceptPlugins -NonInteractive -IncludeDataverse -InformationVariable information) 4
+    Assert-Equal $script:desktopLaunched.Count 2
     Assert-Equal (($information -join "`n").Contains('dataverse%2540power-platform-skills')) $true
 }
 
@@ -1216,7 +1323,10 @@ Test-Case 'interactive app selection requires separate approval and Dataverse op
     $script:answers = [System.Collections.Generic.Queue[string]]::new()
     foreach ($answer in @('3', 'YES', 'PLUGINS')) { $script:answers.Enqueue($answer) }
     function Read-Host { $script:answers.Dequeue() }
-    function Start-Process { throw 'APP LAUNCH FORBIDDEN' }
+    function Start-Process {
+        param($FilePath)
+        Assert-Equal $FilePath 'ghapp://plugins/marketplace/add?source=microsoft%2Fpower-platform-skills'
+    }
     function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
     $information = @()
     Assert-Equal (Invoke-PluginSetup -InformationVariable information) 4
@@ -1821,18 +1931,31 @@ Test-Case 'Node maintenance updates only guarded source, docs and cases and the 
     }
 }
 
-Test-Case 'doctor skill command examples parse without executing plugin installation' {
-    $text = Get-Content -LiteralPath (Join-Path $root 'skills\power-platform-doctor\SKILL.md') -Raw
-    foreach ($block in [regex]::Matches($text, '(?s)```powershell\r?\n(.*?)```')) {
-        $tokens = $null; $errors = $null
-        [Management.Automation.Language.Parser]::ParseInput($block.Groups[1].Value, [ref]$tokens, [ref]$errors) | Out-Null
-        Assert-Equal $errors.Count 0
+Test-Case 'skill command examples parse without executing plugin or prerequisite installation' {
+    foreach ($skillRelative in @(
+        'skills\power-platform-setup\SKILL.md',
+        'skills\power-platform-doctor\SKILL.md',
+        'skills\power-platform-integrations\SKILL.md',
+        '.github\skills\power-platform-setup\SKILL.md',
+        '.claude\skills\power-platform-setup\SKILL.md')) {
+        $text = Get-Content -LiteralPath (Join-Path $root $skillRelative) -Raw
+        Assert-Equal ($text -match '(?s)^---\s*\r?\nname: [a-z0-9-]+\r?\ndescription: [^\r\n]+\r?\n---') $true
+        foreach ($block in [regex]::Matches($text, '(?s)```powershell\r?\n(.*?)```')) {
+            $tokens = $null; $errors = $null
+            [Management.Automation.Language.Parser]::ParseInput($block.Groups[1].Value, [ref]$tokens, [ref]$errors) | Out-Null
+            Assert-Equal $errors.Count 0
+        }
     }
 }
 
 Test-Case 'public documentation resolves all local links and screenshot files' {
-    foreach ($relative in @('README.md', 'docs\advanced-setup.md', 'docs\power-platform-connect-guide.md',
-        'skills\power-platform-doctor\SKILL.md')) {
+    foreach ($relative in @('README.md', 'AGENTS.md', 'CLAUDE.md',
+        'docs\advanced-setup.md', 'docs\power-platform-connect-guide.md',
+        'skills\power-platform-setup\SKILL.md',
+        'skills\power-platform-doctor\SKILL.md',
+        'skills\power-platform-integrations\SKILL.md',
+        '.github\skills\power-platform-setup\SKILL.md',
+        '.claude\skills\power-platform-setup\SKILL.md')) {
         $path = Join-Path $root $relative
         $text = Get-Content -LiteralPath $path -Raw
         foreach ($match in [regex]::Matches($text, '\[[^\]]*\]\(([^)]+)\)')) {

@@ -10,7 +10,9 @@ New-Item -ItemType Directory -Path $destination -Force | Out-Null
 $archive = Join-Path $destination 'power-platform-setup-windows.zip'
 # Explicit public-file allowlist: never package workspace state or personal configuration.
 $files = @(
-    'Setup.cmd', 'Setup.ps1', 'README.md', 'AGENTS.md', 'LICENSE',
+    'Setup.cmd', 'Setup.ps1', 'README.md', 'AGENTS.md', 'CLAUDE.md', 'LICENSE',
+    '.github\skills\power-platform-setup\SKILL.md',
+    '.claude\skills\power-platform-setup\SKILL.md',
     'skills\power-platform-setup\SKILL.md',
     'skills\power-platform-doctor\SKILL.md',
     'skills\power-platform-integrations\SKILL.md',

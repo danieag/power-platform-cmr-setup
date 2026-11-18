@@ -199,13 +199,34 @@ host/plugin IDs, not emails, tenant/environment IDs, URLs or token/cache data.
 A new chat alone may not restart MCP processes. Do not claim runtime discovery
 or reuse across a restart until actually verified in the intended host.
 
-**Azure CLI is included by default, after PAC CLI.** The full plugin set includes
-Azure-dependent workflows (Power Automate, Process Intelligence, and PCF
-verification/inventory), so no extra Azure flag is needed. It still requires
-approval as part of the displayed prerequisite plan and never runs `az login`.
+**Azure CLI is included by default in full mode (`-Prerequisites All`), after PAC CLI.**
+However, you no longer have to install all 5 prerequisites when you only want
+specific plugins or the marketplace. Pass **`-Prerequisites FromPlugins`** (along
+with `-Plugins "<id,id>"` or `-MarketplaceOnly`) or an explicit comma-separated
+tool list (**`-Prerequisites "git,node"`** from `git,node,dotnet,pac,azure`):
 
-For an intentionally minimal setup without those workflows, use `-SkipAzureCli`
-on **both** the check and install commands:
+```powershell
+# Check and install only the prerequisites needed for Model-driven apps:
+.\Setup.cmd -CheckOnly -Plugins "model-apps" -Prerequisites FromPlugins
+.\Setup.cmd -Install -Accept -NonInteractive -Plugins "model-apps" -Prerequisites FromPlugins
+
+# Check and install only Git + Node + Azure CLI for Canvas Apps + Power Automate:
+.\Setup.cmd -CheckOnly -Plugins "canvas-apps,power-automate" -Prerequisites FromPlugins
+.\Setup.cmd -Install -Accept -NonInteractive -Plugins "canvas-apps,power-automate" -Prerequisites FromPlugins
+
+# Check only Git for marketplace-only registration:
+.\Setup.cmd -CheckOnly -PluginHost CopilotCli -MarketplaceOnly -Prerequisites FromPlugins
+```
+
+`Resolve-SetupPrerequisites` in `Setup.ps1` automatically enforces canonical
+install order (`git -> node -> dotnet -> pac -> azure`), pulls in `dotnet`
+whenever `pac` is requested (because PAC is installed as a `.NET` global tool),
+and includes `node` when `-CopilotStudioHost` is requested under `FromPlugins`.
+See [the 11-plugin prerequisite map in the README](../README.md#what-each-plugin-needs)
+or `Get-SetupPluginCatalog` in `Setup.ps1` for the exact per-plugin mapping.
+
+For an intentionally minimal full-mode setup without Azure workflows, `-SkipAzureCli`
+remains supported on both check and install commands:
 
 ```powershell
 .\Setup.cmd -CheckOnly -SkipAzureCli
@@ -214,8 +235,8 @@ on **both** the check and install commands:
 
 Skipping Azure can leave Azure-dependent plugins without a required runtime
 tool even if their plugin installation succeeds. The old `-IncludeAzureCli`
-flag remains accepted for compatibility but is no longer necessary; do not
-combine it with `-SkipAzureCli`.
+flag remains accepted for compatibility when `-Prerequisites All` is active; do
+not combine it with `-SkipAzureCli`.
 
 The optional [prerequisite skill](../skills/power-platform-setup/SKILL.md) contains
 these same instructions. Noninteractive runs do not silently opt into the new
@@ -404,30 +425,40 @@ than duplicated. CLI listings can still differ from actual desktop/runtime
 readiness: restart the host and verify its skills/tools separately.
 
 **Copilot app route: exit `4` means action required, not installation success.**
-The printed links match those in
-[Microsoft's marketplace README](https://github.com/microsoft/power-platform-skills#install-one-plugin-with-a-click).
-Printing links does not install plugins or verify that the app is present.
-The app must be installed locally and handle its confirmation links. No browser
-is opened automatically and no account or browser profile is selected.
+When `HKCR\ghapp` is registered on Windows, Setup triggers
+`ghapp://plugins/marketplace/add?source=microsoft%2Fpower-platform-skills`
+directly so the **Add Marketplace** confirmation opens inside the GitHub Copilot
+desktop app without launching a web browser, and also prints the official links
+matching [Microsoft's marketplace README](https://github.com/microsoft/power-platform-skills#install-one-plugin-with-a-click).
+Opening or printing links does not install plugins without your confirmation in
+the app. Confirm the marketplace dialog once first, then open the selected
+plugin links (or install from **Customize**). No web browser is opened
+automatically and no account or browser profile is selected.
 
 ### Agent/noninteractive usage
 
 To prepare **only the official marketplace**, before plugin selection:
 
 ```powershell
-.\Setup.cmd -NonInteractive -PluginHost CopilotCli -MarketplaceOnly -AcceptPlugins
+.\Setup.cmd -NonInteractive -PluginHost CopilotCli -MarketplaceOnly -Prerequisites FromPlugins -AcceptPlugins
+.\Setup.cmd -NonInteractive -PluginHost ClaudeCode -MarketplaceOnly -Prerequisites FromPlugins -AcceptPlugins
+.\Setup.cmd -NonInteractive -PluginHost CopilotApp -MarketplaceOnly -Prerequisites FromPlugins -AcceptPlugins
 ```
 
-Use `ClaudeCode` instead when selected. This mode requires an explicit CLI host
-and cannot be combined with a plugin selection or Dataverse opt-in. It verifies
-or adds the marketplace without listing/installing plugins, configuring another
-host, or signing in. `-AcceptPlugins` approves only this marketplace-only plan;
-request separate approval after the user subsequently chooses plugins.
+Choose **one** host (`CopilotCli`, `ClaudeCode`, or `CopilotApp`). This mode
+cannot be combined with `-Plugins` or `-IncludeDataverse`. On CLI hosts it
+verifies or adds `microsoft/power-platform-skills` without installing plugins;
+on `CopilotApp` it prints the official marketplace launch link and returns exit
+`4` (pending user confirmation in the app). Passing `-Prerequisites FromPlugins`
+requires only Git to be ready rather than all 5 tools. `-AcceptPlugins` approves
+only this marketplace-only plan; request separate approval after the user
+subsequently chooses plugins.
 
-For an approved **individual selection**, after prerequisites are ready:
+For an approved **individual selection**, checking only that selection's
+required prerequisites:
 
 ```powershell
-.\Setup.cmd -NonInteractive -PluginHost CopilotCli -Plugins "dataverse,model-apps" -AcceptPlugins
+.\Setup.cmd -NonInteractive -PluginHost CopilotCli -Plugins "dataverse,model-apps" -Prerequisites FromPlugins -AcceptPlugins
 ```
 
 Use `ClaudeCode` instead for that host, not both. `-Plugins` is one

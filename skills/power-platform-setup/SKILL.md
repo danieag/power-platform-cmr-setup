@@ -1,6 +1,6 @@
 ---
 name: power-platform-setup
-description: Guide one Windows onboarding conversation through prerequisites, the official marketplace, selected Power Platform plugins and separately approved connection onboarding. Coordinate the repo's script, doctor and connection skills; pause with a resume prompt only when a restart or capability reload is needed.
+description: Guide one Windows onboarding conversation: choose your host and Power Platform plugins (or marketplace / full setup) first, install only the required Windows prerequisites, add the approved marketplace/plugins, and continue with separately approved connection onboarding.
 ---
 
 # Power Platform setup
@@ -10,72 +10,169 @@ Use the reviewed public repository
 This skill is an instruction wrapper, not another installer. A repository URL
 does not automatically register this skill in the desktop app.
 
-## One entry point for the guided flow
+## One entry point: plugin-first or full workstation setup
 
 Read this file when the user provides the complete repo/extracted folder and
-asks to be guided from setup through connection. It is the front door:
-**prerequisites > marketplace > plugin choices > connection onboarding**.
+asks to be guided from setup through connection. Instead of forcing every user
+to install all five Windows installers up front ("god mode"), the default
+guided flow is **choose host & plugins first > install only their required
+prerequisites > add marketplace/plugins > optional connection onboarding**:
+
+1. **Choose host and workload scope** (specific plugins, marketplace only, or
+   full 5-tool workstation setup).
+2. **Check and install only the required core prerequisites** through
+   `Setup.cmd -Prerequisites FromPlugins` (or full `-CheckOnly` / `-Install`
+   when the user explicitly chooses the full workstation bundle).
+3. **Add the official marketplace and/or selected plugins** for `CopilotCli`,
+   `ClaudeCode`, `CopilotApp` confirmation links, or guide VS Code's native UI.
+4. **Continue with `power-platform-connect`** when requested, connecting only
+   the surfaces relevant to the chosen plugins.
+
 Read the other repo skills when their stage is reached; do not make the user
-find and invoke each one separately.
+find and invoke each one separately. Stay in the same conversation where
+possible and execute approved work with terminal tools. **One starting prompt
+is not blanket approval.** Prerequisite installation, marketplace/plugin
+changes, optional personal skill/MCP writes, sign-in and live identity checks
+retain their separate approval boundaries. Do not execute the flow for a
+documentation-only or explanation request.
 
-Stay in the same conversation where possible and execute approved work with
-terminal tools. **One starting prompt is not blanket approval.** Installation,
-marketplace registration, selected plugins, optional personal skill/MCP writes,
-sign-in and live identity checks retain their separate approval boundaries.
-Do not execute the flow for a documentation-only or explanation request.
+### Step 1: choose host and plugins (or full setup) first
 
-### Step 1: prerequisites
+Read `AGENTS.md`, `README.md`, and `Setup.ps1` (`Get-SetupPluginCatalog` and
+`Resolve-SetupPrerequisites`) from the reviewed full source.
 
-Read `AGENTS.md`, `README.md`, and `Setup.ps1` from the reviewed full source.
-Run `.\Setup.cmd -CheckOnly`. Explain the missing/unsupported-tool plan and
-obtain explicit approval before running
-`.\Setup.cmd -Install -Accept -NonInteractive`. Omit optional host flags in
-this first invocation; plugins, MCP registration and skill-copy stages then
-skip rather than interrupt the guided sequence with a full-set install.
-Compatible prerequisites need no reinstall.
+Speak in **plain, everyday language** for non-technical makers—never require the
+user to know CLI flags or kebab-case plugin IDs. If the user already stated
+what they want in plain English, map it directly instead of re-asking:
 
-If Windows reports a reboot requirement or an installer fails, stop; no later
-stage may run. If PATH changed, arrange the required host/terminal restart
-before connection work. Approved marketplace/plugin commands can be completed
-first when no Windows restart is required: their script process refreshes its
-own PATH without replacing the parent host's environment.
+- "Model-driven apps" / "generative pages" -> `model-apps` (`git, node, dotnet, pac, azure`)
+- "Canvas apps" -> `canvas-apps` (`git, dotnet`)
+- "Code apps" -> `code-apps-preview` (`git, node`)
+- "Power Automate" / "flows" -> `power-automate` (`git, node, azure`)
+- "Power Pages" / "website" / "portal" -> `power-pages` (`git, node, dotnet, pac, azure`)
+- "Dataverse" -> `dataverse` (`git, node, dotnet, pac, azure`)
+- "PCF" / "custom controls" -> `pcf` (`git, node, dotnet, pac, azure`)
+- "Process Intelligence" / "process mining" -> `process-intelligence` (`git, node, azure`)
+- "Mobile apps" -> `mobile-app` (`git, node, azure`)
+- "Mobile extensions" / "wrapped canvas" -> `power-apps-mobile-extension` (`git, node, dotnet, pac`)
+- "MCP apps" / "widgets" -> `mcp-apps` (`git, node, dotnet, pac`)
+- "Marketplace only" -> `-MarketplaceOnly` (`git` only)
+- "Everything" / "full setup" -> `-Prerequisites All` (`git, node, dotnet, pac, azure`)
 
-### Step 2: marketplace first, then plugin choices
+If the user asked **only** for prerequisites (for example, *"install the prereqs
+for model-driven apps"*), run `-CheckOnly -Plugins "model-apps" -Prerequisites
+FromPlugins` right away, explain the plan in plain English, and ask approval to
+install only those missing tools; afterward, politely offer (without forcing)
+to add the matching plugin and/or connect their environment.
 
-For the already confirmed Copilot CLI or Claude Code host, read and follow
-`skills/power-platform-doctor/SKILL.md` in this same conversation. It checks
-the chosen CLI, requests approval to add/reuse the official marketplace, and
-**only then asks which plugins the user wants**. Marketplace-only preparation
-uses `-MarketplaceOnly -AcceptPlugins`; that approval does not authorize later
-plugin installation. Reuse an existing matching marketplace without replacing
-its source.
+Otherwise confirm which existing host the user wants (`CopilotCli`, `ClaudeCode`,
+`CopilotApp`, or VS Code manual marketplace UI) if not already clear from
+context. Check passive host availability as needed; if a selected CLI is
+missing, provide its official installation handoff rather than installing or
+substituting a host.
 
-The doctor then shows the chosen plugin delta, asks for its own approval, and
-runs `-Plugins "id,id" -AcceptPlugins`. Do not choose every plugin by default,
-install into the other CLI, add another host, or run the broad remote installer.
-If the user chooses none, leave the already approved marketplace in place and
-install no plugins.
+Ask what they want to build/install, presenting the choices in friendly plain
+language with the tools each choice needs:
 
-For a native VS Code/Copilot desktop route without the CLI, follow the
-integration skill's supported manual route instead; do not pretend CLI flags
-configure those separate hosts.
+- **Selected plugins** (for example `canvas-apps` -> `git, dotnet`;
+  `code-apps-preview` -> `git, node`; `power-automate` or
+  `process-intelligence` or `mobile-app` -> `git, node, azure`; `mcp-apps` or
+  `power-apps-mobile-extension` -> `git, node, dotnet, pac`; `dataverse`,
+  `model-apps`, `power-pages`, or `pcf` -> all 5 core tools).
+- **Official marketplace only** (`-MarketplaceOnly` on `CopilotCli`,
+  `ClaudeCode`, or `CopilotApp` link -> requires `git` only).
+- **Full workstation setup** (all 5 core tools: `git, node, dotnet, pac, azure`).
 
-### Step 3: continue with the connection skill
+Also confirm whether they want optional **Copilot Studio MCP** registration
+(which adds `node` to resolved prerequisites if not already included).
 
-When the initial request includes connection onboarding, read
+### Step 2: check and install only the required prerequisites
+
+Run an offline, read-only, CLI-free check matching the user's scope:
+
+```powershell
+# Specific plugins (CLI, Copilot desktop app, or omit -PluginHost for VS Code UI):
+.\Setup.cmd -CheckOnly -PluginHost CopilotCli -Plugins "canvas-apps,power-automate" -Prerequisites FromPlugins
+
+# Marketplace only (CopilotCli, ClaudeCode, or CopilotApp):
+.\Setup.cmd -CheckOnly -PluginHost CopilotCli -MarketplaceOnly -Prerequisites FromPlugins
+
+# Explicit prerequisite subset, when requested directly:
+.\Setup.cmd -CheckOnly -Prerequisites "git,node,azure"
+
+# Full workstation setup (all 5 core tools):
+.\Setup.cmd -CheckOnly
+```
+
+Explain the resolved core prerequisites, what is already `[READY]`, what needs
+installing, and any workload notes printed by the script (such as Dataverse CLI
+and optional Python SDK being deferred to connection onboarding, Mobile
+Extensions needing JDK 17+/Android SDK 35 or macOS Xcode for native builds, or
+Canvas Apps needing coauthoring enabled in Power Apps Studio).
+
+Obtain **explicit approval** for the prerequisite plan, then install **only**
+those resolved prerequisites:
+
+```powershell
+.\Setup.cmd -Install -Accept -NonInteractive -Plugins "canvas-apps,power-automate" -Prerequisites FromPlugins
+```
+
+(Omit `-Plugins ... -Prerequisites FromPlugins` for full workstation setup, or
+pass `-Prerequisites "git"` for marketplace-only prerequisite setup. Omit
+`-AcceptPlugins` here unless the user already separately approved the plugin or
+marketplace stage as well.) Compatible installed tools are skipped.
+
+If Windows reports a reboot requirement (`3010`) or an installer fails (`3`),
+stop; no later stage may run. If PATH changed, arrange the required
+host/terminal restart before connection work. Approved CLI marketplace/plugin
+commands can run first when no Windows reboot is required because the script
+refreshes its own process PATH without rewriting the parent host's environment.
+
+### Step 3: add the marketplace and/or selected plugins
+
+Read and follow `skills/power-platform-doctor/SKILL.md` in this same
+conversation. Keep `-Prerequisites FromPlugins` on selective reruns so
+intentionally skipped tools (such as `.NET`/`PAC` for Power Automate or `Node`/
+`Azure` for Canvas Apps) never block plugin setup:
+
+- **Marketplace-only** (`CopilotCli`, `ClaudeCode`, or `CopilotApp` link),
+  after marketplace approval:
+  `.\Setup.cmd -NonInteractive -PluginHost <host> -MarketplaceOnly -Prerequisites FromPlugins -AcceptPlugins`
+- **Selected plugins** (`CopilotCli`, `ClaudeCode`, or `CopilotApp` links),
+  after inspecting CLI state (when using a CLI) and obtaining plugin approval:
+  `.\Setup.cmd -NonInteractive -PluginHost <host> -Plugins "<id,id>" -Prerequisites FromPlugins -AcceptPlugins`
+- **VS Code without CLI**: guide the user through **Customizations > Browse >
+  Configure Marketplaces > Add Marketplace... > `microsoft/power-platform-skills`**
+  to install their chosen plugins.
+
+`CopilotApp` prints ONLY the official marketplace link (and the chosen plugin
+links, when plugins were selected) and exits `4`, meaning user confirmations in
+the Copilot desktop app are pending rather than verified. Never choose every
+plugin by default, configure an unselected CLI, install an agent host, or run
+the broad remote `install.js` installer.
+
+### Step 4: continue with the connection skill
+
+When the request includes connection onboarding, read
 `skills/power-platform-connect/SKILL.md` from this same repo and follow it;
 the user need not paste a second setup prompt. If the user asked only for
 installation, ask whether they want to connect before initiating this stage.
 The skill file can be read directly; a personal copy is optional and still
 requires its own installation approval.
 
-Confirm the host, sign-in identity and tenant, then let the connection skill
-reuse/sign in to PAC in an approved exact environment context and run
-`pac env list`. Present returned environment names/URLs and let the user
-choose one or more targets. Keep manual entry of another existing URL available,
-including on later runs. Discovery approval is not approval to configure all
-returned environments. Confirm each selected target, nickname and tools as
-the connection skill requires. Reuse supplied details
+Connect **only the surfaces relevant to the user's chosen plugins**. If their
+selective setup intentionally omitted `pac` (for example `power-automate`,
+`process-intelligence`, `canvas-apps`, or `code-apps-preview`), do **not** run
+`pac` commands or assume PAC is installed: guide the relevant surface instead
+(such as scoped `az login` for Azure-backed plugins, Studio coauthoring for
+Canvas Apps, or `pa` sign-in during Code Apps work), or obtain separate
+prerequisite install approval first if they want PAC environment discovery.
+When PAC is part of their setup, confirm the host, sign-in identity and tenant,
+let the connection skill reuse/sign in to PAC in an approved exact environment
+context, run `pac env list`, present returned environment names/URLs, and keep
+manual entry of another existing URL available. Discovery approval is not
+approval to configure all returned environments. Confirm each selected target,
+nickname and tools as the connection skill requires. Reuse supplied details
 without asking again, but never infer a tenant from the active profile.
 Ask before additional software, profile changes, private binding records,
 authentication, MCP registration/startup and bounded live identity checks.
@@ -166,13 +263,15 @@ plan/authentication and organizational policy. Do not open a CLI AI session
 just to install plugins, promise unlimited/free AI usage, or purchase credits.
 
 Collect separate approvals one decision at a time, then run only the approved
-flags. The default CLI sequence above prepares the marketplace before asking
-for plugin choices; do not collapse it into a full-set install.
-`All` is only for an explicitly approved standard full set; Dataverse requires
-an explicit `dataverse` ID in `-Plugins` or requested `-IncludeDataverse`.
-For a plugin-only follow-up with ready prerequisites, omit `-Install -Accept`;
-`-NonInteractive -PluginHost <host> -Plugins "id,id" -AcceptPlugins` stops if a
-prerequisite has become missing instead of installing unapproved software.
+flags. Pass `-Prerequisites FromPlugins` when the user chose specific plugins
+or marketplace-only preparation so unselected core installers are skipped; use
+default `-Prerequisites All` only when they chose the full 5-tool workstation
+setup. `All` for `-Plugins` is only for an explicitly approved standard full
+set; Dataverse requires an explicit `dataverse` ID in `-Plugins` or requested
+`-IncludeDataverse`. For a plugin-only follow-up with ready prerequisites, omit
+`-Install -Accept`; `-NonInteractive -PluginHost <host> -Plugins "id,id"
+-Prerequisites FromPlugins -AcceptPlugins` checks only the tools those plugins
+require and stops if one is missing instead of installing unapproved software.
 
 Omit an optional stage's host and
 acceptance flags when not requested; noninteractive setup skips it. If the
@@ -187,7 +286,7 @@ setup command to run in a separate terminal while that app is closed, then
 resume after reopening. Do not promise zero interruptions from Windows/UAC.
 
 When installation is complete, explain pending desktop confirmations and host
-discovery. Continue to Step 3 if requested and the necessary capabilities are
+discovery. Continue to Step 4 if requested and the necessary capabilities are
 available; otherwise give the restart/resume handoff. Never run authentication
 under installation approvals.
 
@@ -195,29 +294,32 @@ under installation approvals.
 
 1. Read the repository's `AGENTS.md`, `README.md`, and `Setup.ps1`. Obtain the full
    source if it is not already available locally. Do not run unreviewed downloads.
-2. Run `.\Setup.cmd -CheckOnly` in that folder. Azure CLI is included by default
-   after PAC. Use `-SkipAzureCli` only for a user-approved minimal setup without
-   Azure-dependent workflows. This mode is offline and read-only.
+2. Confirm the intended host and whether the user wants specific Power Platform
+   plugins, marketplace-only preparation, or the full 5-tool workstation setup.
+   Run `.\Setup.cmd -CheckOnly` with `-Plugins "<id,id>" -Prerequisites FromPlugins`
+   (or `-MarketplaceOnly -Prerequisites FromPlugins`, or plain `-CheckOnly` for
+   the full bundle). Use `-SkipAzureCli` only when the user explicitly opts out
+   of Azure CLI. This mode is offline, read-only and CLI-free.
    Use the same launcher on x64 and ARM64 Windows 11; it detects native Windows
    architecture even in an emulated terminal. Explain any existing emulated
    tools and x64 Azure CLI emulation shown in the plan. Do not replace
    the script with ad hoc architecture-specific installation commands.
-3. Summarize the plan and ask the user to explicitly approve installing the
-   missing/unsupported tools and accepting the applicable software licenses.
-4. After approval, run
-   `.\Setup.cmd -Install -Accept -NonInteractive`, with the same approved
-   `-SkipAzureCli` flag if applicable. This still permits Windows UAC to require
-   human action.
+3. Summarize the resolved prerequisite plan and ask the user to explicitly
+   approve installing the missing/unsupported tools and accepting their licenses.
+4. After approval, run `.\Setup.cmd -Install -Accept -NonInteractive` with the
+   same approved `-Plugins` / `-Prerequisites` / `-SkipAzureCli` scope. This
+   still permits Windows UAC to require human action.
 5. Respect exit codes, stop on failure/restart requirement, and explain any
    terminal/Copilot restart needed. Report binaries, desktop plugins, and
    authentication separately.
-6. For Power Platform plugins, use Step 2's doctor for marketplace preparation
-   followed by CLI plugin selection.
+6. For Power Platform plugins or marketplace preparation, use the doctor flow.
    Obtain separate approval for `ClaudeCode`, `CopilotCli`, or `CopilotApp` and
-   the actual selection, then append `-PluginHost <host> -Plugins "id,id"
-   -AcceptPlugins`. Dataverse is opt-in by explicit ID or `-IncludeDataverse`.
-   CLI hosts must already be on PATH; no new host is
-   installed. The app route prints official confirmation links and returns
+   the actual selection, then run with `-PluginHost <host>` plus
+   `-Plugins "id,id" -Prerequisites FromPlugins -AcceptPlugins` (or
+   `-MarketplaceOnly -Prerequisites FromPlugins -AcceptPlugins`). Dataverse is
+   opt-in by explicit ID or `-IncludeDataverse`. CLI hosts must already be on
+   PATH; no new host is installed. The `CopilotApp` route prints official
+   confirmation links for only the requested marketplace/plugins and returns
    `4`, meaning pending user action, not verified installation. Do not retry
    installations solely because the app handoff returns that code.
 7. For Copilot Studio MCP, obtain independent approval for the chosen host and
