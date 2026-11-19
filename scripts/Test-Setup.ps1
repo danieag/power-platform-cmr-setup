@@ -2022,7 +2022,8 @@ Test-Case 'skill command examples parse without executing plugin or prerequisite
 
 Test-Case 'public documentation resolves all local links and screenshot files' {
     foreach ($relative in @('README.md', 'AGENTS.md', 'CLAUDE.md',
-        'docs\advanced-setup.md', 'docs\agent-guided-setup-guide.md', 'docs\power-platform-connect-guide.md',
+        'docs\advanced-setup.md', 'docs\agent-guided-setup-guide.md',
+        'docs\media-bank.md', 'docs\power-platform-connect-guide.md',
         'skills\power-platform-setup\SKILL.md',
         '.github\skills\power-platform-setup\SKILL.md',
         '.claude\skills\power-platform-setup\SKILL.md')) {

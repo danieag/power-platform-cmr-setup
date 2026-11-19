@@ -146,5 +146,16 @@ Once Step 3 is complete:
    (or `~/.claude/skills/`) so future Projects and child sessions automatically
    reuse saved environments and confirm **Environment X and Solution Y**.
 3. **Restart handoff when needed:** if `PATH` changed or newly registered
-   plugins/MCP servers need a host reload, explain why and give a short,
-   PII-free resume prompt listing completed stages, chosen host, and plugin IDs.
+   plugins, personal skills, or MCP servers need a host reload, explain why and
+   give a short, PII-free resume prompt listing completed stages, chosen host,
+   and plugin IDs. For the **GitHub Copilot desktop app**, remind the user:
+   - Closing the window (`X`) may keep background processes alive—if new tools,
+     skills, or MCP servers don't appear, open **Windows Task Manager**
+     (`Ctrl+Shift+Esc`), choose **End task** on **GitHub Copilot**, and reopen it.
+   - Check **Customize > Installed** (under **Skills**) and toggle
+     `power-platform-connect`, `power-platform-router`, and plugin skills **on**
+     if any appear switched off.
+   - During any device-code sign-in in Step 4, always extract the code from
+     terminal output and display it **in bold** (`**CODE**`) with
+     `[Sign in to your account](https://login.microsoftonline.com/common/oauth2/deviceauth)`
+     directly inside the `ask_user` prompt.

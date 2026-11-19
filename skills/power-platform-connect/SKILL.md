@@ -546,6 +546,16 @@ client/cache: a separate initial prompt can be expected. Do not blindly choose
 PAC's `--managedIdentity` mode to make it appear to share an Azure login; using
 that supported credential-chain mode is a separate, explicitly verified choice.
 
+**CRITICAL device-code UX rule (`pac`, `dataverse`, and `az`):** whenever any
+device-code sign-in runs, **read the shell output first to extract the exact
+one-time code**—never tell the user *"enter the code shown in the tool output
+above"* (terminal blocks are often collapsed or easy to miss!). In your chat
+message and `ask_user` confirmation question, **always display the extracted
+device code in bold** (for example **`**ABCD12345**`**) together with the
+clickable markdown hyperlink **`[Sign in to your account](https://login.microsoftonline.com/common/oauth2/deviceauth)`**
+so the user can copy the bold code and click the sign-in link right inside the
+prompt card.
+
 On failure, distinguish identity/MFA/consent, wrong profile, permissions, proxy,
 TLS, timeout, and native-runtime errors. A network failure is not a reason to
 log out working profiles or keep repeating device-code login.
@@ -598,6 +608,13 @@ Use the installed official `@microsoft/dataverse` package, rather than fetching
 
 Registration is not proof of connectivity. Tell the user when a host restart
 or new chat is required and leave that step pending until it actually happens.
+**For the GitHub Copilot desktop app:** closing the window (`X`) can leave
+background processes running in the tray; tell the user that if new `PATH`
+tools, `mcp-config.json` servers, or personal skills do not appear after
+reopening, they should open **Windows Task Manager** (`Ctrl+Shift+Esc`), choose
+**End task** on **GitHub Copilot**, reopen the app, and check **Customize >
+Installed** (under **Skills** / **Plugins**) to make sure the newly added skills
+and plugins are toggled **on**.
 For several approved targets, prepare their distinct definitions before one
 host reload where supported, rather than demanding a restart after every
 entry. Verify each named server against its own environment afterward.
@@ -637,9 +654,11 @@ requires. Do not disconnect/sign out a working server merely to "test" it:
 disconnect can remove its remembered sign-in.
 
 Other MCP servers (for example Power Automate's `flowagent`) keep their own
-documented auth contracts. Configure them only when requested, using that
-installed plugin's setup; when configured for a saved environment, record the
-exact server ID in `mcpServers` (using
+documented auth contracts: the intended workflow is to install/set up
+`power-automate` (`flowagent`) in the normal way first, after which
+`power-platform-connect` or `power-platform-router` runs read-only `whoami` /
+`get_current_env` checks and asks permission to link the exact server ID in
+`<alias>.json`'s `mcpServers` map (using
 a distinct `flowagent-<alias>` server with that connection's `AZURE_CONFIG_DIR`
 when spanning multiple tenants/accounts, and verifying `whoami` + `get_current_env`
 against `environmentId`). Do not copy private wrappers, hardcode cache internals,

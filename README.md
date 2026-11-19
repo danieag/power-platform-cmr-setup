@@ -170,6 +170,7 @@ Run a read-only, offline check at any time without changing your PC:
 ```
 
 - **Exit codes:** `0` = ready/completed, `1` = missing/unsupported prerequisites in `-CheckOnly`, `2` = cancelled or invalid options / missing CLI handoff, `3` = error (re-run `-CheckOnly` after any active installer finishes), `4` = Copilot desktop app confirmation pending, `3010` = Windows restart required.
+- **Restarting the GitHub Copilot desktop app & enabling skills:** closing the window (`X`) can leave background processes running. If newly installed `PATH` tools, MCP servers, or personal skills (`power-platform-connect`, `power-platform-router`) don't appear, open **Windows Task Manager** (`Ctrl+Shift+Esc`), click **End task** on **GitHub Copilot**, reopen the app, and check **Customize > Installed** (under **Skills**) to ensure the skill toggles are switched **on**.
 - **`"hook errored"` when saving `mcp-config.json`:** some plugins (such as `model-apps@power-platform-skills`) attach a pre-tool-use file-write hook that can error on Windows when writing `%USERPROFILE%\.copilot\mcp-config.json`. Temporarily toggle that plugin **off** in **Customize > Installed**, retry saving `mcp-config.json`, and toggle it back **on**.
 
 <details>
@@ -184,4 +185,5 @@ If an installer reports a file lock or `exit code: 3`, wait for any background i
 </details>
 
 - **[Detailed Technical Guide](docs/advanced-setup.md):** all CLI flags, SHA256/SHA512 & Authenticode verification, ARM64 emulation details, weekly Node LTS review workflow, and contributor tests (`.\scripts\Test-Setup.ps1`).
+- **[Media Bank (All Screenshots Catalog)](docs/media-bank.md):** complete, descriptively named screenshot library of the end-to-end onboarding, connection, MCP linking, and router workflow for documentation, PDFs, or videos.
 - **License:** [MIT](LICENSE) (vendor tools have their own licenses; community bootstrap, not an official Microsoft product).

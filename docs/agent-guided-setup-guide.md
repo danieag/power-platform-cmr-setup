@@ -240,5 +240,19 @@ IDs below are redacted):
 
    ![Post-restart persistence check confirming Azure CLI, PAC, Dataverse CLI, and Dataverse MCP work with no new sign-in prompts](images/64-connect-persistence-verified.png)
 
+> **Restarting the GitHub Copilot desktop app & enabling skills:** Closing the
+> Copilot window (`X`) can leave background processes running. If newly added
+> `PATH` tools, MCP servers, or personal skills (`power-platform-connect`,
+> `power-platform-router`) don't load, open **Windows Task Manager**
+> (`Ctrl+Shift+Esc`), click **End task** on **GitHub Copilot**, reopen it, and
+> check **Customize > Installed > Skills** to make sure the skill toggles are
+> switched **on** (see [`media-bank/15-copilot-customize-installed-enable-skills-toggles.png`](media-bank/15-copilot-customize-installed-enable-skills-toggles.png)).
+>
+> **Adding FlowAgent (`power-automate`) or Copilot Studio MCP:** Set up the
+> `power-automate` plugin (`flowagent`) in the normal way first; `power-platform-connect` /
+> `power-platform-router` then verifies `whoami` and asks permission to link
+> `"flowagent"` (and `"copilotStudio"`) into `<alias>.json`'s `mcpServers` map.
+
 For additional multi-environment details, see the companion
-[Power Platform Connect guide](power-platform-connect-guide.md).
+[Power Platform Connect guide](power-platform-connect-guide.md) and the full
+[Media Bank screenshot catalog](media-bank.md).
