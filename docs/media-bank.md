@@ -1,8 +1,8 @@
-# Media Bank — Complete Onboarding, Connection & Router Screenshot Catalog
+# Media Bank — Complete Onboarding, Connection & Router Walkthrough
 
-[Back to README](../README.md) · [Agent-Guided Setup Walkthrough](agent-guided-setup-guide.md) · [Power Platform Connect Guide](power-platform-connect-guide.md)
+[Back to README](../README.md) · [Detailed Technical Guide](advanced-setup.md)
 
-This media bank indexes **every screenshot in the repository** with descriptive titles, file paths, dimensions, and plain-English descriptions so assets can be reused directly in **PDF guides, slide decks, or video walkthroughs**.
+This media bank is the **single visual walkthrough and screenshot catalog** for the repository—indexing every screen with descriptive names, paths, and dimensions for reuse in **PDF guides, slide decks, or video walkthroughs**. *(All `.png` media files are excluded from `.zip` downloads via `.gitattributes` and `New-Release.ps1` so user downloads stay under 100 KB.)*
 
 All tenant URLs, sign-in emails, Tenant/Environment/Organization GUIDs, and one-time device codes have been permanently redacted and verified clean with OCR.
 
@@ -246,30 +246,24 @@ This 41-screenshot sequence captures the complete journey from opening the repos
 
 ---
 
-## Part 2 — Supplemental Reference Screenshots (`docs/images/`)
+## Part 2 — VS Code Native Marketplace UI (`vscode-01..04`)
 
-These additional screenshots in `docs/images/` cover alternative entry paths (double-clicking `Setup.cmd`, VS Code's native marketplace UI, Microsoft Entra browser device-code screens, and Dataverse MCP's 18-tool readout):
+| # | Descriptive Name | File | What It Shows |
+|---|---|---|---|
+| V1 | **VS Code — `Customizations > Browse > Configure Marketplaces`** | [`media-bank/vscode-01-configure-marketplaces.png`](media-bank/vscode-01-configure-marketplaces.png) | Opening the **All Sources** dropdown in VS Code Customizations and choosing **Configure Marketplaces**. |
+| V2 | **VS Code — `Add Marketplace...` Action** | [`media-bank/vscode-02-add-marketplace.png`](media-bank/vscode-02-add-marketplace.png) | Selecting **Add Marketplace...** in the Manage Plugin Marketplaces dialog. |
+| V3 | **VS Code — Enter `microsoft/power-platform-skills`** | [`media-bank/vscode-03-marketplace-source.png`](media-bank/vscode-03-marketplace-source.png) | Typing `microsoft/power-platform-skills` and pressing **Enter**. |
+| V4 | **VS Code — Browse & Install Individual Power Platform Plugins** | [`media-bank/vscode-04-plugin-catalog.png`](media-bank/vscode-04-plugin-catalog.png) | Selecting **Install** beside individual plugins from the `power-platform-skills` catalog. |
 
-| Category | File | Descriptive Summary |
-|---|---|---|
-| **Console `Setup.cmd` (Option B)** | [`images/01-download-zip.png`](images/01-download-zip.png) | GitHub **Code > Download ZIP** menu cropped close-up. |
-| **Console `Setup.cmd` (Option B)** | [`images/02-extracted-folder.png`](images/02-extracted-folder.png) | Windows File Explorer showing extracted `Setup`, `Setup.ps1`, and `skills`. |
-| **Console `Setup.cmd` (Option B)** | [`images/03-open-setup.png`](images/03-open-setup.png) | Right-clicking `Setup.cmd` and choosing **Open** as a normal Windows user. |
-| **Console `Setup.cmd` (Option B)** | [`images/04-approve-install.png`](images/04-approve-install.png) | Console preflight readiness check and typing `INSTALL` to approve missing prerequisites. |
-| **Console `Setup.cmd` (Option B)** | [`images/05-dotnet-download.png`](images/05-dotnet-download.png) | PowerShell downloading the native ARM64 .NET 10 SDK installer. |
-| **Console `Setup.cmd` (Option B)** | [`images/06-dotnet-error.png`](images/06-dotnet-error.png) | Example file-lock error (`exit code: 3`) recovery scenario. |
-| **Console `Setup.cmd` (Option B)** | [`images/07-dotnet-ready.png`](images/07-dotnet-ready.png) | Follow-up `-CheckOnly` run showing `.NET SDK` `[READY]`. |
-| **Console `Setup.cmd` (Option B)** | [`images/08-approve-plugins.png`](images/08-approve-plugins.png) | Console host chooser (option `3` Copilot desktop), Dataverse opt-in, and `PLUGINS` prompt. |
-| **Copilot Attach Menu** | [`images/09-add-local-folder.png`](images/09-add-local-folder.png) | Cropped `+ > Add local folder or repository` menu item. |
-| **VS Code Native Marketplace** | [`images/11-vscode-configure-marketplaces.png`](images/11-vscode-configure-marketplaces.png) | VS Code **Customizations > Browse > All Sources > Configure Marketplaces**. |
-| **VS Code Native Marketplace** | [`images/12-vscode-add-marketplace.png`](images/12-vscode-add-marketplace.png) | VS Code **Add Marketplace...** button. |
-| **VS Code Native Marketplace** | [`images/13-vscode-marketplace-source.png`](images/13-vscode-marketplace-source.png) | Entering `microsoft/power-platform-skills` in VS Code. |
-| **VS Code Native Marketplace** | [`images/14-vscode-plugin-catalog.png`](images/14-vscode-plugin-catalog.png) | Browsing and installing individual Power Platform plugins in VS Code. |
-| **VS Code Connect Walkthrough** | [`images/15-connect-start.png`](images/15-connect-start.png) – [`images/28-connect-after-restart.png`](images/28-connect-after-restart.png) | 14-step redacted VS Code `power-platform-connect` run (used in [`power-platform-connect-guide.md`](power-platform-connect-guide.md)). |
-| **Copilot App Walkthrough (Earlier Run)** | [`images/31-agent-short-prompt.png`](images/31-agent-short-prompt.png) – [`images/45-copilot-app-install-code-apps.png`](images/45-copilot-app-install-code-apps.png) | Step-by-step `Manage marketplaces` progress modals (`Adding marketplace...` -> `✓ Added power-platform-skills marketplace`), returning to the **Sessions** sidebar (`40`), and `Install plugin` modals (`42–45`). |
-| **Browser Device-Code Screens** | [`images/51-connect-enter-device-code.png`](images/51-connect-enter-device-code.png) | Microsoft browser page (`Enter code to allow access`) where the user pastes the one-time device code. |
-| **Browser Device-Code Screens** | [`images/52-connect-approve-signin.png`](images/52-connect-approve-signin.png) | Microsoft Entra prompt (`You're signing in to Power Platform CLI - pac`) with redacted account. |
-| **Browser Device-Code Screens** | [`images/53-connect-pac-signed-in-browser.png`](images/53-connect-pac-signed-in-browser.png) | Browser confirmation (`You have signed in to the Power Platform CLI - pac application on your device`). |
-| **Dataverse MCP Live Tools** | [`images/61-connect-mcp-server-customize-installed.png`](images/61-connect-mcp-server-customize-installed.png) | Copilot **Customize > Installed > MCP Servers** showing the enabled custom Dataverse MCP server. |
-| **Dataverse MCP Live Tools** | [`images/62-connect-mcp-live-verify-tools.png`](images/62-connect-mcp-live-verify-tools.png) | Live read-only Dataverse MCP check listing all 18 exposed Dataverse MCP tools. |
-| **Persistence Summary Cards** | [`images/63-connect-all-surfaces-summary.png`](images/63-connect-all-surfaces-summary.png), [`images/64-connect-persistence-verified.png`](images/64-connect-persistence-verified.png) | Multi-surface verification table and post-restart persistence confirmation. |
+<details>
+<summary>Preview VS Code marketplace screenshots (V1–V4)</summary>
+
+![VS Code Configure Marketplaces](media-bank/vscode-01-configure-marketplaces.png)
+
+![VS Code Add Marketplace](media-bank/vscode-02-add-marketplace.png)
+
+![VS Code Enter microsoft/power-platform-skills](media-bank/vscode-03-marketplace-source.png)
+
+![VS Code Plugin Catalog](media-bank/vscode-04-plugin-catalog.png)
+
+</details>

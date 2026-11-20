@@ -32,24 +32,24 @@ Or ask directly for what you want in plain English:
 - *"Set up Canvas apps and Power Automate for me."*
 - *"Just add the Power Platform marketplace."*
 
-**Full step-by-step screenshots:** see the **[Illustrated Agent-Guided Setup Walkthrough](docs/agent-guided-setup-guide.md)**.
+**Full step-by-step screenshots:** see the **[Visual Walkthrough & Media Bank](docs/media-bank.md)** *(screenshots are viewable on GitHub and excluded from `.zip` downloads so the download stays tiny)*.
 
 <details>
 <summary>Preview screenshots: attach folder, select multiple workloads, and confirm marketplace</summary>
 
-Attach the extracted setup folder and send the prompt:
+Attach the setup folder or repository and send the short prompt:
 
-![Copilot menu option to add a local folder or repository](docs/images/09-add-local-folder.png)
+![Copilot menu option to add a folder or repository](docs/media-bank/02-copilot-app-new-session-add-menu.png)
 
-![GitHub Copilot desktop app with the short setup prompt in the composer](docs/images/31-agent-short-prompt.png)
+![GitHub Copilot desktop app with the short setup prompt in the composer](docs/media-bank/04-copilot-app-paste-short-onboarding-prompt.png)
 
-Pick one or multiple workloads at once (for example `1,3` for Model-driven apps + Code apps):
+Pick one or multiple workloads at once (for example `1,2,3,5`):
 
-![Multi-workload selection prompt with 1,3 entered](docs/images/33-agent-multi-workload-select.png)
+![Multi-workload selection prompt with 1,2,3,5 entered](docs/media-bank/06-select-multiple-power-platform-workloads.png)
 
 On the GitHub Copilot desktop app, Setup opens the native `Add plugin marketplace?` dialog directly inside the app (`Allow` -> `Add`), waits for your confirmation, and then opens each selected plugin's install prompt one by one before offering environment connection:
 
-![Copilot desktop app Add plugin marketplace confirmation dialog](docs/images/36-copilot-app-allow-marketplace.png)
+![Copilot desktop app Add plugin marketplace confirmation dialog](docs/media-bank/09-copilot-app-allow-marketplace-modal-and-wait-gate.png)
 
 </details>
 
@@ -65,31 +65,6 @@ On the GitHub Copilot desktop app, Setup opens the native `Add plugin marketplac
    - **`MCP`:** registers `@microsoft/copilot-studio-mcp@latest` (close the target app first; does not sign in).
    - **`SKILL`:** installs `power-platform-connect` and `power-platform-router` into your personal skills directory (`~/.copilot/skills/` or `~/.claude/skills/`).
 5. Reopen your app and terminals if new Windows tools changed `PATH`.
-
-<details>
-<summary>Console walkthrough screenshots (Setup.cmd)</summary>
-
-1. Download the repository ZIP (`Code > Download ZIP`) and **Extract All**:
-
-   ![GitHub Code menu with Download ZIP selected](docs/images/01-download-zip.png)
-
-   ![Extracted setup folder containing Setup, Setup.ps1, and skills](docs/images/02-extracted-folder.png)
-
-2. Open **`Setup.cmd`** as your normal Windows user:
-
-   ![Setup selected in File Explorer with the Open command visible](docs/images/03-open-setup.png)
-
-3. Review the preflight check and type **`INSTALL`** to approve missing prerequisites (`.NET 10 SDK` can take several minutes; Setup prints a 30-second heartbeat while vendor installers run):
-
-   ![Preflight showing missing tools and the INSTALL approval prompt](docs/images/04-approve-install.png)
-
-   ![Setup downloading the ARM64 .NET SDK](docs/images/05-dotnet-download.png)
-
-4. Choose your host and approve **`PLUGINS`** if requested:
-
-   ![Choosing Copilot desktop and approving the plugin plan](docs/images/08-approve-plugins.png)
-
-</details>
 
 ---
 
@@ -127,13 +102,13 @@ VS Code Copilot users do not need Copilot CLI or Claude Code—only Git on `PATH
 <details>
 <summary>VS Code marketplace screenshots</summary>
 
-![VS Code source dropdown showing Configure Marketplaces](docs/images/11-vscode-configure-marketplaces.png)
+![VS Code source dropdown showing Configure Marketplaces](docs/media-bank/vscode-01-configure-marketplaces.png)
 
-![Manage Plugin Marketplaces dialog with Add Marketplace selected](docs/images/12-vscode-add-marketplace.png)
+![Manage Plugin Marketplaces dialog with Add Marketplace selected](docs/media-bank/vscode-02-add-marketplace.png)
 
-![Add Plugin Marketplace dialog with microsoft/power-platform-skills entered](docs/images/13-vscode-marketplace-source.png)
+![Add Plugin Marketplace dialog with microsoft/power-platform-skills entered](docs/media-bank/vscode-03-marketplace-source.png)
 
-![Power Platform marketplace catalog with individual plugin Install buttons](docs/images/14-vscode-plugin-catalog.png)
+![Power Platform marketplace catalog with individual plugin Install buttons](docs/media-bank/vscode-04-plugin-catalog.png)
 
 </details>
 
@@ -147,7 +122,7 @@ Once your plugins are installed, `power-platform-connect` guides persistent sign
 - **Maps per-environment MCP servers:** records which Dataverse MCP, Power Automate FlowAgent MCP, and Copilot Studio MCP server belongs to each saved environment.
 - **Automatic routing in future projects (`power-platform-router`):** when installed into your personal skills folder (`SKILL` stage or `-ConnectionSkillHost`), future chats, Projects (like Code Apps or Model Apps), and child sessions read your saved `<alias>.json` records automatically—asking you to confirm **Environment X and Solution Y** instead of re-asking for Environment URLs, Environment IDs, Tenant IDs, or sign-in emails.
 
-**See the [Illustrated Power Platform Connect Guide](docs/power-platform-connect-guide.md)** for a full walkthrough of multi-surface connection onboarding.
+**See Chapters 4–6 of the [Visual Walkthrough & Media Bank](docs/media-bank.md)** for full screenshots of PAC/Dataverse/Azure connection setup, FlowAgent & Copilot Studio MCP linking, and 6-tool router verification.
 
 ---
 
@@ -172,18 +147,7 @@ Run a read-only, offline check at any time without changing your PC:
 - **Exit codes:** `0` = ready/completed, `1` = missing/unsupported prerequisites in `-CheckOnly`, `2` = cancelled or invalid options / missing CLI handoff, `3` = error (re-run `-CheckOnly` after any active installer finishes), `4` = Copilot desktop app confirmation pending, `3010` = Windows restart required.
 - **Restarting the GitHub Copilot desktop app & enabling skills:** closing the window (`X`) can leave background processes running. If newly installed `PATH` tools, MCP servers, or personal skills (`power-platform-connect`, `power-platform-router`) don't appear, open **Windows Task Manager** (`Ctrl+Shift+Esc`), click **End task** on **GitHub Copilot**, reopen the app, and check **Customize > Installed** (under **Skills**) to ensure the skill toggles are switched **on**.
 - **`"hook errored"` when saving `mcp-config.json`:** some plugins (such as `model-apps@power-platform-skills`) attach a pre-tool-use file-write hook that can error on Windows when writing `%USERPROFILE%\.copilot\mcp-config.json`. Temporarily toggle that plugin **off** in **Customize > Installed**, retry saving `mcp-config.json`, and toggle it back **on**.
-
-<details>
-<summary>Example: recovering from a transient .NET installer lock (exit code 3)</summary>
-
-If an installer reports a file lock or `exit code: 3`, wait for any background installer or Windows restart to finish, then run `.\Setup.cmd -CheckOnly` to see what completed before rerunning `Setup.cmd` (compatible installed tools are skipped automatically):
-
-![Setup reporting access denied for dotnet.exe and exit code 3](docs/images/06-dotnet-error.png)
-
-![A subsequent check showing READY for .NET SDK](docs/images/07-dotnet-ready.png)
-
-</details>
-
+- **Recovering from a transient installer lock (`exit code: 3`):** wait for any active background installer or Windows restart to finish, run `.\Setup.cmd -CheckOnly` to see what already completed, and rerun `Setup.cmd` (compatible installed tools are skipped automatically).
 - **[Detailed Technical Guide](docs/advanced-setup.md):** all CLI flags, SHA256/SHA512 & Authenticode verification, ARM64 emulation details, weekly Node LTS review workflow, and contributor tests (`.\scripts\Test-Setup.ps1`).
-- **[Media Bank (All Screenshots Catalog)](docs/media-bank.md):** complete, descriptively named screenshot library of the end-to-end onboarding, connection, MCP linking, and router workflow for documentation, PDFs, or videos.
+- **[Visual Walkthrough & Media Bank](docs/media-bank.md):** complete, descriptively named screenshot library of the end-to-end onboarding, connection, MCP linking, and router workflow (kept out of `.zip` downloads so the download stays lightweight).
 - **License:** [MIT](LICENSE) (vendor tools have their own licenses; community bootstrap, not an official Microsoft product).
