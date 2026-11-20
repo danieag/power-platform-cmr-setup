@@ -2045,6 +2045,7 @@ Test-Case 'release packaging and gitattributes exclude screenshot media from ZIP
     Assert-Equal ($releaseScript -notmatch '\.(png|jpg|jpeg|gif|webp|mp4)') $true
     $attributes = Get-Content -LiteralPath (Join-Path $root '.gitattributes') -Raw
     Assert-Equal ($attributes -match '(?m)^docs/media-bank/\*\.png\s+export-ignore\r?$') $true
+    Assert-Equal ($attributes -match '(?m)^docs/media-bank/\*\.webp\s+export-ignore\r?$') $true
     Assert-Equal (Test-Path -LiteralPath (Join-Path $root 'docs\images')) $false
 }
 

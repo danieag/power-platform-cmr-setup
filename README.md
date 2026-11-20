@@ -8,6 +8,8 @@ Set up a Windows PC (Intel/AMD x64 or ARM64 Windows 11) for Microsoft's
 - **Approval-gated & safe:** checks are offline and read-only; every install, plugin, MCP server, and sign-in step asks before changing anything.
 - **Persistent environment routing:** connect once with `power-platform-connect`, and `power-platform-router` lets future projects confirm **Environment X and Solution Y** without re-asking for URLs, Tenant IDs, or emails.
 
+![Power Platform Setup — 2-minute visual overview](docs/media-bank/setup-overview.webp)
+
 ---
 
 ## Quick start

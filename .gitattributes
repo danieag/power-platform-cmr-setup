@@ -1,5 +1,7 @@
-# Exclude screenshot media and contributor test scaffolding from GitHub "Code > Download ZIP" archives
+# Exclude screenshot/video media and contributor test scaffolding from GitHub "Code > Download ZIP" archives
 docs/media-bank/*.png export-ignore
+docs/media-bank/*.webp export-ignore
+docs/media-bank/*.mp4 export-ignore
 scripts/** export-ignore
 .github/workflows/** export-ignore
 .gitattributes export-ignore

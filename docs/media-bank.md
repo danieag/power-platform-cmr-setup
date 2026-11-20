@@ -2,7 +2,7 @@
 
 [Back to README](../README.md) · [Detailed Technical Guide](advanced-setup.md)
 
-This media bank is the **single visual walkthrough and screenshot catalog** for the repository—indexing every screen with descriptive names, paths, and dimensions for reuse in **PDF guides, slide decks, or video walkthroughs**. *(All `.png` media files are excluded from `.zip` downloads via `.gitattributes` and `New-Release.ps1` so user downloads stay under 100 KB.)*
+This media bank is the **single visual walkthrough and screenshot catalog** for the repository—indexing the [2-minute animated overview (`media-bank/setup-overview.webp`)](media-bank/setup-overview.webp) and every screen with descriptive names, paths, and dimensions for reuse in **PDF guides, slide decks, or video walkthroughs**. *(All `.png`/`.webp` media files are excluded from `.zip` downloads via `.gitattributes` and `New-Release.ps1` so user downloads stay under 100 KB.)*
 
 All tenant URLs, sign-in emails, Tenant/Environment/Organization GUIDs, and one-time device codes have been permanently redacted and verified clean with OCR.
 
