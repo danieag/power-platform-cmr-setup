@@ -1,6 +1,6 @@
 ---
 name: power-platform-setup
-description: "Automatically triggered whenever the user asks to set up Power Platform or Copilot Managed Runtime (Managed Apps / ms CLI) on Windows, install prerequisites or plugins for Model-driven apps, Canvas apps, Code apps, Copilot Managed Runtime, Power Automate flows, Power Pages, Dataverse, PCF controls, Process Intelligence, Mobile apps, MCP apps, or add the Power Platform or Copilot Managed Runtime marketplace."
+description: "Automatically triggered by short prompts ('start', 'set up', 'start setup', 'run setup', 'help me get set up') in this workspace, or whenever the user asks to set up Power Platform or Copilot Managed Runtime (Managed Apps / ms CLI) on Windows, install prerequisites or plugins for Model-driven apps, Canvas apps, Code apps, Copilot Managed Runtime, Power Automate flows, Power Pages, Dataverse, PCF controls, Process Intelligence, Mobile apps, MCP apps, or add the Power Platform or Copilot Managed Runtime marketplace."
 ---
 
 # Power Platform and Copilot Managed Runtime setup (workspace entry)

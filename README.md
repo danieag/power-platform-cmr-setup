@@ -25,13 +25,15 @@ Choose **Option A (use your AI agent)** or **Option B (double-click `Setup.cmd`)
 ### Option A: ask your AI agent (easiest)
 
 1. Open **GitHub Copilot** (desktop app, VS Code, or CLI) or **Claude Code** and **attach/open the extracted folder** (in the Copilot desktop app: **+ > Add local folder or repository**). You do not need Git installed first.
-2. Paste this **one short prompt**:
+2. Type one short prompt:
 
-> Help me set up Power Platform and/or Copilot Managed Runtime using this folder. Ask whether I want Power Platform, Copilot Managed Runtime, or both, ask which app I use, let me pick my workloads, check and install only the combined prerequisites they need with my approval, help me add the plugins, and then guide me on connecting.
+> Help me get set up
 
-Or ask directly for what you want in plain English:
+*(Even `"Start setup"` or `"Set up"` works—opening this folder automatically loads the setup guide, so your agent knows to ask what you want to build, check/install only the missing tools with your approval, add your plugins, and guide you on connecting.)*
 
-- *"Set up Copilot Managed Runtime for me."*
+Or name what you want directly in plain English:
+
+- *"Set up Copilot Managed Runtime."*
 - *"Install the prerequisites for Model-driven apps."*
 - *"Set up Canvas apps, Power Automate, and Copilot Managed Runtime."*
 - *"Just add the Power Platform marketplace."*
