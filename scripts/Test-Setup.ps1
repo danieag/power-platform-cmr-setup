@@ -949,6 +949,8 @@ Test-Case 'interactive setup mode supports Power Platform, Copilot Managed Runti
     function Get-SetupAgentHosts { New-TestAgentHosts }
     function Install-SetupTool { throw 'INSTALL FORBIDDEN' }
     function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
+    function Test-Path { param($LiteralPath) $LiteralPath -eq 'Registry::HKEY_CLASSES_ROOT\ghapp' }
+    function Get-ItemProperty { [pscustomobject]@{ 'URL Protocol' = '' } }
     $script:launchedInteractiveUris = @()
     function Start-Process {
         param($FilePath)
