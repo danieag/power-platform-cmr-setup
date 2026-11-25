@@ -132,9 +132,10 @@ marketplace"*:
    File installation is not proof of host discovery or sign-in.
 
 For a complete guided-onboarding request, use the bundled
-`skills/power-platform-setup/SKILL.md` as the entry point. It reads the doctor
-after prerequisites and continues with the connection skill when requested;
-the user need not invoke every file or paste another starting prompt.
+`skills/power-platform-setup/SKILL.md` as the entry point. It handles
+prerequisites, marketplace/plugin choices, and optional MCP/skill installation,
+then continues with `power-platform-connect` when requested; the user need not
+invoke every file or paste another starting prompt.
 Keep approved prerequisite, plugin, MCP-registration and skill-copy work in the
 same conversation where possible. Combine only explicitly
 approved stage flags, or use scoped follow-up invocations. Do not require a
@@ -196,7 +197,7 @@ than trying to bypass them.
 ## Maintaining this repository
 
 - Keep all install policy and sequencing in `Setup.ps1`. `Setup.cmd` and the
-  optional setup/doctor skills must remain thin wrappers.
+  optional setup skills must remain thin wrappers.
 - Preserve compatible installs and inherited process PATH entries. Fail
   explicitly on unverified downloads, installer failures, and version mismatch.
 - Keep x64 and ARM64 support in the same installer. Detect native Windows

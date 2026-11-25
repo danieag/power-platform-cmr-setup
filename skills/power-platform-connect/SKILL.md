@@ -15,9 +15,9 @@ first. This skill can be installed standalone in a personal skills directory;
 its source checkout is not necessarily the current working directory.
 
 When the user started the complete guided flow, the bundled
-`power-platform-setup` entry skill reads this file after the doctor stage.
-Continue in that conversation if required capabilities are available; a
-personal skill copy or a second user prompt is not required. Reopen the host
+`power-platform-setup` entry skill reads this file after the prerequisite and
+plugin stages. Continue in that conversation if required capabilities are
+available; a personal skill copy or a second user prompt is not required. Reopen the host
 after prerequisite PATH changes, and use a clear pause/resume handoff if plugin
 or MCP discovery needs a reload. None of the earlier installation/marketplace/
 plugin approvals authorize this skill's authentication or configuration work.

@@ -991,7 +991,7 @@ function Invoke-PluginSetup {
         Write-Host '1 = Claude Code (claude command); 2 = Copilot CLI; 3 = Copilot desktop app links; Enter = skip.'
         $choice = Read-Host 'Choose the host you already use; no new host will be installed'
         switch ($choice) {
-            '' { Write-Host 'Plugin stage skipped. You can run it later or use the integration skill.'; return 0 }
+            '' { Write-Host 'Plugin stage skipped. You can rerun Setup.cmd later or use the power-platform-setup skill.'; return 0 }
             '1' { $PluginHost = 'ClaudeCode' }
             '2' { $PluginHost = 'CopilotCli' }
             '3' { $PluginHost = 'CopilotApp' }

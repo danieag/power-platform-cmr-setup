@@ -138,17 +138,17 @@ Windows security. Agents must not add `-Accept` without user approval.
 
 ### One starting prompt for guided onboarding
 
-The [README Alternative B prompt](../README.md#alternative-b-use-your-coding-agent)
+The [README Option A prompt](../README.md#alternative-b-download-this-folder-and-run-one-prompt-in-your-agent)
 loads the bundled [setup entry skill](../skills/power-platform-setup/SKILL.md).
-It coordinates the existing script, doctor and connection skill:
-**prerequisites > approved marketplace registration > plugin choices and
-approval > separately approved connection onboarding**. Do not require the
-user to manually find/invoke each skill. One starting prompt is not one
-approval, and no new agent host is installed.
+It coordinates `Setup.ps1`, selective plugin/marketplace setup, and the
+connection/router skills: **prerequisites > approved marketplace registration >
+plugin choices and approval > separately approved connection onboarding**. Do
+not require the user to manually find/invoke each skill. One starting prompt is
+not one approval, and no new agent host is installed.
 
-The setup and integration skills should **execute the approved stages in the
-same installation chat**, not stop at prerequisites and send the user elsewhere
-to paste a plugin-installer one-liner. Only the chosen host is configured:
+The setup skill should **execute the approved stages in the same installation
+chat**, not stop at prerequisites and send the user elsewhere to paste a
+plugin-installer one-liner. Only the chosen host is configured:
 `ClaudeCode` uses an existing `claude` command, `CopilotCli` uses an existing
 `copilot` command, and `CopilotApp` prints official app confirmation links.
 Ordinary Claude chat/Cowork is not Claude Code, and the presence of a CLI does
@@ -402,7 +402,7 @@ The prerequisite summary deliberately does not claim plugin readiness.
 | `ClaudeCode` | Uses the existing `claude` command to register the official marketplace and install plugins at **user scope**. This applies to Claude Code, including supported local Code-tab/IDE setups, not ordinary Claude chat or Cowork. |
 | `CopilotCli` | Uses the existing `copilot` command for marketplace registration and plugin installation. It does not start an agent conversation or install Copilot CLI. |
 | `CopilotApp` | Prints the official **add marketplace** link first, followed by each plugin's **install in app** link. Open them yourself and confirm each step in the Copilot desktop app. No CLI is required or installed. |
-| `Skip` / Enter | Leaves plugins unchanged. You can rerun later or use the integration skill. |
+| `Skip` / Enter | Leaves plugins unchanged. You can rerun later or use the `power-platform-setup` skill. |
 
 The reviewed set is Power Pages, model-driven apps, Canvas apps, Code apps,
 mobile apps, Power Apps mobile extensions, Power Automate, Process Intelligence,
@@ -486,8 +486,8 @@ both plans, for example:
 ```
 
 These examples use the backward-compatible `-Plugins All` default: the standard
-reviewed set, excluding Dataverse unless explicitly opted in. The doctor always
-passes the user's selected IDs, and never turns "none" into `All`.
+reviewed set, excluding Dataverse unless explicitly opted in. The setup skill
+always passes the user's selected IDs, and never turns "none" into `All`.
 Choose **one** command for the intended host; do not run all three.
 `-Accept` approves prerequisites; `-AcceptPlugins` approves only the chosen plugin
 stage. Neither authorizes sign-in. `-IncludeDataverse` adds Dataverse to either
