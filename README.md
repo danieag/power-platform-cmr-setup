@@ -27,9 +27,9 @@ Choose **Option A (use your AI agent)** or **Option B (double-click `Setup.cmd`)
 1. Open **GitHub Copilot** (desktop app, VS Code, or CLI) or **Claude Code** and **attach/open the extracted folder** (in the Copilot desktop app: **+ > Add local folder or repository**). You do not need Git installed first.
 2. Type one short prompt:
 
-> Help me get set up
+> Start set up with this repo
 
-*(Even `"Start setup"` or `"Set up"` works—opening this folder automatically loads the setup guide, so your agent knows to ask what you want to build, check/install only the missing tools with your approval, add your plugins, and guide you on connecting.)*
+*(Even `"Help me get set up"`, `"Start setup"`, or `"Set up"` works—opening this folder automatically loads the setup guide, so your agent knows to ask what you want to build, check/install only the missing tools with your approval, add your plugins, and guide you on connecting.)*
 
 Or name what you want directly in plain English:
 

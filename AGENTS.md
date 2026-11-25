@@ -9,10 +9,11 @@ provision cloud resources.
 
 Most users of this repository are makers, not software developers. Whenever a
 user opens/attaches this folder and sends **any short start prompt**—such as
-*"start"*, *"set up"*, *"start setup"*, *"run setup"*, *"help me get set up"*,
-*"Set up Power Platform for me"*, *"Set up Copilot Managed Runtime"*,
-*"Install the prereqs for model-driven apps"*, *"Set up Power Automate and
-Canvas Apps"*, or *"Add the Power Platform marketplace"*:
+*"start"*, *"set up"*, *"start setup"*, *"start set up with this repo"*,
+*"run setup"*, *"help me get set up"*, *"Set up Power Platform for me"*,
+*"Set up Copilot Managed Runtime"*, *"Install the prereqs for model-driven
+apps"*, *"Set up Power Automate and Canvas Apps"*, or *"Add the Power Platform
+marketplace"*:
 
 1. Read `skills/power-platform-setup/SKILL.md`, `README.md`, and `Setup.ps1`
    immediately; do not ask the user to name a skill file or CLI flags.

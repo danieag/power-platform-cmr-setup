@@ -1,6 +1,6 @@
 ---
 name: power-platform-setup
-description: "Triggered by short start prompts ('start', 'set up', 'start setup', 'run setup', 'help me get set up') or any Power Platform / Copilot Managed Runtime setup request: guides one Windows onboarding conversation to choose Power Platform, Copilot Managed Runtime, or Both, install only required Windows prerequisites with approval, add approved marketplace(s)/plugins, and continue with separately approved connection onboarding."
+description: "Triggered by short start prompts ('start', 'set up', 'start setup', 'start set up with this repo', 'run setup', 'help me get set up') or any Power Platform / Copilot Managed Runtime setup request: guides one Windows onboarding conversation to choose Power Platform, Copilot Managed Runtime, or Both, install only required Windows prerequisites with approval, add approved marketplace(s)/plugins, and continue with separately approved connection onboarding."
 ---
 
 # Power Platform and Copilot Managed Runtime setup
