@@ -1,12 +1,13 @@
-# Power Platform setup for Windows
+# Power Platform and Copilot Managed Runtime setup for Windows
 
 Set up a Windows PC (Intel/AMD x64 or ARM64 Windows 11) for Microsoft's
-[Power Platform plugins](https://github.com/microsoft/power-platform-skills) in
-**GitHub Copilot** (desktop app, VS Code, or CLI) or **Claude Code**.
+[Power Platform plugins](https://github.com/microsoft/power-platform-skills)
+and/or [Copilot Managed Runtime](https://github.com/microsoft/Copilot-Managed-Runtime)
+(Managed Apps) in **GitHub Copilot** (desktop app, VS Code, or CLI) or **Claude Code**.
 
-- **Install only what you need:** pick the Power Platform workloads you want first, and `Setup.cmd` checks and installs **only** the Windows prerequisites those workloads require (or choose full 5-tool workstation setup).
+- **Pick your track & install only what you need:** choose **Power Platform**, **Copilot Managed Runtime**, or **Both**, and `Setup.cmd` checks and installs **only** the Windows prerequisites your selections require (or choose full 5-tool Power Platform workstation setup).
 - **Approval-gated & safe:** checks are offline and read-only; every install, plugin, MCP server, and sign-in step asks before changing anything.
-- **Persistent environment routing:** connect once with `power-platform-connect`, and `power-platform-router` lets future projects confirm **Environment X and Solution Y** without re-asking for URLs, Tenant IDs, or emails.
+- **Persistent environment routing:** connect Power Platform environments once with `power-platform-connect`, and `power-platform-router` lets future projects confirm **Environment X and Solution Y** without re-asking for URLs, Tenant IDs, or emails.
 
 ![Power Platform Setup — 2-minute visual overview](docs/media-bank/setup-overview.webp)
 
@@ -14,7 +15,7 @@ Set up a Windows PC (Intel/AMD x64 or ARM64 Windows 11) for Microsoft's
 
 ## Quick start
 
-1. Click **Code > Download ZIP** on [this repository](https://github.com/danieag/power-platform-setup).
+1. Click **Code > Download ZIP** on [this repository](https://github.com/danieag/power-platform-cmr-setup) *(or download the latest packaged `.zip` from [Releases](https://github.com/danieag/power-platform-cmr-setup/releases) — v1.0.0 is also archived there if you ever need the Power Platform-only baseline)*.
 2. Right-click the downloaded ZIP, choose **Extract All**, and open the extracted folder.
 
 Choose **Option A (use your AI agent)** or **Option B (double-click `Setup.cmd`)**—both run the same `Setup.ps1` script.
@@ -26,12 +27,13 @@ Choose **Option A (use your AI agent)** or **Option B (double-click `Setup.cmd`)
 1. Open **GitHub Copilot** (desktop app, VS Code, or CLI) or **Claude Code** and **attach/open the extracted folder** (in the Copilot desktop app: **+ > Add local folder or repository**). You do not need Git installed first.
 2. Paste this **one short prompt**:
 
-> Help me set up Power Platform using this folder. Ask which app I use and let me choose one or multiple workloads, check and install only the combined prerequisites they need with my approval, help me add the plugins, and then ask if I want to connect to an environment.
+> Help me set up Power Platform and/or Copilot Managed Runtime using this folder. Ask whether I want Power Platform, Copilot Managed Runtime, or both, ask which app I use, let me pick my workloads, check and install only the combined prerequisites they need with my approval, help me add the plugins, and then guide me on connecting.
 
 Or ask directly for what you want in plain English:
 
+- *"Set up Copilot Managed Runtime for me."*
 - *"Install the prerequisites for Model-driven apps."*
-- *"Set up Canvas apps and Power Automate for me."*
+- *"Set up Canvas apps, Power Automate, and Copilot Managed Runtime."*
 - *"Just add the Power Platform marketplace."*
 
 **Full step-by-step screenshots:** see the **[Visual Walkthrough & Media Bank](docs/media-bank.md)** *(screenshots are viewable on GitHub and excluded from `.zip` downloads so the download stays tiny)*.
@@ -58,21 +60,31 @@ On the GitHub Copilot desktop app, Setup opens the native `Add plugin marketplac
 ### Option B: double-click `Setup.cmd` yourself
 
 1. Double-click **`Setup.cmd`** (shown in File Explorer as **Setup**). Start as your normal Windows user—Windows will prompt separately if an installer needs administrator permission.
-2. Choose your setup mode:
-   - **`1` = Select Power Platform plugins or marketplace (Recommended):** enter one or more numbers/IDs (e.g. `2, 3, 7`), `M` (marketplace only), or `A` (all 11), then pick your app. Setup checks and installs **only** the prerequisites your selection needs.
-   - **`2` = Full workstation setup:** checks and installs all 5 core tools (**Git > Node.js/npm > .NET 10 SDK > PAC CLI > Azure CLI**).
-3. Review the preflight summary and type **`INSTALL`** to approve any missing tools. Existing Node **22.18+ (22.x), 24 or 26** with npm 10+ is preserved (fresh installs use **24 LTS**), and PAC CLI must be **newer than 2.10.0**.
+2. Choose what you want to set up:
+   - **`1` = Power Platform plugins or marketplace:** pick one or more numbers/IDs (e.g. `2, 3, 7`), `M` (marketplace only), or `A` (all 11), then pick your app. Setup installs **only** the prerequisites those plugins need.
+   - **`2` = Copilot Managed Runtime (Managed Apps):** installs **Git (with Credential Manager)**, **Node.js 24.11+**, and **`@microsoft/cmr-cli` (`ms`)** (skipping .NET, PAC, and Azure CLI), then adds the `microsoft/Copilot-Managed-Runtime` marketplace and `copilot-managed-runtime` plugin.
+   - **`3` = Both (Power Platform + Copilot Managed Runtime):** pick your Power Platform workloads and combine them with `copilot-managed-runtime` in one pass.
+   - **`4` = Full Power Platform workstation setup:** checks and installs all 5 core Power Platform tools (**Git > Node.js/npm > .NET 10 SDK > PAC CLI > Azure CLI**).
+3. Review the preflight summary and type **`INSTALL`** to approve any missing tools. For Power Platform workloads, existing Node **22.18+ (22.x), 24 or 26** with npm 10+ is preserved (fresh installs use **24 LTS**); when **Copilot Managed Runtime** is included, Node must be **24.11.0+** with Git Credential Manager. PAC CLI must be **newer than 2.10.0**.
 4. Follow or press **Enter** to skip the optional stages:
-   - **`PLUGINS` / `MARKETPLACE`:** adds the official marketplace and your chosen plugins in Claude Code CLI, Copilot CLI, or the Copilot desktop app.
+   - **`PLUGINS` / `MARKETPLACE`:** adds the official marketplace(s) and your chosen plugins in Claude Code CLI, Copilot CLI, or the Copilot desktop app.
    - **`MCP`:** registers `@microsoft/copilot-studio-mcp@latest` (close the target app first; does not sign in).
    - **`SKILL`:** installs `power-platform-connect` and `power-platform-router` into your personal skills directory (`~/.copilot/skills/` or `~/.claude/skills/`).
 5. Reopen your app and terminals if new Windows tools changed `PATH`.
 
 ---
 
-## What each plugin needs
+## What each workload needs
 
-When you choose one or several workloads, `Setup.ps1` computes the union of their required Windows tools automatically (including `.NET 10 SDK` whenever `PAC CLI` is needed):
+When you choose one or several workloads, `Setup.ps1` computes the union of their required Windows tools automatically (including `.NET 10 SDK` whenever `PAC CLI` is needed, and Node **24.11.0+** + Git Credential Manager whenever **Copilot Managed Runtime** is included):
+
+### Copilot Managed Runtime (`microsoft/Copilot-Managed-Runtime`)
+
+| Plugin (`-Plugins`) | What it builds | Auto-installed Windows prerequisites | Workload notes |
+|---|---|---|---|
+| `copilot-managed-runtime` | Microsoft 365 Managed Apps (`ms` CLI, React/Vite) | Git (with GCM), Node.js **24.11.0+** / npm, `@microsoft/cmr-cli` (`ms`) | Skips .NET, PAC, and Azure CLI. Signs in separately via `ms auth login` to its personal developer environment; distinct from Power Apps Code Apps (`pa`). |
+
+### Power Platform Skills (`microsoft/power-platform-skills`)
 
 | Plugin (`-Plugins`) | What it builds | Auto-installed Windows prerequisites | Workload notes |
 |---|---|---|---|
@@ -87,7 +99,7 @@ When you choose one or several workloads, `Setup.ps1` computes the union of thei
 | `mobile-app` | Standalone mobile apps (Private Preview) | Git, Node.js/npm, Azure CLI | Skips .NET and PAC. Upstream docs note Node 24 LTS, Git Bash/WSL, and Power Apps Mobile Preview. |
 | `power-apps-mobile-extension` | Native extensions for wrapped Canvas Apps | Git, Node.js/npm, .NET 10 SDK, PAC CLI (`> 2.10.0`) | Skips Azure CLI. Native `.ppmplugin` builds also need JDK 17+ / Android SDK 35 (or macOS Xcode 16+). |
 | `mcp-apps` | Codeful MCP server tools & HTML widgets | Git, Node.js/npm, .NET 10 SDK, PAC CLI (`> 2.10.0`) | Skips Azure CLI. PAC/.NET are used when querying Dataverse schemas. |
-| *(Marketplace only)* | Add `microsoft/power-platform-skills` catalog | Git | `-MarketplaceOnly -Prerequisites FromPlugins` checks/installs only Git. |
+| *(Marketplace only)* | Add `power-platform-skills` and/or `Copilot-Managed-Runtime` | Git | `-MarketplaceOnly -Marketplace <PowerPlatform\|CopilotManagedRuntime\|Both> -Prerequisites FromPlugins` checks/installs only Git. |
 
 ---
 
@@ -97,8 +109,8 @@ VS Code Copilot users do not need Copilot CLI or Claude Code—only Git on `PATH
 
 1. Open **Customizations** (or **Customize**) > **Browse**.
 2. Open the source dropdown (**All Sources**) > **Configure Marketplaces**.
-3. Select **Add Marketplace...**, enter **`microsoft/power-platform-skills`**, and press **Enter**.
-4. Select **power-platform-skills** in the source dropdown.
+3. Select **Add Marketplace...**, enter **`microsoft/power-platform-skills`** and/or **`microsoft/Copilot-Managed-Runtime`**, and press **Enter**.
+4. Select **power-platform-skills** or **Copilot-Managed-Runtime** in the source dropdown.
 5. Click **Install** beside each plugin you want (Command Palette alternative: **Chat: Manage Plugin Marketplaces > Add Marketplace...**).
 
 <details>

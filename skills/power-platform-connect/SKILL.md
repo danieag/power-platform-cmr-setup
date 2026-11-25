@@ -9,8 +9,8 @@ Use after the local prerequisite/plugin setup when the user asks to connect,
 sign in, remember an environment, switch an existing connection, or diagnose
 repeated login prompts. This is an **agent-guided skill**, not an unattended
 login script. Read the public setup repository's
-[README](https://github.com/danieag/power-platform-setup/blob/main/README.md)
-and [AGENTS.md](https://github.com/danieag/power-platform-setup/blob/main/AGENTS.md)
+[README](https://github.com/danieag/power-platform-cmr-setup/blob/main/README.md)
+and [AGENTS.md](https://github.com/danieag/power-platform-cmr-setup/blob/main/AGENTS.md)
 first. This skill can be installed standalone in a personal skills directory;
 its source checkout is not necessarily the current working directory.
 
@@ -626,7 +626,7 @@ under sign-in/registration approval.
 ## 6. Optional Copilot Studio MCP
 
 Reuse the server already registered by Setup.cmd. For missing registration,
-use the repository's [setup skill](https://github.com/danieag/power-platform-setup/blob/main/skills/power-platform-setup/SKILL.md)
+use the repository's [setup skill](https://github.com/danieag/power-platform-cmr-setup/blob/main/skills/power-platform-setup/SKILL.md)
 and separately approved `-CopilotStudioHost <host> -AcceptCopilotStudio` stage.
 Never duplicate a working registration or run standalone `npx` as a login test.
 For several selected environments, follow this server's actual advertised

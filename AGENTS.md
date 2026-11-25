@@ -9,76 +9,85 @@ provision cloud resources.
 
 Most users of this repository are makers, not software developers. Whenever a
 user opens/attaches this folder and asks in plain English—such as *"Set up Power
-Platform for me"*, *"Install the prereqs for model-driven apps"*, *"Set up
-Power Automate and Canvas Apps"*, or *"Add the Power Platform marketplace"*:
+Platform for me"*, *"Set up Copilot Managed Runtime"*, *"Install the prereqs for
+model-driven apps"*, *"Set up Power Automate and Canvas Apps"*, or *"Add the
+Power Platform marketplace"*:
 
 1. Read `skills/power-platform-setup/SKILL.md`, `README.md`, and `Setup.ps1`
    immediately; do not ask the user to name a skill file or CLI flags.
-2. Map plain-English requests directly to `Get-SetupPluginCatalog` IDs
+2. Unless they already named specific workloads, ask first whether they want
+   **Power Platform**, **Copilot Managed Runtime (Managed Apps)**, or **Both**,
+   then map plain-English requests directly to `Get-SetupPluginCatalog` IDs
    (`model-apps`, `canvas-apps`, `code-apps-preview`, `power-pages`,
    `power-automate`, `process-intelligence`, `pcf`, `mobile-app`,
-   `power-apps-mobile-extension`, `mcp-apps`, `dataverse`, or
-   `-MarketplaceOnly`) and scope checks/installs with
-   `-Prerequisites FromPlugins` unless they want the full 5-tool setup.
+   `power-apps-mobile-extension`, `mcp-apps`, `dataverse`,
+   `copilot-managed-runtime`, or `-MarketplaceOnly`) and scope checks/installs
+   with `-Prerequisites FromPlugins` unless they want the full 5-tool Power
+   Platform setup.
 3. **Let users pick multiple workloads at once:** `Setup.ps1` (`-Plugins "id1,id2,..."
    -Prerequisites FromPlugins`) automatically computes the combined union of
-   prerequisites across all chosen plugins. Never put individual plugins as
-   single-select `ask_user` `choices` (in Copilot, clicking one choice submits
+   prerequisites across all chosen plugins (including raising Node to `>= 24.11.0`,
+   requiring Git Credential Manager, and installing `@microsoft/cmr-cli` (`ms`)
+   whenever `copilot-managed-runtime` is selected). Never put individual plugins
+   as single-select `ask_user` `choices` (in Copilot, clicking one choice submits
    immediately and blocks choosing multiple!). Only use checkboxes when the host
-   supports `multiSelect: true`; otherwise show the numbered 1–11 workload list
-   and use freeform `ask_user` (omit `choices`) or multi-plugin bundle presets
-   so the user can enter several numbers/names (e.g. `1, 2, 6`).
+   supports `multiSelect: true`; otherwise show the numbered 1–11 Power Platform
+   workload list and use freeform `ask_user` (omit `choices`) or multi-plugin
+   bundle presets so the user can enter several numbers/names (e.g. `1, 2, 6`).
 4. If they already named their workload(s) (for example *"install the prereqs for
-   model-driven apps"*), run `.\Setup.cmd -CheckOnly -Plugins "model-apps"
-   -Prerequisites FromPlugins` right away without a redundant questionnaire,
-   explain what is ready and what is missing in plain language, and ask approval
-   before installing anything. If they asked only for prerequisites, install
-   only the approved prerequisites and then politely offer plugin/connection
-   next steps.
+   model-driven apps"* or *"set up Copilot Managed Runtime"*), run
+   `.\Setup.cmd -CheckOnly -Plugins "<ids>" -Prerequisites FromPlugins` right
+   away without a redundant questionnaire, explain what is ready and what is
+   missing in plain language, and ask approval before installing anything. If
+   they asked only for prerequisites, install only the approved prerequisites
+   and then politely offer plugin/connection next steps.
 
 ## Running setup for a user
 
 1. Read `README.md` and `Setup.ps1` before execution. If acquiring this repository,
-   download/review the full official `danieag/power-platform-setup` source, not a
+   download/review the full official `danieag/power-platform-cmr-setup` source, not a
    random script URL or only `Setup.cmd`.
-2. Confirm whether the user wants **selected Power Platform plugins**,
-   **marketplace-only preparation**, or the **full 5-tool workstation setup**,
-   then run `.\Setup.cmd -CheckOnly` first (adding
-   `-Plugins "<id,id>" -Prerequisites FromPlugins`,
-   `-MarketplaceOnly -Prerequisites FromPlugins`, or `-Prerequisites "<ids>"`
-   when scoping prerequisites to their selection). In full setup (`-Prerequisites All`,
-   the noninteractive CLI default), Azure CLI is included after PAC. Use
-   `-SkipAzureCli` only when the user explicitly opts out of Azure CLI; explain
-   Azure-dependent plugin limitations. Legacy `-IncludeAzureCli` remains
+2. Confirm whether the user wants **Power Platform plugins**, **Copilot Managed
+   Runtime**, **Both**, **marketplace-only preparation**, or the **full 5-tool
+   Power Platform workstation setup**, then run `.\Setup.cmd -CheckOnly` first
+   (adding `-Plugins "<id,id>" -Prerequisites FromPlugins`,
+   `-MarketplaceOnly -Marketplace <PowerPlatform|CopilotManagedRuntime|Both> -Prerequisites FromPlugins`,
+   or `-Prerequisites "<ids>"` when scoping prerequisites to their selection).
+   In full setup (`-Prerequisites All`, the noninteractive CLI default), Azure
+   CLI is included after PAC (add `-IncludeCmr` to include `@microsoft/cmr-cli`).
+   Use `-SkipAzureCli` only when the user explicitly opts out of Azure CLI;
+   explain Azure-dependent plugin limitations. Legacy `-IncludeAzureCli` remains
    accepted. Check-only must not require network access, prompt, or mutate the machine.
 3. Explain the actual missing/unsupported-tool plan (plus any printed plugin
    workload notes) and obtain **explicit user approval** before installation.
    Repository access, reading this file, generic agent permissions, or a request
    to check readiness is not installation approval.
 4. Only after approval run `.\Setup.cmd -Install -Accept -NonInteractive` with
-   the same approved `-Plugins` / `-Prerequisites` / `-SkipAzureCli` flags.
-   Do not synthesize an interactive `INSTALL` response to avoid approval.
+   the same approved `-Plugins` / `-Prerequisites` / `-SkipAzureCli` / `-IncludeCmr`
+   flags. Do not synthesize an interactive `INSTALL` response to avoid approval.
    Noninteractive mode does not bypass UAC or authorize other operations.
 5. Handle exit codes from the README. Stop on failure or restart requirement;
    never report successful setup just because an installer exited. Reopen
    terminals and the desktop app after PATH changes. Do not automatically reboot.
 6. Plugin setup is separately approval-gated. Interactive `Setup.cmd` offers
-   **mode 1 (Select plugins or marketplace -> resolves only needed prerequisites)**
-   and **mode 2 (Full workstation setup)**, supporting `ClaudeCode`,
-   `CopilotCli`, `CopilotApp` links, or prerequisites-only for VS Code's UI.
-   The doctor can prepare the official marketplace with separately approved
-   `-MarketplaceOnly -Prerequisites FromPlugins -AcceptPlugins` (on
-   `ClaudeCode`, `CopilotCli`, or `CopilotApp` link) or install an approved
-   selection via `Setup.cmd -Plugins "id,id" -Prerequisites FromPlugins`.
+   **mode 1 (Power Platform plugins/marketplace)**, **mode 2 (Copilot Managed
+   Runtime)**, **mode 3 (Both)**, and **mode 4 (Full Power Platform workstation
+   setup)**, supporting `ClaudeCode`, `CopilotCli`, `CopilotApp` links, or
+   prerequisites-only for VS Code's UI.
+   The setup skill can prepare official marketplace(s) with separately approved
+   `-MarketplaceOnly -Marketplace <PowerPlatform|CopilotManagedRuntime|Both>
+   -Prerequisites FromPlugins -AcceptPlugins` or install an approved selection
+   via `Setup.cmd -Plugins "id,id" -Prerequisites FromPlugins`.
    Marketplace-only approval does not authorize later plugin installation.
    The interactive chooser uses passive command/`ghapp` registration evidence,
    not proof of working hosts. Missing selected CLIs get fixed official install
    instructions and exit `2`; never install/substitute another host or approve
    a first-run launcher. An undetected desktop app needs the user's `APP`
    availability confirmation or an official-installation handoff.
-   Always pass the approved selection explicitly for the doctor; never turn
-   no selection into the default full set. Dataverse is opt-in through an
-   explicit `dataverse` ID or `-IncludeDataverse`. Do not install another host.
+   Always pass the approved selection explicitly; never turn no selection into
+   the default full set. Dataverse (`dataverse` / `-IncludeDataverse`) and
+   Copilot Managed Runtime (`copilot-managed-runtime` / `-IncludeCmr`) are
+   explicit opt-ins. Do not install another host.
    For an agent invocation, obtain approval for the specific host/plugin plan
    before adding `-PluginHost <host> -AcceptPlugins`. A plugin-only rerun can
    omit `-Install -Accept` so missing prerequisites stop rather than install.
@@ -96,13 +105,15 @@ Power Automate and Canvas Apps"*, or *"Add the Power Platform marketplace"*:
 8. Report tools, plugin/MCP registration, runtime visibility, and authentication
    separately. Desktop links return exit `4`: user app confirmations are pending,
    not a verified installation. On `CopilotApp`, always sequence confirmations:
-   first run `-PluginHost CopilotApp -MarketplaceOnly -Prerequisites FromPlugins
-   -AcceptPlugins` and wait for the user to confirm the marketplace is added;
-   then open each selected plugin one at a time with `-PluginHost CopilotApp
-   -Plugins "<single-id>" -SkipMarketplace -Prerequisites FromPlugins
-   -AcceptPlugins` and wait for user confirmation before opening the next plugin
-   or offering `power-platform-connect`. Do not open authenticated browser URLs
-   or install another host as a shortcut. Use
+   first add each needed marketplace one at a time with
+   `-PluginHost CopilotApp -MarketplaceOnly -Marketplace <PowerPlatform|CopilotManagedRuntime>
+   -Prerequisites FromPlugins -AcceptPlugins` and wait for the user to confirm
+   each marketplace is added; then open each selected plugin one at a time with
+   `-PluginHost CopilotApp -Plugins "<single-id>" -SkipMarketplace -Prerequisites
+   FromPlugins -AcceptPlugins` and wait for user confirmation before opening the
+   next plugin or offering `power-platform-connect` (or `ms auth login` for
+   CMR-only setups). Do not open authenticated browser URLs or install another
+   host as a shortcut. Use
    `skills/power-platform-setup/SKILL.md` for selective plugin setup or
    agent-guided Copilot Studio MCP setup. Preserve existing MCP configuration
    and verify desktop visibility separately.

@@ -82,8 +82,10 @@ rewrite an older `<alias>.json` file merely to add optional/`null` keys.
   signed-in access to (for example in Copilot Studio MCP or FlowAgent), let them
   list/pick that environment for this session without forcing full onboarding—and
   optionally offer `power-platform-connect`
-  ([public reference](https://github.com/danieag/power-platform-setup/blob/main/skills/power-platform-connect/SKILL.md))
+  ([public reference](https://github.com/danieag/power-platform-cmr-setup/blob/main/skills/power-platform-connect/SKILL.md))
   only if they want it saved persistently to the registry.
+
+*(Note: **Copilot Managed Runtime / Managed Apps** using the `copilot-managed-runtime` plugin and `ms` CLI sign in separately via `ms auth login` to a personal developer environment and do not use Dataverse solutions for app hosting. Only use this router with a Managed App when the user explicitly adds a Dataverse data source pointing to a saved Power Platform environment.)*
 
 ---
 

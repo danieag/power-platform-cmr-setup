@@ -64,7 +64,7 @@ workflow supports ARM64.
 
 ### Step 1: download, extract, and run Setup.cmd
 
-1. On [this repository](https://github.com/danieag/power-platform-setup), choose
+1. On [this repository](https://github.com/danieag/power-platform-cmr-setup), choose
    **Code > Download ZIP**. Extract **all** files to a folder you can find.
    Do not run `Setup.cmd` from inside the ZIP or download just the launcher.
 2. Read this page and review `Setup.ps1`, then double-click **Setup.cmd**.
@@ -120,7 +120,7 @@ review/redact these before posting it publicly.
 Open the extracted repository in the Copilot desktop app, or point an agent to
 this public repository and ask it to download/review it first:
 
-> Read AGENTS.md in https://github.com/danieag/power-platform-setup. Run the
+> Read AGENTS.md in https://github.com/danieag/power-platform-cmr-setup. Run the
 > check-only setup, explain the plan, and ask me before installing anything.
 > Do not install Copilot CLI, configure auto-approval, or sign in to a tenant.
 
@@ -210,19 +210,28 @@ tool list (**`-Prerequisites "git,node"`** from `git,node,dotnet,pac,azure`):
 .\Setup.cmd -CheckOnly -Plugins "model-apps" -Prerequisites FromPlugins
 .\Setup.cmd -Install -Accept -NonInteractive -Plugins "model-apps" -Prerequisites FromPlugins
 
+# Check and install only Git + GCM, Node 24.11+, and @microsoft/cmr-cli (ms) for Copilot Managed Runtime:
+.\Setup.cmd -CheckOnly -Plugins "copilot-managed-runtime" -Prerequisites FromPlugins
+.\Setup.cmd -Install -Accept -NonInteractive -Plugins "copilot-managed-runtime" -Prerequisites FromPlugins
+
+# Check and install combined Power Platform + Copilot Managed Runtime prerequisites:
+.\Setup.cmd -CheckOnly -Plugins "model-apps,copilot-managed-runtime" -Prerequisites FromPlugins
+
 # Check and install only Git + Node + Azure CLI for Canvas Apps + Power Automate:
 .\Setup.cmd -CheckOnly -Plugins "canvas-apps,power-automate" -Prerequisites FromPlugins
 .\Setup.cmd -Install -Accept -NonInteractive -Plugins "canvas-apps,power-automate" -Prerequisites FromPlugins
 
-# Check only Git for marketplace-only registration:
-.\Setup.cmd -CheckOnly -PluginHost CopilotCli -MarketplaceOnly -Prerequisites FromPlugins
+# Check only Git for marketplace-only registration (-Marketplace PowerPlatform | CopilotManagedRuntime | Both):
+.\Setup.cmd -CheckOnly -PluginHost CopilotCli -MarketplaceOnly -Marketplace CopilotManagedRuntime -Prerequisites FromPlugins
 ```
 
 `Resolve-SetupPrerequisites` in `Setup.ps1` automatically enforces canonical
-install order (`git -> node -> dotnet -> pac -> azure`), pulls in `dotnet`
+install order (`git -> node -> dotnet -> pac -> azure -> cmr`), pulls in `dotnet`
 whenever `pac` is requested (because PAC is installed as a `.NET` global tool),
-and includes `node` when `-CopilotStudioHost` is requested under `FromPlugins`.
-See [the 11-plugin prerequisite map in the README](../README.md#what-each-plugin-needs)
+pulls in `git` (with Git Credential Manager) and `node` (`>= 24.11.0`) whenever
+`cmr` (`@microsoft/cmr-cli`) is requested, and includes `node` when
+`-CopilotStudioHost` is requested under `FromPlugins`.
+See [the workload prerequisite map in the README](../README.md#what-each-workload-needs)
 or `Get-SetupPluginCatalog` in `Setup.ps1` for the exact per-plugin mapping.
 
 For an intentionally minimal full-mode setup without Azure workflows, `-SkipAzureCli`
@@ -260,6 +269,7 @@ order; Azure CLI is included by default and comes after PAC:
 | 3 | .NET **SDK** | Stable **10.0** SDK files and a compatible SDK host present | Current stable .NET 10 native x64/ARM64 SDK installer, machine-wide |
 | 4 | Power Platform CLI (PAC) | Recognized PAC executable version **strictly greater than 2.10.0**, with a shim matching the selected SDK host architecture | Current stable `Microsoft.PowerApps.CLI.Tool`, global .NET tool for the current user |
 | 5 | Azure CLI | Recognized MSI installation 2.60+, launcher, and compatible bundled Python present | Official x64 Azure CLI MSI, machine-wide; uses emulation on ARM64 |
+| 6 *(CMR)* | Copilot Managed Runtime CLI (`ms`) | `@microsoft/cmr-cli` >= 1.0.0 (`ms.cmd` + manifest) with Node >= 24.11.0 and Git Credential Manager present | Global npm package `@microsoft/cmr-cli@latest`, per-user under `%APPDATA%\npm` |
 
 These are this bootstrap's compatibility baselines, not a guarantee that every
 Power Platform plugin supports every accepted version. Only the reviewed Node
@@ -302,6 +312,7 @@ normal path, **not** an unverified fallback when `winget` fails:
 | .NET | [Microsoft .NET 10 release metadata](https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/10.0/releases.json), matching SHA512 **and** valid Microsoft Authenticode signature |
 | PAC | [Microsoft's documented .NET global tool](https://learn.microsoft.com/en-us/power-platform/developer/howto/install-cli-net-tool), from NuGet.org using an isolated package-source configuration |
 | Azure | [Microsoft's x64 MSI link](https://aka.ms/installazurecliwindowsx64), valid Microsoft Authenticode signature (no separate published hash used here) |
+| CMR CLI | [Microsoft's `@microsoft/cmr-cli` package](https://www.npmjs.com/package/@microsoft/cmr-cli), installed globally via the verified Node installation's `npm.cmd` outside the repository |
 
 If metadata, checksums, certificate trust, or signer verification fails, setup
 stops. It never falls back to running an unverified file. Official HTTPS
@@ -1034,10 +1045,10 @@ Record failures and exit codes, redacting personal paths before sharing output.
 Full clean-machine acceptance is not claimed until these vendor installations
 have actually succeeded on the relevant architecture.
 
-Packaging writes only `dist\power-platform-setup-windows.zip` and its `.sha256`
+Packaging writes only `dist\power-platform-cmr-setup-windows.zip` and its `.sha256`
 file. An explicit file allowlist includes the launcher, installer, README, detailed guide,
-selected screenshots, agent instructions, license, and skills; it excludes repository history, test outputs,
-personal configuration, secrets, and installed packages. The ZIP is also
+media bank catalog, agent instructions, license, and skills; it excludes repository history,
+screenshot media, test outputs, personal configuration, secrets, and installed packages. The ZIP is also
 uploaded as a CI artifact. An artifact checksum detects accidental changes;
 it is not a code-signing certificate or proof of publisher identity.
 

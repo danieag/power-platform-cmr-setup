@@ -42,13 +42,14 @@ function Test-Case {
 }
 
 function New-TestState {
-    param([string[]]$Ready = @(), [switch]$Azure)
+    param([string[]]$Ready = @(), [switch]$Azure, [switch]$Cmr)
     $ids = @('git', 'node', 'dotnet', 'pac')
     if ($Azure) { $ids += 'azure' }
+    if ($Cmr) { $ids += 'cmr' }
     foreach ($id in $ids) {
         [pscustomobject]@{
             Id = $id; Name = $id; Ready = $id -in $Ready
-            Version = [version]'24.1.0'; Path = "C:\test\$id.exe"; Requirement = 'test'; Architecture = 'x64'
+            Version = [version]'24.12.0'; Path = "C:\test\$id.exe"; Requirement = 'test'; Architecture = 'x64'
         }
     }
 }
@@ -79,9 +80,11 @@ function Invoke-TestPluginCli {
         return ConvertTo-Json -InputObject @($script:pluginRows) -Depth 10 -Compress
     }
     if ($Arguments[1] -eq 'marketplace' -and $Arguments[2] -eq 'add') {
-        $script:marketplaceRows = @([pscustomobject]@{
-            name = 'power-platform-skills'; source = 'github'; repo = 'microsoft/power-platform-skills'
-        })
+        $repo = $Arguments[3]
+        $mpName = if ($repo -eq 'microsoft/Copilot-Managed-Runtime') { 'Copilot-Managed-Runtime' } else { 'power-platform-skills' }
+        $script:marketplaceRows += [pscustomobject]@{
+            name = $mpName; source = 'github'; repo = $repo
+        }
         return
     }
     if ($Arguments[1] -eq 'install') {
@@ -90,7 +93,8 @@ function Invoke-TestPluginCli {
         if ($script:pluginHost -eq 'ClaudeCode') {
             $script:pluginRows += [pscustomobject]@{ id = $Arguments[2]; scope = 'user'; enabled = $true }
         } else {
-            $script:pluginRows += [pscustomobject]@{ name = ($Arguments[2] -split '@')[0]; marketplace = 'power-platform-skills'; enabled = $true }
+            $parts = $Arguments[2] -split '@'
+            $script:pluginRows += [pscustomobject]@{ name = $parts[0]; marketplace = $parts[1]; enabled = $true }
         }
         return
     }
@@ -890,9 +894,9 @@ Test-Case 'desktop marketplace-only triggers local ghapp marketplace URI without
     Assert-Equal ($output.Contains('plugins%2Finstall')) $false
 }
 
-Test-Case 'plugin catalog maps all 11 plugins and Resolve-SetupPrerequisites enforces canonical order and dependencies' {
+Test-Case 'plugin catalog maps all 12 plugins (11 Power Platform + CMR) and Resolve-SetupPrerequisites enforces canonical order and dependencies' {
     $catalog = @(Get-SetupPluginCatalog)
-    Assert-Equal $catalog.Count 11
+    Assert-Equal $catalog.Count 12
     Assert-Equal ((Resolve-SetupPrerequisites -Prerequisites 'FromPlugins' -MarketplaceOnly) -join ',') 'git'
     Assert-Equal ((Resolve-SetupPrerequisites -Prerequisites 'FromPlugins' -Plugins 'canvas-apps') -join ',') 'git,dotnet'
     Assert-Equal ((Resolve-SetupPrerequisites -Prerequisites 'FromPlugins' -Plugins 'canvas-apps,code-apps-preview') -join ',') 'git,node,dotnet'
@@ -903,6 +907,11 @@ Test-Case 'plugin catalog maps all 11 plugins and Resolve-SetupPrerequisites enf
     Assert-Equal ((Resolve-SetupPrerequisites -Prerequisites 'FromPlugins' -Plugins 'mcp-apps') -join ',') 'git,node,dotnet,pac'
     Assert-Equal ((Resolve-SetupPrerequisites -Prerequisites 'FromPlugins' -Plugins 'model-apps') -join ',') 'git,node,dotnet,pac,azure'
     Assert-Equal ((Resolve-SetupPrerequisites -Prerequisites 'FromPlugins' -Plugins 'dataverse') -join ',') 'git,node,dotnet,pac,azure'
+    Assert-Equal ((Resolve-SetupPrerequisites -Prerequisites 'FromPlugins' -Plugins 'copilot-managed-runtime') -join ',') 'git,node,cmr'
+    Assert-Equal ((Resolve-SetupPrerequisites -Prerequisites 'FromPlugins' -Plugins 'model-apps,copilot-managed-runtime') -join ',') 'git,node,dotnet,pac,azure,cmr'
+    Assert-Equal ((Resolve-SetupPrerequisites -Prerequisites 'FromPlugins' -Plugins 'canvas-apps' -IncludeCmr) -join ',') 'git,node,dotnet,cmr'
+    Assert-Equal ((Resolve-SetupPrerequisites -Prerequisites 'All' -IncludeCmr) -join ',') 'git,node,dotnet,pac,azure,cmr'
+    Assert-Equal ((Resolve-SetupPrerequisites -Prerequisites 'cmr') -join ',') 'git,node,cmr'
     Assert-Equal ((Resolve-SetupPrerequisites -Prerequisites 'pac') -join ',') 'dotnet,pac'
     Assert-Equal ((Resolve-SetupPrerequisites -Prerequisites 'azure,git') -join ',') 'git,azure'
     Assert-Throws { Resolve-SetupPrerequisites -Prerequisites '' } 'empty'
@@ -935,19 +944,20 @@ Test-Case 'selective check-only and install evaluate and install only prerequisi
     Assert-Equal ($script:installedTools -join ',') 'dotnet'
 }
 
-Test-Case 'interactive setup mode supports selective plugin prerequisites and full workstation mode' {
+Test-Case 'interactive setup mode supports Power Platform, Copilot Managed Runtime, Both, and full workstation mode' {
     function Get-SetupArchitecture { 'x64' }
     function Get-SetupAgentHosts { New-TestAgentHosts }
     function Install-SetupTool { throw 'INSTALL FORBIDDEN' }
     function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
+    $script:launchedInteractiveUris = @()
     function Start-Process {
         param($FilePath)
-        Assert-Equal $FilePath 'ghapp://plugins/marketplace/add?source=microsoft%2Fpower-platform-skills'
+        $script:launchedInteractiveUris += $FilePath
     }
     function Get-SetupState {
-        param([switch]$Azure)
+        param([switch]$Azure, [switch]$Cmr)
         # PAC is intentionally NOT ready; canvas-apps + power-automate must not require PAC.
-        New-TestState -Ready @('git', 'node', 'dotnet', 'azure') -Azure:$Azure
+        New-TestState -Ready @('git', 'node', 'dotnet', 'azure', 'cmr') -Azure:$Azure -Cmr:$Cmr
     }
     $script:modeAnswers = [Collections.Generic.Queue[string]]::new()
     foreach ($answer in @('1', '3 7', '4', '', '')) { $script:modeAnswers.Enqueue($answer) }
@@ -959,14 +969,45 @@ Test-Case 'interactive setup mode supports selective plugin prerequisites and fu
     Assert-Equal (Invoke-Setup) 0
     Assert-Equal $script:modeAnswers.Count 0
 
+    # Mode 2: Copilot Managed Runtime only (skips 11-plugin PP list and .NET/PAC/Azure).
+    function Get-SetupState {
+        param([switch]$Azure, [switch]$Cmr)
+        Assert-Equal $Azure.IsPresent $false
+        Assert-Equal $Cmr.IsPresent $true
+        New-TestState -Ready @('git', 'node', 'cmr') -Cmr:$Cmr
+    }
+    $script:launchedInteractiveUris = @()
+    foreach ($answer in @('2', '3', 'PLUGINS', 'LINKS', '', '')) { $script:modeAnswers.Enqueue($answer) }
+    $information = @()
+    Assert-Equal (Invoke-Setup -InformationVariable information) 4
+    Assert-Equal $script:modeAnswers.Count 0
+    Assert-Equal ($script:launchedInteractiveUris -join ',') 'ghapp://plugins/marketplace/add?source=microsoft%2FCopilot-Managed-Runtime'
+    Assert-Equal (($information -join "`n").Contains((Get-CopilotAppPluginLink -Name 'copilot-managed-runtime'))) $true
+
+    # Mode 3: Both Power Platform + Copilot Managed Runtime.
+    function Get-SetupState {
+        param([switch]$Azure, [switch]$Cmr)
+        Assert-Equal $Cmr.IsPresent $true
+        New-TestState -Ready @('git', 'node', 'dotnet', 'azure', 'cmr') -Azure:$Azure -Cmr:$Cmr
+    }
+    $script:launchedInteractiveUris = @()
+    foreach ($answer in @('3', '4', '3', 'PLUGINS', '', 'LINKS', '', '')) { $script:modeAnswers.Enqueue($answer) }
+    Assert-Equal (Invoke-Setup) 4
+    Assert-Equal $script:modeAnswers.Count 0
+    Assert-Equal ($script:launchedInteractiveUris -join ',') 'ghapp://plugins/marketplace/add?source=microsoft%2Fpower-platform-skills,ghapp://plugins/marketplace/add?source=microsoft%2FCopilot-Managed-Runtime'
+
+    # Mode 1 + Marketplace only.
+    $script:launchedInteractiveUris = @()
     foreach ($answer in @('1', 'M', '3', 'MARKETPLACE', '', '')) { $script:modeAnswers.Enqueue($answer) }
     function Get-SetupState { New-TestState -Ready @('git') }
     $information = @()
     Assert-Equal (Invoke-Setup -InformationVariable information) 4
     Assert-Equal $script:modeAnswers.Count 0
+    Assert-Equal ($script:launchedInteractiveUris -join ',') 'ghapp://plugins/marketplace/add?source=microsoft%2Fpower-platform-skills'
     Assert-Equal (($information -join "`n").Contains((Get-CopilotAppPluginLink))) $true
 
-    foreach ($answer in @('2', '', '', '')) { $script:modeAnswers.Enqueue($answer) }
+    # Mode 4: Full Power Platform workstation setup.
+    foreach ($answer in @('4', '', '', '')) { $script:modeAnswers.Enqueue($answer) }
     function Get-SetupState {
         param([switch]$Azure)
         New-TestState -Ready @('git', 'node', 'dotnet', 'pac', 'azure') -Azure:$Azure
@@ -1621,7 +1662,7 @@ Test-Case 'check-only never reads or writes user skill directories and the skip 
     $information = @()
     Assert-Equal (Invoke-ConnectionSkillSetup -NonInteractive -InformationVariable information) 0
     Assert-Equal (($information -join "`n").Contains('NEXT STEP:')) $true
-    Assert-Equal (($information -join "`n").Contains('https://github.com/danieag/power-platform-setup/blob/main/skills/power-platform-connect/SKILL.md')) $true
+    Assert-Equal (($information -join "`n").Contains('https://github.com/danieag/power-platform-cmr-setup/blob/main/skills/power-platform-connect/SKILL.md')) $true
     Assert-Equal (Invoke-ConnectionSkillSetup -ConnectionSkillHost Skip) 0
 }
 
@@ -2047,6 +2088,185 @@ Test-Case 'release packaging and gitattributes exclude screenshot media from ZIP
     Assert-Equal ($attributes -match '(?m)^docs/media-bank/\*\.png\s+export-ignore\r?$') $true
     Assert-Equal ($attributes -match '(?m)^docs/media-bank/\*\.webp\s+export-ignore\r?$') $true
     Assert-Equal (Test-Path -LiteralPath (Join-Path $root 'docs\images')) $false
+}
+
+Test-Case 'Copilot Managed Runtime offline inventory requires Node 24.11+, Git Credential Manager, and @microsoft/cmr-cli >= 1.0.0' {
+    $script:gcmPresent = $true
+    $script:cmrNodeVer = [version]'24.11.0'
+    $script:cmrPkgJson = '{"name":"@microsoft/cmr-cli","version":"1.0.1"}'
+    function Find-SetupExecutable {
+        param($Name, $Candidates)
+        if ($Name -eq 'git-credential-manager.exe') {
+            if ($script:gcmPresent) { return 'C:\fixture\git-credential-manager.exe' }
+            return $null
+        }
+        return "C:\fixture\$Name"
+    }
+    function Get-ExecutableArchitecture { 'x64' }
+    function Get-BinaryVersion {
+        param($Path)
+        if ($Path -like '*git.exe') { return [version]'2.56.0' }
+        if ($Path -like '*node.exe') { return $script:cmrNodeVer }
+        return [version]'2.11.2'
+    }
+    function Test-Path { $true }
+    function Get-Content {
+        param($LiteralPath)
+        if ($LiteralPath -like '*@microsoft\cmr-cli\package.json') { return $script:cmrPkgJson }
+        return '{"version":"11.0.0"}'
+    }
+    function Get-ChildItem {}
+    function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
+
+    $state = @(Get-SetupState -Cmr -Architecture x64)
+    Assert-Equal ($state | Where-Object Id -eq 'git').Ready $true
+    Assert-Equal ($state | Where-Object Id -eq 'node').Ready $true
+    Assert-Equal ($state | Where-Object Id -eq 'cmr').Ready $true
+    Assert-Equal ($state | Where-Object Id -eq 'cmr').Version ([version]'1.0.1')
+
+    # Node 22.18.0 and 24.10.0 are rejected when CMR is active; 26.1.0 is accepted.
+    foreach ($case in @(
+        @{ Ver = '22.18.0'; Ready = $false },
+        @{ Ver = '24.10.0'; Ready = $false },
+        @{ Ver = '24.11.0'; Ready = $true },
+        @{ Ver = '26.1.0'; Ready = $true })) {
+        $script:cmrNodeVer = [version]$case.Ver
+        $s = @(Get-SetupState -Cmr -Architecture x64)
+        Assert-Equal ($s | Where-Object Id -eq 'node').Ready $case.Ready
+        Assert-Equal ($s | Where-Object Id -eq 'cmr').Ready $case.Ready
+    }
+
+    # Missing Git Credential Manager fails Git readiness for CMR.
+    $script:cmrNodeVer = [version]'24.12.0'
+    $script:gcmPresent = $false
+    Assert-Equal (Get-SetupState -Cmr -Architecture x64 | Where-Object Id -eq 'git').Ready $false
+    $script:gcmPresent = $true
+
+    # Unrelated ms.cmd or pre-1.0 preview package fails CMR readiness.
+    $script:cmrPkgJson = '{"name":"unrelated-cli","version":"2.0.0"}'
+    Assert-Equal (Get-SetupState -Cmr -Architecture x64 | Where-Object Id -eq 'cmr').Ready $false
+    $script:cmrPkgJson = '{"name":"@microsoft/cmr-cli","version":"0.25.1"}'
+    Assert-Equal (Get-SetupState -Cmr -Architecture x64 | Where-Object Id -eq 'cmr').Ready $false
+}
+
+Test-Case 'CMR CLI installs globally via npm.cmd outside the repo and verifies ms --version' {
+    $script:cmrCalls = @()
+    function Get-SetupState {
+        param([switch]$Cmr)
+        Assert-Equal $Cmr.IsPresent $true
+        [pscustomobject]@{ Id = 'node'; Path = 'C:\fixture\node\node.exe'; Ready = $true; Version = [version]'24.12.0'; Architecture = 'x64' }
+    }
+    function Test-Path { param($LiteralPath) $LiteralPath -eq 'C:\fixture\node\npm.cmd' }
+    function Invoke-SetupNative {
+        param($Path, $Arguments)
+        $script:cmrCalls += [pscustomobject]@{ Path = $Path; Arguments = $Arguments; Cwd = (Get-Location).Path }
+        return 'added 1 package'
+    }
+    Install-CmrTool
+    Assert-Equal $script:cmrCalls.Count 1
+    Assert-Equal $script:cmrCalls[0].Path 'C:\fixture\node\npm.cmd'
+    Assert-Equal ($script:cmrCalls[0].Arguments -join ' ') 'install -g @microsoft/cmr-cli@latest --no-audit --no-fund'
+    Assert-Equal ($script:cmrCalls[0].Cwd -ne $root) $true
+
+    # Confirm-InstalledTool verifies ms --version matches detected manifest version.
+    function Invoke-SetupNative {
+        param($Path, $Arguments)
+        Assert-Equal ($Arguments -join ' ') '--version'
+        return '1.0.1'
+    }
+    Confirm-InstalledTool 'cmr' @([pscustomobject]@{ Id = 'cmr'; Ready = $true; Path = 'C:\fixture\ms.cmd'; Version = [version]'1.0.1' })
+    function Invoke-SetupNative { '9.9.9' }
+    Assert-Throws { Confirm-InstalledTool 'cmr' @([pscustomobject]@{ Id = 'cmr'; Ready = $true; Path = 'C:\fixture\ms.cmd'; Version = [version]'1.0.1' }) } 'version verification failed'
+
+    # Update-SetupPath appends %APPDATA%\npm without losing inherited PATH.
+    $oldPath = $env:PATH
+    try {
+        $env:PATH = 'C:\unique-cmr-inherited'
+        Update-SetupPath
+        Assert-Equal (($env:PATH -split ';') -contains "$env:APPDATA\npm") $true
+    } finally { $env:PATH = $oldPath }
+}
+
+Test-Case 'CMR and combined Power Platform + CMR plugins register official marketplaces and verify installs on both CLIs' {
+    function Get-SetupArchitecture { 'x64' }
+    function Get-SetupState {
+        param([switch]$Azure, [switch]$Cmr)
+        New-TestState -Ready @('git','node','dotnet','pac','azure','cmr') -Azure:$Azure -Cmr:$Cmr
+    }
+    function Install-SetupTool { throw 'INSTALL FORBIDDEN' }
+    function Update-SetupPath {}
+    function Read-Host { throw 'PROMPT FORBIDDEN' }
+    function Find-SetupExecutable {
+        param($Name)
+        $expected = if ($script:pluginHost -eq 'ClaudeCode') { 'claude' } else { 'copilot' }
+        Assert-Equal $Name $expected
+        "C:\fixture\$expected.exe"
+    }
+    function Invoke-SetupNative { param($Path, $Arguments) Invoke-TestPluginCli $Path $Arguments }
+    foreach ($hostName in @('CopilotCli', 'ClaudeCode')) {
+        Reset-TestPluginCli
+        $script:pluginHost = $hostName
+        # CMR-only adds ONLY Copilot-Managed-Runtime marketplace and copilot-managed-runtime plugin.
+        Assert-Equal (Invoke-Setup -NonInteractive -PluginHost $hostName -Plugins 'copilot-managed-runtime' -Prerequisites FromPlugins -AcceptPlugins) 0
+        $adds = @($script:pluginCalls | Where-Object { $_.Arguments[1] -eq 'marketplace' -and $_.Arguments[2] -eq 'add' })
+        Assert-Equal (($adds | ForEach-Object { $_.Arguments[3] }) -join ',') 'microsoft/Copilot-Managed-Runtime'
+        $installs = @($script:pluginCalls | Where-Object { $_.Arguments[1] -eq 'install' })
+        Assert-Equal (($installs | ForEach-Object { $_.Arguments[2] }) -join ',') 'copilot-managed-runtime@Copilot-Managed-Runtime'
+
+        # Combined Power Platform + CMR adds missing PP marketplace, keeps CMR, installs model-apps.
+        $script:pluginCalls = @()
+        Assert-Equal (Invoke-Setup -NonInteractive -PluginHost $hostName -Plugins 'model-apps,copilot-managed-runtime' -Prerequisites FromPlugins -AcceptPlugins) 0
+        $adds = @($script:pluginCalls | Where-Object { $_.Arguments[1] -eq 'marketplace' -and $_.Arguments[2] -eq 'add' })
+        Assert-Equal (($adds | ForEach-Object { $_.Arguments[3] }) -join ',') 'microsoft/power-platform-skills'
+        $installs = @($script:pluginCalls | Where-Object { $_.Arguments[1] -eq 'install' })
+        Assert-Equal (($installs | ForEach-Object { $_.Arguments[2] }) -join ',') 'model-apps@power-platform-skills'
+
+        # Marketplace-only -Marketplace Both works on CLI hosts.
+        Reset-TestPluginCli
+        $script:pluginHost = $hostName
+        Assert-Equal (Invoke-Setup -NonInteractive -PluginHost $hostName -MarketplaceOnly -Marketplace Both -Prerequisites FromPlugins -AcceptPlugins) 0
+        $adds = @($script:pluginCalls | Where-Object { $_.Arguments[1] -eq 'marketplace' -and $_.Arguments[2] -eq 'add' })
+        Assert-Equal (($adds | ForEach-Object { $_.Arguments[3] }) -join ',') 'microsoft/power-platform-skills,microsoft/Copilot-Managed-Runtime'
+    }
+
+    # Untrusted Copilot-Managed-Runtime marketplace source fails closed.
+    Assert-Throws {
+        Assert-OfficialMarketplace @([pscustomobject]@{
+            name = 'Copilot-Managed-Runtime'; source = 'github'; repo = 'untrusted/Copilot-Managed-Runtime'
+        }) 'Copilot-Managed-Runtime'
+    } 'source is different or unrecognized'
+}
+
+Test-Case 'CopilotApp supports CMR marketplace and plugin deep links and enforces one-at-a-time confirmation' {
+    function Get-SetupArchitecture { 'x64' }
+    function Get-SetupState {
+        param([switch]$Azure, [switch]$Cmr)
+        New-TestState -Ready @('git','node','cmr') -Azure:$Azure -Cmr:$Cmr
+    }
+    function Find-SetupExecutable { throw 'CLI DISCOVERY FORBIDDEN' }
+    function Invoke-SetupNative { throw 'CLI FORBIDDEN' }
+    function Test-Path { param($LiteralPath) $LiteralPath -eq 'Registry::HKEY_CLASSES_ROOT\ghapp' }
+    function Get-ItemProperty { [pscustomobject]@{ 'URL Protocol' = '' } }
+    $script:cmrUris = @()
+    function Start-Process { param($FilePath) $script:cmrUris += $FilePath }
+
+    # Rejects -Marketplace Both in noninteractive CopilotApp mode and rejects -Marketplace without -MarketplaceOnly.
+    Assert-Equal (Invoke-Setup -NonInteractive -PluginHost CopilotApp -MarketplaceOnly -Marketplace Both -Prerequisites FromPlugins -AcceptPlugins) 2
+    Assert-Equal (Invoke-Setup -NonInteractive -PluginHost CopilotApp -Plugins 'copilot-managed-runtime' -Marketplace CopilotManagedRuntime -Prerequisites FromPlugins -AcceptPlugins) 2
+    Assert-Equal (Invoke-Setup -NonInteractive -PluginHost CopilotCli -MarketplaceOnly -IncludeCmr -AcceptPlugins) 2
+
+    # Step 1: add Copilot-Managed-Runtime marketplace.
+    $information = @()
+    Assert-Equal (Invoke-Setup -NonInteractive -PluginHost CopilotApp -MarketplaceOnly -Marketplace CopilotManagedRuntime -Prerequisites FromPlugins -AcceptPlugins -InformationVariable information) 4
+    Assert-Equal ($script:cmrUris -join ',') 'ghapp://plugins/marketplace/add?source=microsoft%2FCopilot-Managed-Runtime'
+    Assert-Equal (($information -join "`n").Contains('https://github.com/copilot/app/launch?open=ghapp%3A%2F%2Fplugins%2Fmarketplace%2Fadd%3Fsource%3Dmicrosoft%252FCopilot-Managed-Runtime')) $true
+
+    # Step 2: install copilot-managed-runtime plugin after marketplace confirmation.
+    $script:cmrUris = @()
+    $information = @()
+    Assert-Equal (Invoke-Setup -NonInteractive -PluginHost CopilotApp -Plugins 'copilot-managed-runtime' -SkipMarketplace -Prerequisites FromPlugins -AcceptPlugins -InformationVariable information) 4
+    Assert-Equal ($script:cmrUris -join ',') 'ghapp://plugins/install?source=copilot-managed-runtime%40Copilot-Managed-Runtime'
+    Assert-Equal (($information -join "`n").Contains('https://github.com/copilot/app/launch?open=ghapp%3A%2F%2Fplugins%2Finstall%3Fsource%3Dcopilot-managed-runtime%2540Copilot-Managed-Runtime')) $true
 }
 
 Test-Case 'launcher forwards arguments to the same script and preserves exit code' {

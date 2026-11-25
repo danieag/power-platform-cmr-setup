@@ -24,8 +24,8 @@ jobs:
         run: .\scripts\New-Release.ps1
       - uses: actions/upload-artifact@v4
         with:
-          name: power-platform-setup-windows
+          name: power-platform-cmr-setup-windows
           path: |
-            dist/power-platform-setup-windows.zip
-            dist/power-platform-setup-windows.zip.sha256
+            dist/power-platform-cmr-setup-windows.zip
+            dist/power-platform-cmr-setup-windows.zip.sha256
           if-no-files-found: error

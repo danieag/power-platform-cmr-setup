@@ -7,7 +7,7 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $destination = Join-Path $root 'dist'
 New-Item -ItemType Directory -Path $destination -Force | Out-Null
-$archive = Join-Path $destination 'power-platform-setup-windows.zip'
+$archive = Join-Path $destination 'power-platform-cmr-setup-windows.zip'
 # Explicit public-file allowlist: never package workspace state, personal configuration, or screenshot media.
 $files = @(
     'Setup.cmd', 'Setup.ps1', 'README.md', 'AGENTS.md', 'CLAUDE.md', 'LICENSE',
@@ -35,6 +35,6 @@ try {
     if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force }
 }
 Get-FileHash -LiteralPath $archive -Algorithm SHA256 |
-    ForEach-Object { "$($_.Hash.ToLowerInvariant())  power-platform-setup-windows.zip" } |
+    ForEach-Object { "$($_.Hash.ToLowerInvariant())  power-platform-cmr-setup-windows.zip" } |
     Set-Content -LiteralPath "$archive.sha256" -Encoding ASCII
 Write-Host "Created $archive and its SHA256 checksum."
