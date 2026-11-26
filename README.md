@@ -9,7 +9,7 @@ and/or [Copilot Managed Runtime](https://github.com/microsoft/Copilot-Managed-Ru
 - **Approval-gated & safe:** checks are offline and read-only; every install, plugin, MCP server, and sign-in step asks before changing anything.
 - **Persistent environment routing:** connect Power Platform environments once with `power-platform-connect`, and `power-platform-router` lets future projects confirm **Environment X and Solution Y** without re-asking for URLs, Tenant IDs, or emails.
 
-![Power Platform Setup — 2-minute visual overview](docs/media-bank/setup-overview.webp)
+![Power Platform and Copilot Managed Runtime Setup — visual overview](docs/media-bank/setup-overview.webp)
 
 ---
 
